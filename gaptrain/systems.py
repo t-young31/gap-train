@@ -1,5 +1,10 @@
 from gaptrain.molecules import Molecule
+from gaptrain.box import Box
+from autode.input_output import atoms_to_xyz_file
 from gaptrain.log import logger
+from copy import deepcopy
+from scipy.spatial.distance import cdist
+import numpy as np
 
 
 class System:
@@ -28,13 +33,76 @@ class System:
 
         return self
 
+    def print_xyz_file(self, filename):
+        """Print a standard .xyz file of this configuration"""
+
+        all_atoms = []
+        for molecule in self.molecules:
+            all_atoms += molecule.atoms
+
+        atoms_to_xyz_file(all_atoms, filename=filename)
+        return None
+
+    def randomise(self, min_dist_threshold=1.5):
+        """Randomise the configuration
+
+        :param min_dist_threshold: (float) Minimum distance in Å that a
+                                   molecule is permitted to be to another atom
+        """
+        logger.info(f'Randomising all {len(self)} molecules in the box')
+
+        coords = np.empty(shape=(0, 3))
+
+        for molecule in np.random.permutation(self.molecules):
+
+            # Shift the molecule so the centroid is at the origin
+            centroid = np.average(molecule.get_coordinates(), axis=0)
+            molecule.translate(vec=-centroid)
+
+            # Randomly rotate the molecule
+            molecule.rotate(axis=np.random.uniform(-1.0, 1.0, size=3),
+                            theta=np.random.uniform(0.0, 2*np.pi))
+
+            # Translate to a random position in the box..
+            while True:
+                point = self.box.random_point()
+
+                # Can always add the first molecule
+                if len(coords) == 0:
+                    molecule.translate(point)
+                    break
+
+                # Ensure that this point is far enough away from the other
+                # atoms in the system
+                distances = cdist(coords, point.reshape(1, 3))
+                if np.min(distances) < min_dist_threshold:
+                    continue
+
+                # Calculate the minimum distance from this molecule to the rest
+                molecule.translate(vec=point)
+                distances = cdist(coords, molecule.get_coordinates())
+
+                # If the minimum is larger than the threshold then this
+                # molecule can be translated to this point
+                if np.min(distances) > min_dist_threshold:
+                    break
+
+                # Can't be added - translate back to the origin
+                molecule.translate(vec=-point)
+
+            # Add the coordinates to the full set
+            coords = np.vstack((coords, molecule.get_coordinates()))
+
+        logger.info('Randomised all molecules in the system')
+        return None
+
     def add_water(self):
         """Add water to the system to generate a ~1 g cm-3 density"""
         raise NotImplementedError
 
     def add_molecules(self, molecule, n=1):
         """Add a number of the same molecule to the system"""
-        self.molecules += [molecule for _ in range(n)]
+        self.molecules += [deepcopy(molecule) for _ in range(n)]
         return None
 
     def density(self):
@@ -63,11 +131,8 @@ class System:
                                   electrons
         """
         self.molecules = list(args)
-        print(self.molecules)
 
-        assert len(box_size) == 3
-        self.box_size = [float(k) for k in box_size]
-
+        self.box = Box(box_size)
         self.charge = int(charge)
         self.mult = int(spin_multiplicity)
 
@@ -85,7 +150,7 @@ class MMSystem(System):
 
         raise NotImplementedError
 
-    def __init__(self, *args, box_size, charge, spin_multiplicity):
+    def __init__(self, *args, box_size, charge, spin_multiplicity=1):
         """System that can be simulated with molecular mechanics"""
 
         super().__init__(*args,
