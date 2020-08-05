@@ -1,0 +1,12 @@
+rdkit
+numpy
+networkx
+matplotlib
+cython
+scipy
+pytest
+pytest-cov
+codecov
+autode
+ase
+coloredlogs
