@@ -35,8 +35,8 @@ def test_system():
 def test_random_positions():
 
     system = System(box_size=[10, 10, 10], charge=0)
-    h2o = Molecule(os.path.join(here, 'data', 'methane.xyz'))
-    system.add_molecules(h2o, n=45)
+    methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
+    system.add_molecules(methane, n=45)
 
     system.randomise()
     system.print_xyz_file(filename='test_random.xyz')
@@ -50,6 +50,28 @@ def test_random_positions():
     assert np.min(dist_matrix + 9 * np.identity(len(coords))) > 1.1
 
     os.remove('test_random.xyz')
+
+
+def test_perturbation():
+
+    system = System(box_size=[5, 5, 5], charge=0)
+    system.add_molecules(h2o, n=10)
+    system.randomise(min_dist_threshold=1.5)
+
+    coords = np.vstack([m.get_coordinates() for m in system.molecules])
+
+    system.add_perturbation(sigma=0.1, max_length=0.2)
+    pcoords = np.vstack([m.get_coordinates() for m in system.molecules])
+
+    # Adding a displacement to each atom should still afford a reasonably
+    # sensible structure (no short distances)
+    dist_matrix = distance_matrix(pcoords, pcoords)
+    dist_matrix += np.identity(len(coords))
+    assert np.min(dist_matrix) > 0.7
+
+    # Ensure the coordinates are now not the same as the old coordinates
+    dist_matrix = distance_matrix(coords, pcoords)
+    assert np.min(dist_matrix) > 0.0
 
 
 def test_mm_system():

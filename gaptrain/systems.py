@@ -2,6 +2,7 @@ from gaptrain.molecules import Molecule
 from gaptrain.box import Box
 from autode.input_output import atoms_to_xyz_file
 from gaptrain.log import logger
+from gaptrain.configurations import Configuration
 from copy import deepcopy
 from scipy.spatial.distance import cdist
 import numpy as np
@@ -41,6 +42,33 @@ class System:
             all_atoms += molecule.atoms
 
         atoms_to_xyz_file(all_atoms, filename=filename)
+        return None
+
+    def add_perturbation(self, sigma=0.05, max_length=0.2):
+        """Add a random perturbation to all atoms in the system
+
+        :param sigma: (float) Variance of the normal distribution used to
+                      generate displacements in Å
+
+        :param max_length: (float) Maximum length of the random displacement
+                           vector in Å
+        """
+        logger.info(f'Displacing all atoms in the system using a random '
+                    f'displacments from a normal distribution:\n'
+                    f'σ        = {sigma} Å\n'
+                    f'max(|v|) = {max_length} Å')
+
+        for molecule in self.molecules:
+            for atom in molecule.atoms:
+
+                # Generate random vectors until one has length < threshold
+                while True:
+                    vector = np.random.normal(loc=0.0, scale=sigma, size=3)
+
+                    if np.linalg.norm(vector) < max_length:
+                        atom.translate(vector)
+                        break
+
         return None
 
     def randomise(self, min_dist_threshold=1.5):
@@ -108,6 +136,9 @@ class System:
     def density(self):
         """Calculate the density of the system"""
         raise NotImplementedError
+
+    def configuration(self):
+        return Configuration(self)
 
     def __init__(self, *args, box_size, charge, spin_multiplicity=1):
         """
