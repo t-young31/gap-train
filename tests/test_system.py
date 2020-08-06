@@ -67,7 +67,7 @@ def test_perturbation():
     # sensible structure (no short distances)
     dist_matrix = distance_matrix(pcoords, pcoords)
     dist_matrix += np.identity(len(coords))
-    assert np.min(dist_matrix) > 0.7
+    assert np.min(dist_matrix) > 0.6
 
     # Ensure the coordinates are now not the same as the old coordinates
     dist_matrix = distance_matrix(coords, pcoords)
