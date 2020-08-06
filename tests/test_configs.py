@@ -1,6 +1,6 @@
 from gaptrain.configurations import ConfigurationSet, Configuration
 from gaptrain.systems import System
-from gaptrain.molecules import Molecule
+from gaptrain.molecules import Molecule, Ion
 from gaptrain.exceptions import NoEnergy
 import numpy as np
 import ase
@@ -10,9 +10,7 @@ import os
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
-system = System(h2o, h2o, h2o,
-                box_size=[5, 5, 5],
-                charge=0)
+system = System(h2o, h2o, h2o, box_size=[5, 5, 5])
 
 
 def test_print_exyz():
@@ -52,3 +50,22 @@ def test_ase_atoms():
     assert all(ase_atoms.pbc)
     # Cell vectors should all be ~ 5 Å
     assert all(4.9 < np.linalg.norm(vec) < 5.1 for vec in ase_atoms.cell)
+
+
+def test_dftb_plus():
+
+    water_box = System(box_size=[5, 5, 5])
+
+    config = water_box.configuration()
+    config.set_atoms(xyz_filename=os.path.join(here, 'data', 'h2o_10.xyz'))
+
+    config.run_dftb()
+    assert config.energy.true is not None
+    assert config.energy.predicted is None
+
+    forces = config.forces.true()
+    assert type(forces) is np.ndarray
+    assert forces.shape == (30, 3)
+
+    # Should all be non-zero length force vectors in ev Å^-1
+    assert all(0 < np.linalg.norm(force) < 70 for force in forces)
