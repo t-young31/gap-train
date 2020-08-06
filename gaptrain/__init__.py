@@ -4,10 +4,12 @@ from gaptrain.molecules import Molecule
 from gaptrain.molecules import Ion
 from gaptrain.gap import GAP
 from gaptrain.data import Data
+from gaptrain.config import Config
 
 __all__ = ['System',
            'ConfigurationSet',
            'Molecule',
            'Ion',
            'GAP',
-           'Data']
+           'Data',
+           'Config']

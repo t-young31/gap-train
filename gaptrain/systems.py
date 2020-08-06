@@ -124,8 +124,9 @@ class System:
         logger.info('Randomised all molecules in the system')
         return None
 
-    def add_water(self):
+    def add_solvent(self, solvent_name):
         """Add water to the system to generate a ~1 g cm-3 density"""
+        # assert solvent in solvent library
         raise NotImplementedError
 
     def add_molecules(self, molecule, n=1):

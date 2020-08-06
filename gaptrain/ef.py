@@ -21,6 +21,12 @@ class Force(Value):
 
 class Forces:
 
+    def __iter__(self):
+        return iter(self._list)
+
+    def __getitem__(self, item):
+        return self._list[item]
+
     def true(self):
         """Get a numpy array n_atoms x 3 of the true forces"""
         assert all(force.true is not None for force in self._list)
@@ -31,6 +37,11 @@ class Forces:
         assert all(force.predicted is not None for force in self._list)
         return np.array([force.predicted for force in self._list])
 
-    def __init__(self, *args):
+    def __init__(self, n_atoms=0):
+        """
+        Set of forces on a system/configuration
 
-        self._list = args
+        :param n_atoms: (int) Number of atoms
+        """
+
+        self._list = [Force() for _ in range(n_atoms)]
