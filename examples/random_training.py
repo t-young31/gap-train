@@ -5,7 +5,7 @@ GTConfig.n_cores = 4
 system = System(Ion('Na', charge=1),
                 box_size=[10, 10, 10])
 
-system.add_molecules(Molecule('h2o.xyz'), n=20)
+system.add_molecules(Molecule('h2o.xyz'), n=10)
 
 # Initialise the training and test data
 training_data = Data(name='random_training')
@@ -14,8 +14,7 @@ test_data = Data(name='test')
 # Generate 10 random configurations
 configs = ConfigurationSet()
 for _ in range(10):
-    system.randomise(with_intra=True)
-    configs += system.configuration()
+    configs += system.random(min_dist_threshold=2.0)
 
 # DFT in parallel
 configs.async_dftb()
@@ -24,8 +23,8 @@ configs.async_dftb()
 training_data += configs
 
 # Initialise and train a GAP
-gap = GAP(name='random_gap')
-exit()
+gap = GAP(name='random_gap',
+          system=system)
 gap.train(training_data)
 
 # Predict on the training and test data

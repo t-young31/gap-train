@@ -26,8 +26,8 @@ def test_system():
     system += two_waters
     assert len(system) == 13
 
-    # Should be able to print an xyz file
-    system.print_xyz_file(filename='test.xyz')
+    # Should be able to print an xyz file of the configuration
+    system.configuration().print_xyz_file(filename='test.xyz')
     assert os.path.exists('test.xyz')
     os.remove('test.xyz')
 
@@ -38,8 +38,8 @@ def test_random_positions():
     methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
     system.add_molecules(methane, n=45)
 
-    system.randomise()
-    system.print_xyz_file(filename='test_random.xyz')
+    config = system.random()
+    config.print_xyz_file(filename='test_random.xyz')
 
     # Minimum pairwise distance should be ~ the C-H distance (1.109 Å)
     atoms = xyz_file_to_atoms('test_random.xyz')
@@ -56,22 +56,17 @@ def test_perturbation():
 
     system = System(box_size=[5, 5, 5])
     system.add_molecules(h2o, n=10)
-    system.randomise(min_dist_threshold=1.5)
+    config = system.random(min_dist_threshold=1.5,
+                           sigma=0.1,
+                           max_length=0.2)
 
-    coords = np.vstack([m.get_coordinates() for m in system.molecules])
-
-    system.add_perturbation(sigma=0.1, max_length=0.2)
-    pcoords = np.vstack([m.get_coordinates() for m in system.molecules])
+    pcoords = config.coordinates()
 
     # Adding a displacement to each atom should still afford a reasonably
     # sensible structure (no short distances)
     dist_matrix = distance_matrix(pcoords, pcoords)
-    dist_matrix += np.identity(len(coords))
+    dist_matrix += np.identity(len(pcoords))
     assert np.min(dist_matrix) > 0.6
-
-    # Ensure the coordinates are now not the same as the old coordinates
-    dist_matrix = distance_matrix(coords, pcoords)
-    assert np.min(dist_matrix) > 0.0
 
 
 def test_mm_system():

@@ -18,15 +18,14 @@ def test_print_exyz():
     configs = ConfigurationSet(name='test')
 
     for _ in range(5):
-        system.randomise()
-        configs += system.configuration()
+        configs += system.random()
 
     # Should not be able to save ground truth without calculating
     # energies or forces
     with pytest.raises(NoEnergy):
         configs.save_true()
 
-    os.remove('test.exyz')
+    os.remove('test.xyz')
 
     # If the energy and forces are set for all the configurations an exyz
     # should be able to be printed
@@ -37,8 +36,8 @@ def test_print_exyz():
 
     configs.save_true()
 
-    assert os.path.exists('test.exyz')
-    os.remove('test.exyz')
+    assert os.path.exists('test.xyz')
+    os.remove('test.xyz')
 
 
 def test_ase_atoms():
@@ -58,6 +57,9 @@ def test_dftb_plus():
 
     config = water_box.configuration()
     config.set_atoms(xyz_filename=os.path.join(here, 'data', 'h2o_10.xyz'))
+
+    if 'GT_DFTB' not in os.environ or not os.environ['GT_DFTB'] == 'True':
+        return
 
     config.run_dftb()
     assert config.energy.true is not None
