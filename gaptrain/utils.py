@@ -15,16 +15,21 @@ def work_in_tmp_dir():
 
             tmpdir_path = mkdtemp()
 
-            for filename in os.listdir(os.getcwd()):
-                shutil.copy(filename, tmpdir_path)
+            for item in os.listdir(os.getcwd()):
+                if os.path.isdir(item):
+                    continue
+
+                shutil.copy(item, tmpdir_path)
 
             # Move directories and execute
             os.chdir(tmpdir_path)
-            func(*args, **kwargs)
+            out = func(*args, **kwargs)
             os.chdir(here)
 
-            # Remove the temporary dir with all files
+            # Remove the temporary dir with all files and return the output
             shutil.rmtree(tmpdir_path)
+
+            return out
 
         return wrapped_function
     return func_decorator

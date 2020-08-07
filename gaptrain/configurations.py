@@ -1,11 +1,13 @@
 from gaptrain.ef import Energy, Forces
-from gaptrain.exceptions import NoEnergy
 from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
+import gaptrain.exceptions as ex
 from autode.input_output import atoms_to_xyz_file
 from autode.input_output import xyz_file_to_atoms
+from autode.atoms import Atom
 from multiprocessing import Pool
 from time import time
+import numpy as np
 import os
 
 
@@ -18,6 +20,9 @@ class Configuration:
                      positions=[atom.coord for atom in self.atoms],
                      pbc=True,
                      cell=self.box.size)
+
+    def coordinates(self):
+        return np.array([atom.coord for atom in self.atoms])
 
     def set_atoms(self, xyz_filename=None, atoms=None):
         """Set the coordinates """
@@ -52,11 +57,12 @@ class Configuration:
         energy = self.energy.true if true_values else self.energy.predicted
 
         if energy is None:
-            raise NoEnergy
+            raise ex.NoEnergy
 
-        print(f'Lattice="{a:.6f} 0.000000 0.000000 0.000000 {b:.6f} 0.000000 '
+        print(f'{len(self.atoms)}\n'
+              f'Lattice="{a:.6f} 0.000000 0.000000 0.000000 {b:.6f} 0.000000 '
               f'0.000000 0.000000 {c:.6f}" Properties=species:S:1:pos:R:3:'
-              f'dft_forces:R:3 dft_energy={energy:.6f}',
+              f'dft_forces:R:3 dft_energy={energy:.8f}',
               file=exyz_file)
 
         # Print the coordinates and the forces
@@ -96,6 +102,10 @@ class ConfigurationSet:
         """Get the number of configurations in this set"""
         return len(self._list)
 
+    def __getitem__(self, item):
+        """Get an indexed configuration from this set"""
+        return self._list[item]
+
     def __iter__(self):
         """Iterate through these configurations"""
         return iter(self._list)
@@ -106,35 +116,101 @@ class ConfigurationSet:
         if isinstance(other, Configuration):
             self._list.append(other)
 
-        if isinstance(other, ConfigurationSet):
+        elif isinstance(other, ConfigurationSet):
             self._list += other._list
+
+        else:
+            raise ex.CannotAdd('Can only add a Configuration or'
+                               f' ConfigurationSet, not {type(other)}')
 
         return self
 
-    def _save(self, true_values):
+    def load(self, system, filename=None):
+        """
+        Load a set of configurations from an extended xyz file - needs to have
+        a system to be able to assign a charge, multiplicity and box size.
+        Will set the *true* values
+
+        :param system: (gaptrain.systems.System)
+
+        :param filename: (str) Filename to load configurations from if
+                         None defaults to "name.xyz"
+        """
+        filename = f'{self.name}.xyz' if filename is None else filename
+
+        if not os.path.exists(filename):
+            raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
+
+        lines = open(filename, 'r').readlines()
+
+        # Number of atoms should be the first item in the file
+        n_atoms = int(lines[0].split()[0])
+        stride = int(n_atoms + 2)
+
+        # Stride through the file and add configuration for each
+        for i, _ in enumerate(lines[::stride]):
+
+            # Atoms, true forces and energy
+            atoms, forces = [], []
+            energy = None
+
+            # Grab the coordinates, energy and forces 0->n_atoms + 2 inclusive
+            for j, line in enumerate(lines[i*stride:(i+1)*stride]):
+
+                if j == 0:
+                    # First thing should be the number of atoms
+                    assert len(line.split()) == 1
+
+                elif j == 1:
+                    if 'dft_energy' in line:
+                        energy = float(line.split()[-1].lstrip('dft_energy='))
+
+                else:
+                    atom_label, x, y, z = line.split()[:4]
+                    atoms.append(Atom(atom_label, x=x, y=y, z=z))
+
+                    if len(line.split()) != 7:
+                        continue
+
+                    # System has forces
+                    fx, fy, fz = line.split()[4:]
+                    forces.append(np.array([float(fx), float(fy), float(fz)]))
+
+            # Add the configuration
+            configuration = Configuration(system)
+            configuration.set_atoms(atoms=atoms)
+
+            configuration.energy.true = energy
+            configuration.forces.set_true(forces=np.array(forces))
+
+            self._list.append(configuration)
+
+        return None
+
+    def _save(self, true_values, override=True):
         """Save an extended xyz file for this set of configurations"""
 
         # Ensure the name is unique
-        if os.path.exists(f'{self.name}.exyz'):
+        if not override and os.path.exists(f'{self.name}.xyz'):
             n = 0
-            while os.path.exists(f'{self.name}{n}.exyz'):
+            while os.path.exists(f'{self.name}{n}.xyz'):
                 n += 1
 
             self.name = f'{self.name}{n}'
 
         # Add all of the configurations to the extended xyz file
-        with open(f'{self.name}.exyz', 'w') as exyz_file:
+        with open(f'{self.name}.xyz', 'w') as exyz_file:
             for config in self._list:
                 # Print either the ground truth or predicted values
                 config.print(exyz_file, true_values=true_values)
 
         return None
 
-    def save_true(self):
-        return self._save(true_values=True)
+    def save_true(self, override=True):
+        return self._save(true_values=True, override=override)
 
-    def save_predicted(self):
-        return self._save(true_values=False)
+    def save_predicted(self, override=True):
+        return self._save(true_values=False, override=override)
 
     def _run_parallel_est(self, method):
         """Run a set of electronic structure calculations on this set
@@ -148,13 +224,13 @@ class ConfigurationSet:
 
         with Pool(processes=GTConfig.n_cores) as pool:
             # Apply the method to each configuration in this set
-            for config in self._list:
+            for i, config in enumerate(self._list):
                 result = pool.apply_async(func=method,
                                           args=(config, 1))
-                results.append(result)
 
-            for result in results:
-                result.get(timeout=None)
+                # Reset all the configurations in this set with updated energy
+                # and forces (each with .true)
+                self._list[i] = result.get(timeout=None)
 
         logger.info(f'Calculations done in {(time() - start_time)/60:.1f} m')
         return None

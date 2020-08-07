@@ -25,7 +25,7 @@ class DFTB(Dftb):
 
 
 @work_in_tmp_dir()
-def run_gpaw(self, n_cores):
+def run_gpaw(configuration, n_cores):
     """Run a periodic DFT calculation using GPAW"""
 
     """
@@ -43,7 +43,7 @@ def run_gpaw(self, n_cores):
 
 
 @work_in_tmp_dir()
-def run_gap(self, n_cores):
+def run_gap(configuration, n_cores):
     raise NotImplementedError
 
 
@@ -65,4 +65,5 @@ def run_dftb(configuration, n_cores):
     configuration.energy.true = ase_atoms.get_potential_energy()
     configuration.forces.set_true(forces=ase_atoms.get_forces())
 
-    return None
+    # Return self to allow for multiprocessing
+    return configuration

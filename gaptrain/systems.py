@@ -9,6 +9,30 @@ import numpy as np
 
 
 class System:
+    """
+    A mutable collection of molecules/ions/atoms within a periodic cuboidal box
+    species can be added and the coordinates randomised to generate different
+    configurations
+
+       ________________
+     / |       Zn2+   /|
+    /________________/ |
+    |  |             | |
+    |  |  H2O   H2O  | |
+    |  |             | |
+    |  |_____________|_|
+    | /    H2O       | /
+    |________________|/
+
+    must be initialised with at least a box size.
+
+    Example:
+
+    water_box = System(box_size=[10, 10, 10])
+    water_box.add_molecules(h2o, n=33)
+
+    to generate a box of water at ~1 g cm-3 density.
+    """
 
     def __len__(self):
         return len(self.molecules)
@@ -33,16 +57,6 @@ class System:
             raise Exception(f'Cannot add {other} to system')
 
         return self
-
-    def print_xyz_file(self, filename):
-        """Print a standard .xyz file of this configuration"""
-
-        all_atoms = []
-        for molecule in self.molecules:
-            all_atoms += molecule.atoms
-
-        atoms_to_xyz_file(all_atoms, filename=filename)
-        return None
 
     def add_perturbation(self, sigma=0.05, max_length=0.2):
         """Add a random perturbation to all atoms in the system
@@ -71,7 +85,7 @@ class System:
 
         return None
 
-    def randomise(self, min_dist_threshold=1.5, with_intra=False):
+    def random(self, min_dist_threshold=1.5, with_intra=False, **kwargs):
         """Randomise the configuration
 
         :param min_dist_threshold: (float) Minimum distance in Å that a
@@ -84,8 +98,9 @@ class System:
         logger.info(f'Randomising all {len(self)} molecules in the box')
 
         coords = np.empty(shape=(0, 3))
+        system = deepcopy(self)
 
-        for molecule in np.random.permutation(self.molecules):
+        for molecule in np.random.permutation(system.molecules):
 
             # Shift the molecule so the centroid is at the origin
             centroid = np.average(molecule.get_coordinates(), axis=0)
@@ -97,7 +112,7 @@ class System:
 
             # Translate to a random position in the box..
             while True:
-                point = self.box.random_point()
+                point = system.box.random_point()
 
                 # Can always add the first molecule
                 if len(coords) == 0:
@@ -128,9 +143,9 @@ class System:
         logger.info('Randomised all molecules in the system')
 
         if with_intra:
-            self.add_perturbation()
+            system.add_perturbation(**kwargs)
 
-        return None
+        return system.configuration()
 
     def add_solvent(self, solvent_name):
         """Add water to the system to generate a ~1 g cm-3 density"""
@@ -145,6 +160,10 @@ class System:
     def density(self):
         """Calculate the density of the system"""
         raise NotImplementedError
+
+    def atom_symbols(self):
+        """Get all the atom labels/atomic symbols in this system"""
+        return [atom.label for m in self.molecules for atom in m.atoms]
 
     def charge(self):
         """Get the total charge on the system"""
