@@ -5,7 +5,6 @@ matplotlib
 cython
 scipy
 pytest
-pytest-cov
 codecov
 autode
 ase

@@ -1,6 +1,11 @@
 from gaptrain.ef import Energy, Forces
 from gaptrain.exceptions import NoEnergy
-from gaptrain.config import Config
+from gaptrain.gtconfig import GTConfig
+from gaptrain.log import logger
+from autode.input_output import atoms_to_xyz_file
+from autode.input_output import xyz_file_to_atoms
+from multiprocessing import Pool
+from time import time
 import os
 
 
@@ -11,7 +16,34 @@ class Configuration:
         from ase import Atoms
         return Atoms(symbols=[atom.label for atom in self.atoms],
                      positions=[atom.coord for atom in self.atoms],
-                     pbc=True, cell=self.box.size)
+                     pbc=True,
+                     cell=self.box.size)
+
+    def set_atoms(self, xyz_filename=None, atoms=None):
+        """Set the coordinates """
+        if xyz_filename is not None:
+            self.atoms = xyz_file_to_atoms(xyz_filename)
+
+        if atoms is not None:
+            self.atoms = atoms
+
+        # Reset the forces to None
+        self.forces = Forces(n_atoms=len(self.atoms))
+        return None
+
+    def run_dftb(self):
+        from gaptrain.calculators import run_dftb
+        return run_dftb(self, n_cores=GTConfig.n_cores)
+
+    def run_gap(self):
+        raise NotImplementedError
+
+    def run_gpaw(self):
+        raise NotImplementedError
+
+    def print_xyz_file(self, filename):
+        """Print a standard .xyz file of this configuration"""
+        return atoms_to_xyz_file(self.atoms, filename=filename)
 
     def print(self, exyz_file, true_values):
         """Print this configuration to a extended xyz file"""
@@ -38,41 +70,6 @@ class Configuration:
 
         return None
 
-    def run_gpaw(self):
-        """Run a periodic DFT calculation using GPAW"""
-
-        """
-        'dft = GPAW(mode=PW(400),',
-                  '      basis=\'dzp\',',
-                  f'     charge={self.charge},',
-                  '      xc=\'PBE\',',
-                  f'     txt=\'{output_filename}\')',
-                  'system.set_calculator(dft)',
-                  'system.get_potential_energy()',
-                  'system.get_forces()
-        """
-
-        raise NotImplementedError
-
-    def run_gap(self):
-        raise NotImplementedError
-
-    def run_dftb(self):
-        """Run periodic DFTB+ on this configuration"""
-        from ase.calculators.dftb import Dftb
-
-        # Environment variables required for ASE
-        os.environ['DFTB_PREFIX'] = Config.dftb_data
-        os.environ['DFTB_COMMAND'] = Config.dftb_exe
-
-        ase_atoms = self.ase_atoms()
-        dftb = Dftb(atoms=ase_atoms)
-        ase_atoms.set_calculator(dftb)
-
-
-
-        return None
-
     def __init__(self, system):
         """
         A configuration consisting of a set of atoms suitable to run DFT
@@ -89,8 +86,8 @@ class Configuration:
         self.energy = Energy()
 
         self.box = system.box
-        self.charge = system.charge
-        self.mult = system.mult
+        self.charge = system.charge()
+        self.mult = system.mult()
 
 
 class ConfigurationSet:
@@ -139,18 +136,39 @@ class ConfigurationSet:
     def save_predicted(self):
         return self._save(true_values=False)
 
-    def _run_parallel_est(self, function):
+    def _run_parallel_est(self, method):
+        """Run a set of electronic structure calculations on this set
+        in parallel
+        """
+        logger.info(f'Running calculations over {len(self)} configurations\n'
+                    f'Using {GTConfig.n_cores} total cores')
+
+        start_time = time()
+        results = []
+
+        with Pool(processes=GTConfig.n_cores) as pool:
+            # Apply the method to each configuration in this set
+            for config in self._list:
+                result = pool.apply_async(func=method,
+                                          args=(config, 1))
+                results.append(result)
+
+            for result in results:
+                result.get(timeout=None)
+
+        logger.info(f'Calculations done in {(time() - start_time)/60:.1f} m')
+        return None
+
+    def async_gpaw(self):
         raise NotImplementedError
 
-    def run_gpaw(self):
+    def async_gap(self):
         raise NotImplementedError
 
-    def run_gap(self):
-        raise NotImplementedError
-
-    def run_dftb(self):
+    def async_dftb(self):
         """Run periodic DFTB+ on these configurations"""
-        raise NotImplementedError
+        from gaptrain.calculators import run_dftb
+        return self._run_parallel_est(method=run_dftb)
 
     def __init__(self, *args, name='configs'):
         """Set of configurations

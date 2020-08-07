@@ -11,7 +11,7 @@ h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
 def test_system():
 
-    system = System(box_size=[5, 5, 5], charge=0)
+    system = System(box_size=[5, 5, 5])
     # No molecules yet in the system
     assert len(system) == 0
 
@@ -34,7 +34,7 @@ def test_system():
 
 def test_random_positions():
 
-    system = System(box_size=[10, 10, 10], charge=0)
+    system = System(box_size=[10, 10, 10])
     methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
     system.add_molecules(methane, n=45)
 
@@ -54,7 +54,7 @@ def test_random_positions():
 
 def test_perturbation():
 
-    system = System(box_size=[5, 5, 5], charge=0)
+    system = System(box_size=[5, 5, 5])
     system.add_molecules(h2o, n=10)
     system.randomise(min_dist_threshold=1.5)
 
@@ -76,5 +76,5 @@ def test_perturbation():
 
 def test_mm_system():
 
-    system = MMSystem(box_size=[5, 5, 5], charge=0)
+    system = MMSystem(box_size=[5, 5, 5])
     assert hasattr(system, 'generate_topology')

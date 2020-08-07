@@ -71,11 +71,15 @@ class System:
 
         return None
 
-    def randomise(self, min_dist_threshold=1.5):
+    def randomise(self, min_dist_threshold=1.5, with_intra=False):
         """Randomise the configuration
 
         :param min_dist_threshold: (float) Minimum distance in Å that a
                                    molecule is permitted to be to another atom
+
+        :param with_intra: (bool) Randomise both the inter (i.e. molecules)
+                           and also the intramolecular DOFs (i.e. bond
+                           lengths and angles)
         """
         logger.info(f'Randomising all {len(self)} molecules in the box')
 
@@ -122,6 +126,10 @@ class System:
             coords = np.vstack((coords, molecule.get_coordinates()))
 
         logger.info('Randomised all molecules in the system')
+
+        if with_intra:
+            self.add_perturbation()
+
         return None
 
     def add_solvent(self, solvent_name):
@@ -138,10 +146,18 @@ class System:
         """Calculate the density of the system"""
         raise NotImplementedError
 
+    def charge(self):
+        """Get the total charge on the system"""
+        return sum(molecule.charge for molecule in self.molecules)
+
+    def mult(self):
+        """Get the total spin multiplicity on the system"""
+        return sum(molecule.mult for molecule in self.molecules)
+
     def configuration(self):
         return Configuration(self)
 
-    def __init__(self, *args, box_size, charge, spin_multiplicity=1):
+    def __init__(self, *args, box_size):
         """
         System containing a set of molecules.
 
@@ -155,18 +171,10 @@ class System:
         :param box_size: (list(float)) Dimensions of the box that the molecules
                         occupy. e.g. [10, 10, 10] for a 10 Å cubic box.
 
-        :param charge: (int) Total Charge on the system e.g. 0 for a water box
-                       or 2 for a Pd(II)(aq) system
-
-        :param spin_multiplicity: (int) Spin multiplicity on the whole system
-                                  2S + 1 where S is the number of unpaired
-                                  electrons
         """
         self.molecules = list(args)
 
         self.box = Box(box_size)
-        self.charge = int(charge)
-        self.mult = int(spin_multiplicity)
 
         logger.info(f'Initalised a system\n'
                     f'Number of molecules = {len(self.molecules)}\n'
@@ -182,10 +190,6 @@ class MMSystem(System):
 
         raise NotImplementedError
 
-    def __init__(self, *args, box_size, charge, spin_multiplicity=1):
+    def __init__(self, *args, box_size):
         """System that can be simulated with molecular mechanics"""
-
-        super().__init__(*args,
-                         box_size=box_size,
-                         charge=charge,
-                         spin_multiplicity=spin_multiplicity)
+        super().__init__(*args, box_size=box_size)
