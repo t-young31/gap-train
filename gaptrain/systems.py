@@ -1,4 +1,5 @@
 from gaptrain.molecules import Molecule
+from gaptrain.solvents import solvents
 from gaptrain.box import Box
 from autode.input_output import atoms_to_xyz_file
 from gaptrain.log import logger
@@ -203,11 +204,28 @@ class System:
 
 class MMSystem(System):
 
-    def generate_topology(self):
+    def generate_topology(self, path_to_ff, system_name):
         """Generate a GROMACS topology for this system"""
-        assert all(m.itp_filename is not None for m in self.molecules)
+        for solvent in solvents:  # remove later
+            print(solvent.name)   # remove later
+        assert all(m.itp_filename is not None for m in solvents)
 
-        raise NotImplementedError
+        with open('topol.top', 'x') as f:
+            print(f'; Include force field parameters',
+                  f'#include {path_to_ff}', file=f, sep='\n')  # indented too much
+            set_itp = set([mol.itp_filename for mol in solvents])
+
+            for itp in set_itp:
+                print(f'#include {itp}', file=f)
+            print(f'[ system ]\n'
+                    f'; Name\n'
+                    f'{system_name}\n'
+                    f'[ molecules ]\n'
+                    f'; Compound' + 10*' ' + '#mols' + '\n', file=f) #  use string formatting
+
+            mol_names = [m.name for m in solvents]
+            for mol_name in set(mol_names):
+                print(f'{mol_name:<10s}{mol_names.count(mol_name)}', file=f)
 
     def __init__(self, *args, box_size):
         """System that can be simulated with molecular mechanics"""

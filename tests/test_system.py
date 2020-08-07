@@ -73,3 +73,11 @@ def test_mm_system():
 
     system = MMSystem(box_size=[5, 5, 5])
     assert hasattr(system, 'generate_topology')
+
+
+def test_generate_topology():
+
+    system = MMSystem(h2o, box_size=[5, 5, 5])
+    path_to_ff = "amber99sb-ildn.ff/forcefield.itp"
+    MMSystem.generate_topology(system, path_to_ff, 'SYSTEM NAME')
+    assert os.stat("topol.top").st_size != 0
