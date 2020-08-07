@@ -1,0 +1,9 @@
+
+.idea/
+build/
+dist/
+.pytest_cache
+gaptrain.egg-info/
+*/__pycache__/
+
+.DS_Store
