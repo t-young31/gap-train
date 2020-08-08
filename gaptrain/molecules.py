@@ -1,7 +1,49 @@
-from autode.species import Species
+import autode as ade
 from autode.input_output import xyz_file_to_atoms
 from autode.atoms import Atom
 from gaptrain.log import logger
+from scipy.spatial.distance import cdist
+import numpy as np
+
+
+class Species(ade.species.Species):
+
+    def in_box(self, box):
+        """Is this molecule totally inside a box with an origin at
+        (0,0,0) and top right corner (a, b, c) = box.size
+
+        :param box: (gaptrain.box.Box)
+        """
+        coords = self.get_coordinates()
+
+        if np.min(coords) < 0.0:
+            return False
+
+        # Maximum x, y, z component of all atoms should be < a, b, c
+        # respectively
+        if max(np.max(coords, axis=0) - box.size) > 0:
+            return False
+
+        return True
+
+    def min_distance(self, coords):
+        """Calculate the minimum distance from this molecule to a set
+        of coordinates
+
+        :param coords: (np.ndarray) shape = (n, 3)
+        """
+        # Infinite distance to the other set if there are no coordinates
+        if len(coords) == 0:
+            return np.inf
+
+        return np.min(cdist(coords, self.get_coordinates()))
+
+    def translate_to_origin(self):
+        """Translate the centroid of this molecule to the origin"""
+
+        centroid = np.average(self.get_coordinates(), axis=0)
+        self.translate(vec=-centroid)
+        return None
 
 
 class Molecule(Species):

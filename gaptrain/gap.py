@@ -114,7 +114,7 @@ class GAP:
         if delta_time < 0.5 or b'SYSTEM ABORT' in err:
             raise Exception(f'GAP train errored with:\n '
                             f'{err.decode()}\n'
-                            f'{self.train_command()}')
+                            f'{" ".join(self.train_command())}')
         return None
 
     def save(self):
