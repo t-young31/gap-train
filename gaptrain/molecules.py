@@ -3,6 +3,7 @@ from autode.input_output import xyz_file_to_atoms
 from autode.atoms import Atom
 from gaptrain.log import logger
 from scipy.spatial.distance import cdist
+from scipy.spatial import distance_matrix
 import numpy as np
 
 
@@ -44,6 +45,31 @@ class Species(ade.species.Species):
         centroid = np.average(self.get_coordinates(), axis=0)
         self.translate(vec=-centroid)
         return None
+
+    def calculate_radius(self, with_vdw=False):
+        """
+        Calculate the radius of this species as half the maximum distance
+        between two atoms
+
+        :param with_vdw: (bool) Add the van der Walls radius to the two
+                         most distant atoms
+        """
+        if with_vdw:
+            raise NotImplementedError
+
+        # No radius for a single atom
+        if self.n_atoms == 1:
+            return 0.0
+
+        coords = self.get_coordinates()
+        max_distance = np.max(distance_matrix(coords, coords))
+
+        return max_distance / 2.0
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.radius = self.calculate_radius()
 
 
 class Molecule(Species):

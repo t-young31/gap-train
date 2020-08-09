@@ -86,7 +86,7 @@ class System:
 
         return None
 
-    def random(self, min_dist_threshold=1.5, with_intra=False, grid=False,
+    def random(self, min_dist_threshold=1.5, with_intra=False, on_grid=False,
                **kwargs):
         """Randomise the configuration
 
@@ -94,7 +94,7 @@ class System:
         :param min_dist_threshold: (float) Minimum distance in Å that a
                                    molecule is permitted to be to another atom
 
-        :param grid: (bool)
+        :param on_grid: (bool)
 
         :param with_intra: (bool) Randomise both the inter (i.e. molecules)
                            and also the intramolecular DOFs (i.e. bond
@@ -124,10 +124,9 @@ class System:
 
                 molecule.translate_to_origin()
 
-                if grid:
-                    # TODO write a function to add molecules to random grid
-                    # positions
-                    raise NotImplementedError
+                if on_grid:
+                    vec = sub_box.random_grid_point(spacing=2*molecule.radius)
+                    molecule.translate(vec=vec)
 
                 else:
                     molecule.translate(vec=sub_box.random_point())
