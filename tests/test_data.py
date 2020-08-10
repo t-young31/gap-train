@@ -12,7 +12,7 @@ h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
 def test_gap():
 
-    water_dimer = System(box_size=[5, 5, 5])
+    water_dimer = System(box_size=[7, 7, 7])
     water_dimer.add_molecules(h2o, n=2)
 
     print(water_dimer.random())

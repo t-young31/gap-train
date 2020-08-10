@@ -10,7 +10,8 @@ import os
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
-system = System(box_size=[5, 5, 5])
+side_length = 7.0
+system = System(box_size=[side_length, side_length, side_length])
 system.add_molecules(h2o, n=3)
 
 
@@ -41,6 +42,20 @@ def test_print_exyz():
     os.remove('test.xyz')
 
 
+def test_wrap():
+
+    config = system.random(on_grid=True)
+    for atom in config.atoms[:3]:
+        atom.translate(vec=np.array([10.0, 0, 0]))
+
+    # One water molecule should be outside of the box
+    assert np.max(config.coordinates()) > 7.0
+
+    # Wrapping should put all the atoms back into the box
+    config.wrap()
+    assert np.max(config.coordinates()) < 7.0
+
+
 def test_ase_atoms():
 
     ase_atoms = Configuration(system).ase_atoms()
@@ -49,7 +64,8 @@ def test_ase_atoms():
     # Periodic in x y and z
     assert all(ase_atoms.pbc)
     # Cell vectors should all be ~ 5 Å
-    assert all(4.9 < np.linalg.norm(vec) < 5.1 for vec in ase_atoms.cell)
+    for vec in ase_atoms.cell:
+        assert side_length - 0.1 < np.linalg.norm(vec) < side_length + 0.1
 
 
 def test_dftb_plus():
