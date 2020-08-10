@@ -62,6 +62,7 @@ class System:
     def add_perturbation(self, sigma=0.05, max_length=0.2):
         """Add a random perturbation to all atoms in the system
 
+        ----------------------------------------------------------------------
         :param sigma: (float) Variance of the normal distribution used to
                       generate displacements in Å
 
@@ -86,11 +87,15 @@ class System:
 
         return None
 
-    def random(self, min_dist_threshold=1.5, with_intra=False, **kwargs):
+    def random(self, min_dist_threshold=1.5, with_intra=False, on_grid=False,
+               **kwargs):
         """Randomise the configuration
 
+        -----------------------------------------------------------------------
         :param min_dist_threshold: (float) Minimum distance in Å that a
                                    molecule is permitted to be to another atom
+
+        :param on_grid: (bool)
 
         :param with_intra: (bool) Randomise both the inter (i.e. molecules)
                            and also the intramolecular DOFs (i.e. bond
@@ -101,42 +106,31 @@ class System:
         coords = np.empty(shape=(0, 3))
         system = deepcopy(self)
 
+        # Because of periodic boundary conditions the distances to
+        # other molecules may be less than expected, so molecules
+        # need to be generated in a smaller sub-box
+        sub_box = Box(size=self.box.size - min_dist_threshold)
+
         for molecule in np.random.permutation(system.molecules):
 
-            # Shift the molecule so the centroid is at the origin
-            centroid = np.average(molecule.get_coordinates(), axis=0)
-            molecule.translate(vec=-centroid)
+            molecule.translate_to_origin()
 
             # Randomly rotate the molecule
             molecule.rotate(axis=np.random.uniform(-1.0, 1.0, size=3),
                             theta=np.random.uniform(0.0, 2*np.pi))
 
             # Translate to a random position in the box..
-            while True:
-                point = system.box.random_point()
+            while (not molecule.in_box(sub_box)
+                   or molecule.min_distance(coords) < min_dist_threshold):
 
-                # Can always add the first molecule
-                if len(coords) == 0:
-                    molecule.translate(point)
-                    break
+                molecule.translate_to_origin()
 
-                # Ensure that this point is far enough away from the other
-                # atoms in the system
-                distances = cdist(coords, point.reshape(1, 3))
-                if np.min(distances) < min_dist_threshold:
-                    continue
+                if on_grid:
+                    vec = sub_box.random_grid_point(spacing=2*molecule.radius)
+                    molecule.translate(vec=vec)
 
-                # Calculate the minimum distance from this molecule to the rest
-                molecule.translate(vec=point)
-                distances = cdist(coords, molecule.get_coordinates())
-
-                # If the minimum is larger than the threshold then this
-                # molecule can be translated to this point
-                if np.min(distances) > min_dist_threshold:
-                    break
-
-                # Can't be added - translate back to the origin
-                molecule.translate(vec=-point)
+                else:
+                    molecule.translate(vec=sub_box.random_point())
 
             # Add the coordinates to the full set
             coords = np.vstack((coords, molecule.get_coordinates()))
@@ -198,8 +192,8 @@ class System:
 
         logger.info(f'Initalised a system\n'
                     f'Number of molecules = {len(self.molecules)}\n'
-                    f'Charge              = {self.charge} e\n'
-                    f'Spin multiplicity   = {self.mult}')
+                    f'Charge              = {self.charge()} e\n'
+                    f'Spin multiplicity   = {self.mult()}')
 
 
 class MMSystem(System):

@@ -1,6 +1,6 @@
 from gaptrain.configurations import ConfigurationSet, Configuration
 from gaptrain.systems import System
-from gaptrain.molecules import Molecule, Ion
+from gaptrain.molecules import Molecule
 from gaptrain.exceptions import NoEnergy
 import numpy as np
 import ase
@@ -10,7 +10,8 @@ import os
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
-system = System(h2o, h2o, h2o, box_size=[5, 5, 5])
+system = System(box_size=[5, 5, 5])
+system.add_molecules(h2o, n=3)
 
 
 def test_print_exyz():

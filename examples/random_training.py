@@ -28,5 +28,6 @@ gap = GAP(name='random_gap',
 gap.train(training_data)
 
 # Predict on the training and test data
+exit()
 gap.predict(training_data)
 gap.predict(test_data)

@@ -8,3 +8,7 @@ class CannotAdd(Exception):
 
 class LoadingFailed(Exception):
     """Exception for failure to load a data structure"""
+
+
+class MethodFailed(Exception):
+    """Exception for an electronic structure or ML method failure"""

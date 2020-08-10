@@ -9,6 +9,19 @@ here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
 
+def test_random_distance():
+
+    system = System(box_size=[10, 10, 10])
+    methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
+    system.add_molecules(methane, n=4)
+
+    config = system.random(min_dist_threshold=1.5)
+
+    for coord in config.coordinates():
+        assert np.min(coord) > 0.0
+        assert np.max(coord) < 10 - 1.5
+
+
 def test_system():
 
     system = System(box_size=[5, 5, 5])
@@ -36,7 +49,7 @@ def test_random_positions():
 
     system = System(box_size=[10, 10, 10])
     methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
-    system.add_molecules(methane, n=45)
+    system.add_molecules(methane, n=20)
 
     config = system.random()
     config.print_xyz_file(filename='test_random.xyz')
@@ -52,10 +65,30 @@ def test_random_positions():
     os.remove('test_random.xyz')
 
 
+def test_random_grid_positions():
+
+    system = System(box_size=[10, 12, 14])
+    methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
+    system.add_molecules(methane, n=5)
+
+    config = system.random(grid=True)
+    config.print_xyz_file(filename='test_random.xyz')
+
+    # Minimum pairwise distance should be ~ the C-H distance (1.109 Å)
+    atoms = xyz_file_to_atoms('test_random.xyz')
+    coords = np.array([atom.coord for atom in atoms])
+    dist_matrix = distance_matrix(coords, coords)
+
+    # Distance matrix has zeros along the diagonals so add the identity
+    assert np.min(dist_matrix + 9 * np.identity(len(coords))) > 1.1
+
+    os.remove('test_random.xyz')
+
+
 def test_perturbation():
 
-    system = System(box_size=[5, 5, 5])
-    system.add_molecules(h2o, n=10)
+    system = System(box_size=[7, 7, 7])
+    system.add_molecules(h2o, n=5)
     config = system.random(min_dist_threshold=1.5,
                            sigma=0.1,
                            max_length=0.2)

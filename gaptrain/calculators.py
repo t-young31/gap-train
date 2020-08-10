@@ -1,6 +1,7 @@
 from ase.calculators.dftb import Dftb
 from gaptrain.gtconfig import GTConfig
 from gaptrain.utils import work_in_tmp_dir
+from gaptrain.exceptions import MethodFailed
 import os
 
 
@@ -62,7 +63,11 @@ def run_dftb(configuration, n_cores):
                 Hamiltonian_Charge=configuration.charge)
 
     ase_atoms.set_calculator(dftb)
-    configuration.energy.true = ase_atoms.get_potential_energy()
+    try:
+        configuration.energy.true = ase_atoms.get_potential_energy()
+    except ValueError:
+        raise MethodFailed('DFTB+ failed to generate an energy')
+
     configuration.forces.set_true(forces=ase_atoms.get_forces())
 
     # Return self to allow for multiprocessing
