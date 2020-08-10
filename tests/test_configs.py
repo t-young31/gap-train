@@ -72,3 +72,10 @@ def test_dftb_plus():
 
     # Should all be non-zero length force vectors in ev Å^-1
     assert all(0 < np.linalg.norm(force) < 70 for force in forces)
+
+
+def test_print_gro_file():
+
+    configs = Configuration(system)
+    configs.print_gro_file(filename='XYZ_TEST.gro', system=system)
+    assert os.path.exists('XYZ_test.gro')

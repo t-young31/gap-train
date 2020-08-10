@@ -5,9 +5,22 @@ from gaptrain.log import logger
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
 import numpy as np
+import os
+
 
 
 class Species(ade.species.Species):
+
+    def __str__(self):
+        """Chemical formula for this species e.g. H2O"""
+        name = ""
+        atom_symbols = [atom.label for atom in self.atoms]
+
+        for atom_symbol in set(atom_symbols):
+            count = atom_symbols.count(atom_symbol)
+            name += f'{atom_symbol}{count if count > 1 else ""}'
+
+        return name
 
     def in_box(self, box):
         """Is this molecule totally inside a box with an origin at
@@ -66,8 +79,21 @@ class Species(ade.species.Species):
 
         return max_distance / 2.0
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def set_mm_atom_types(self):
+        # if solvent (change later)
+        print(os.path.basename(self.itp_filename.rstrip('.itp')))
+        with open(self.itp_filename, 'r') as f:
+            for line in f:
+                if os.path.basename(self.itp_filename.rstrip('.itp')) == line.rstrip(): #change to find OW etc 
+                    print(f'Matching lines')
+        return None
+
+    def __init__(self, name="mol", atoms=None, charge=0, spin_multiplicity=1,
+                 gmx_itp_filename=None):
+        super().__init__(name=name, atoms=atoms, charge=charge,
+                         mult=spin_multiplicity)
+
+        self.itp_filename = gmx_itp_filename
 
         self.radius = self.calculate_radius()
 
@@ -88,12 +114,14 @@ class Molecule(Species):
         :param gmx_itp_filename: (str) Filename(path) of the GROMACS .itp file
                                  containing MM parameters required to simulate
         """
-        super().__init__(name='mol',
+        super().__init__(name="mol",
                          charge=charge,
-                         mult=spin_multiplicity,
-                         atoms=xyz_file_to_atoms(xyz_filename))
+                         spin_multiplicity=spin_multiplicity,
+                         atoms=xyz_file_to_atoms(xyz_filename),
+                         gmx_itp_filename=gmx_itp_filename)
 
-        self.itp_filename = gmx_itp_filename
+        self.name = str(self)
+
 
         logger.info(f'Initialised {xyz_filename.rstrip(".xyz")}\n'
                     f'Number of atoms      = {self.n_atoms}\n'
@@ -115,7 +143,7 @@ class Ion(Species):
         """
         super().__init__(name=label,
                          charge=charge,
-                         mult=spin_multiplicity,
-                         atoms=[Atom(label)])
+                         spin_multiplicity=spin_multiplicity,
+                         atoms=[Atom(label)],
+                         gmx_itp_filename=gmx_itp_filename)
 
-        self.itp_filename = gmx_itp_filename

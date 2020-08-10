@@ -50,6 +50,22 @@ class Configuration:
         """Print a standard .xyz file of this configuration"""
         return atoms_to_xyz_file(self.atoms, filename=filename)
 
+    def print_gro_file(self, filename, system):
+        assert filename.endswith('.gro')
+        with open(filename, 'w') as f:
+            print(f'{str(system)}', file=f)
+            print(f'{len(self.atoms)}', file=f)
+            n = 0
+            for i, molecule in enumerate(system.molecules):
+                for atom in molecule.atoms:
+                    white_space = 5-len(molecule.name)
+                    print(f'{"":<5}{i+1}{molecule.name}{"":{white_space}}'
+                          f'{atom.mm_atom_type}'                    # atom type (5 characters)
+                          f'{atom.label}'
+                          f'{n+1}',                             # atom number (5 positions, integer)
+                          f'{self.atoms[n].coord}', file=f)     # position (in nm, x y z in 3 columns, each 8 positions with 3 decimal places)
+                    n += 1
+
     def print(self, exyz_file, true_values):
         """Print this configuration to a extended xyz file"""
 

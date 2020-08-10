@@ -1,10 +1,9 @@
 import os
 
-
-def run_mmmd(mmsystem, *kwargs):
+def run_mmmd(mmsystem, ):
     """Run classical molecular mechanics MD on a system"""
-    os.system(' gmx grompp -f min.mdp -c input.gro -p topol.top -o em.tpr')
-    os.system('gmx mdrun -deffnm em') #change to subprocess?
+    os.popen('gmx grompp -f min.mdp -c input.gro -p topol.top -o em.tpr')
+    os.popen('gmx mdrun -deffnm em')
     raise NotImplementedError
 
 

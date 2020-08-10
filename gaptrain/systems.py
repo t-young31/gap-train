@@ -1,4 +1,5 @@
 from gaptrain.molecules import Molecule
+from gaptrain.molecules import Species
 from gaptrain.solvents import solvents
 from gaptrain.box import Box
 from autode.input_output import atoms_to_xyz_file
@@ -58,6 +59,16 @@ class System:
             raise Exception(f'Cannot add {other} to system')
 
         return self
+
+    def __str__(self):
+        """Generate the name of this system e.g. 'System: 1 Pd, 10 H2O' """
+        name = 'System: '
+        molecule_names = [molecule.name for molecule in self.molecules]
+
+        for unique_name in set(molecule_names):
+            name += f'{molecule_names.count(unique_name)} {unique_name}'
+
+        return name
 
     def add_perturbation(self, sigma=0.05, max_length=0.2):
         """Add a random perturbation to all atoms in the system
@@ -198,28 +209,31 @@ class System:
 
 class MMSystem(System):
 
-    def generate_topology(self, path_to_ff, system_name):
+    def generate_topology(self, path_to_ff):
         """Generate a GROMACS topology for this system"""
-        for solvent in solvents:  # remove later
-            print(solvent.name)   # remove later
+        with open('atom_types.txt', 'w') as f:
+            for molecule in self.molecules:
+                molecule.set_mm_atom_types()
+                print(f'{molecule.set_mm_atom_types()}', file=f)
+
         assert all(m.itp_filename is not None for m in solvents)
 
-        with open('topol.top', 'x') as f:
+        with open('topol.top', 'w') as f:
             print(f'; Include force field parameters',
-                  f'#include {path_to_ff}', file=f, sep='\n')  # indented too much
+                  f'#include {path_to_ff}', file=f, sep='\n')
             set_itp = set([mol.itp_filename for mol in solvents])
 
             for itp in set_itp:
                 print(f'#include {itp}', file=f)
-            print(f'[ system ]\n'
-                    f'; Name\n'
-                    f'{system_name}\n'
-                    f'[ molecules ]\n'
-                    f'; Compound' + 10*' ' + '#mols' + '\n', file=f) #  use string formatting
+            print(f'\n[ system ]',
+                  f'; Name',
+                  f'{str(self)}\n',
+                  f'[ molecules ]',
+                  f'; Compound{"":<7s}#mols', file=f, sep='\n')
 
-            mol_names = [m.name for m in solvents]
+            mol_names = [m.name for m in self.molecules]
             for mol_name in set(mol_names):
-                print(f'{mol_name:<10s}{mol_names.count(mol_name)}', file=f)
+                print(f'{mol_name:<15s}{mol_names.count(mol_name)}', file=f)
 
     def __init__(self, *args, box_size):
         """System that can be simulated with molecular mechanics"""

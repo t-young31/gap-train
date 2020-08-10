@@ -1,9 +1,11 @@
 from gaptrain.systems import System, MMSystem
 from gaptrain.molecules import Molecule
+from gaptrain.solvents import get_solvent
 from scipy.spatial import distance_matrix
 from autode.input_output import xyz_file_to_atoms
 import numpy as np
 import os
+
 
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
@@ -110,7 +112,8 @@ def test_mm_system():
 
 def test_generate_topology():
 
-    system = MMSystem(h2o, box_size=[5, 5, 5])
+    water_solvent = get_solvent('h2o')
+    system = MMSystem(water_solvent, box_size=[5, 5, 5])
     path_to_ff = "amber99sb-ildn.ff/forcefield.itp"
-    MMSystem.generate_topology(system, path_to_ff, 'SYSTEM NAME')
+    MMSystem.generate_topology(system, path_to_ff)
     assert os.stat("topol.top").st_size != 0

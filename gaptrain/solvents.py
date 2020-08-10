@@ -10,6 +10,14 @@ class Solvent(Molecule):
     """Solvent e.g. H2O"""
 
 
+def get_solvent(name):
+    """Gets solvent molecule from solvent list"""
+    for solvent in solvents:
+        if solvent.name == name:
+            return solvent
+    return None
+
+
 # Generate Solvent objects for all molecules in solvent_lib
 solvents = []
 

@@ -1,0 +1,11 @@
+; tip3p
+h2o
+[ HOH ]
+ [ atoms ]
+    OW   OW           -0.834    0
+   HW1   HW            0.417    0
+   HW2   HW            0.417    0
+ [ bonds ]
+    OW   HW1
+    OW   HW2
+
