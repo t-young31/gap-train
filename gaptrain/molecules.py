@@ -80,12 +80,21 @@ class Species(ade.species.Species):
         return max_distance / 2.0
 
     def set_mm_atom_types(self):
-        # if solvent (change later)
-        print(os.path.basename(self.itp_filename.rstrip('.itp')))
-        with open(self.itp_filename, 'r') as f:
-            for line in f:
-                if os.path.basename(self.itp_filename.rstrip('.itp')) == line.rstrip(): #change to find OW etc 
-                    print(f'Matching lines')
+        atom_types = []
+        f = open(self.itp_filename, 'r')
+        lines = f.readlines()
+        for i, line in enumerate(lines):
+            if "atoms" in line:
+                n = 0
+                while n < len(self.atoms):
+                    n += 1
+                    split_atoms = lines[i + n].split()
+                    atom_types.append(split_atoms[4])
+                break
+
+        for j, atom in enumerate(self.atoms):
+            atom.mm_type = atom_types[j]
+            print(atom.mm_type)
         return None
 
     def __init__(self, name="mol", atoms=None, charge=0, spin_multiplicity=1,
@@ -121,7 +130,6 @@ class Molecule(Species):
                          gmx_itp_filename=gmx_itp_filename)
 
         self.name = str(self)
-
 
         logger.info(f'Initialised {xyz_filename.rstrip(".xyz")}\n'
                     f'Number of atoms      = {self.n_atoms}\n'

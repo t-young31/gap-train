@@ -114,6 +114,5 @@ def test_generate_topology():
 
     water_solvent = get_solvent('h2o')
     system = MMSystem(water_solvent, box_size=[5, 5, 5])
-    path_to_ff = "amber99sb-ildn.ff/forcefield.itp"
-    MMSystem.generate_topology(system, path_to_ff)
+    MMSystem.generate_topology(system)
     assert os.stat("topol.top").st_size != 0

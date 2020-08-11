@@ -1,6 +1,6 @@
 from gaptrain.molecules import Molecule
 from gaptrain.molecules import Species
-from gaptrain.solvents import solvents
+from gaptrain.solvents import solvents, get_solvent
 from gaptrain.box import Box
 from autode.input_output import atoms_to_xyz_file
 from gaptrain.log import logger
@@ -153,10 +153,15 @@ class System:
 
         return system.configuration()
 
-    def add_solvent(self, solvent_name):
-        """Add water to the system to generate a ~1 g cm-3 density"""
-        # assert solvent in solvent library
-        raise NotImplementedError
+    def add_solvent(self, solvent_name, n):
+        """Add water to the system to generate a ~1 g cm-3 density
+
+        :param solvent_name: (str) e.g. 'h2o'
+        :param n: (int) number of solvent molecules e.g. 10
+        """
+        solvent = get_solvent(solvent_name)
+
+        return self.add_molecules(molecule=solvent, n=n)
 
     def add_molecules(self, molecule, n=1):
         """Add a number of the same molecule to the system"""
@@ -209,22 +214,22 @@ class System:
 
 class MMSystem(System):
 
-    def generate_topology(self, path_to_ff):
+    def generate_topology(self):
         """Generate a GROMACS topology for this system"""
-        with open('atom_types.txt', 'w') as f:
-            for molecule in self.molecules:
-                molecule.set_mm_atom_types()
-                print(f'{molecule.set_mm_atom_types()}', file=f)
+        for molecule in self.molecules:
+            molecule.set_mm_atom_types()
 
         assert all(m.itp_filename is not None for m in solvents)
 
         with open('topol.top', 'w') as f:
-            print(f'; Include force field parameters',
-                  f'#include {path_to_ff}', file=f, sep='\n')
-            set_itp = set([mol.itp_filename for mol in solvents])
+            print(f'[ defaults ]',
+                  f'; nbfunc{0:<8}comb-rule{0:<7}gen-pairs{0:<7}fudgeLJ fudgeQQ',
+                  f'1               2               yes             0.5     0.8333\n'  # tidy this up
+                  , file=f, sep='\n')
 
+            set_itp = set([mol.itp_filename for mol in solvents])
             for itp in set_itp:
-                print(f'#include {itp}', file=f)
+                print(f'#include "{itp}"', file=f)
             print(f'\n[ system ]',
                   f'; Name',
                   f'{str(self)}\n',

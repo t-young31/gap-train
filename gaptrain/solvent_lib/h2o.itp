@@ -1,11 +1,25 @@
-; tip3p
-h2o
-[ HOH ]
- [ atoms ]
-    OW   OW           -0.834    0
-   HW1   HW            0.417    0
-   HW2   HW            0.417    0
- [ bonds ]
-    OW   HW1
-    OW   HW2
+[ atomtypes ]
+; spc water - use only with spc.itp & settles
+OW       8      15.9994  0.0000  A   3.16557e-01  6.50629e-01
+HW       1       1.0080  0.0000  A   0.00000e+00  0.00000e+00
+
+[ bondtypes ]
+OW HW         1    0.09572   462750.4 ; P water
+HW HW         1    0.15136   462750.4 ; P water
+
+[ angletypes ]
+HW  OW  HW           1   104.520    836.800 ; TIP3P water
+
+[ moleculetype ]
+; molname       nrexcl
+h2o             2
+
+[ atoms ]
+  1   OW          1       SOL       OW       1      -0.834    16.00000
+  2   HW          1       SOL       HW1      1       0.417     1.00800
+  3   HW          1       SOL       HW2      1       0.417     1.00800
+
+
+
+
 

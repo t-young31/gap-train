@@ -2,6 +2,7 @@ from gaptrain.configurations import ConfigurationSet, Configuration
 from gaptrain.systems import System
 from gaptrain.molecules import Molecule
 from gaptrain.exceptions import NoEnergy
+from gaptrain.solvents import get_solvent
 import numpy as np
 import ase
 import pytest
@@ -9,6 +10,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
+
 
 side_length = 7.0
 system = System(box_size=[side_length, side_length, side_length])
@@ -92,6 +94,11 @@ def test_dftb_plus():
 
 def test_print_gro_file():
 
-    configs = Configuration(system)
-    configs.print_gro_file(filename='XYZ_TEST.gro', system=system)
-    assert os.path.exists('XYZ_test.gro')
+    water_box = System(box_size=[10, 10, 10])
+    water_box.add_molecules(molecule=get_solvent('h2o'), n=10)
+    for molecule in water_box.molecules:
+        molecule.set_mm_atom_types()
+    config = Configuration(water_box)
+    config.print_gro_file(system=water_box)
+    assert os.path.exists('input.gro')
+
