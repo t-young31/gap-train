@@ -39,12 +39,9 @@ class Species(ade.species.Species):
 
         return np.min(cdist(coords, self.get_coordinates()))
 
-    def translate_to_origin(self):
-        """Translate the centroid of this molecule to the origin"""
-
-        centroid = np.average(self.get_coordinates(), axis=0)
-        self.translate(vec=-centroid)
-        return None
+    def centroid(self):
+        """Get the centroid of this molecule"""
+        return np.average(self.get_coordinates(), axis=0)
 
     def calculate_radius(self, with_vdw=False):
         """

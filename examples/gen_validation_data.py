@@ -1,5 +1,5 @@
 from gaptrain import *
-GTConfig.n_cores = 12
+GTConfig.n_cores = 24
 
 # Generate a Pd(II)(aq) system in a 12 A^3 box with 52 water molecules
 h2o = Molecule(xyz_filename='h2o.xyz')

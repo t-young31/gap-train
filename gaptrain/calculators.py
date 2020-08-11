@@ -1,8 +1,7 @@
 from ase.calculators.dftb import Dftb
-from gaptrain.gtconfig import GTConfig
 from gaptrain.utils import work_in_tmp_dir
 from gaptrain.exceptions import MethodFailed
-import os
+from ase.optimize import BFGS
 
 
 class DFTB(Dftb):
@@ -26,15 +25,11 @@ class DFTB(Dftb):
 
 
 @work_in_tmp_dir()
-def run_gpaw(configuration, n_cores=1):
+def run_gpaw(configuration, max_force):
     """Run a periodic DFT calculation using GPAW"""
     from gpaw import GPAW, PW
 
-    os.environ['OMP_NUM_THREADS'] = str(n_cores)
-    os.environ['MLK_NUM_THREADS'] = str(n_cores)
-    os.environ['GPAW_SETUP_PATH'] = GTConfig.gpaw_setup_path
-
-    atoms = configuration.ase_atoms()
+    ase_atoms = configuration.ase_atoms()
 
     dft = GPAW(mode=PW(400),
                basis='dzp',
@@ -42,27 +37,25 @@ def run_gpaw(configuration, n_cores=1):
                xc='PBE',
                txt=None)
 
-    atoms.set_calculator(dft)
-    configuration.energy.true = atoms.get_potential_energy()
-    configuration.forces.set_true(forces=atoms.get_forces())
+    ase_atoms.set_calculator(dft)
+
+    if max_force is not None:
+        minimisation = BFGS(ase_atoms)
+        minimisation.run(fmax=float(max_force))
+
+    configuration.energy.true = ase_atoms.get_potential_energy()
+    configuration.forces.set_true(forces=ase_atoms.get_forces())
 
     return configuration
 
 
 @work_in_tmp_dir()
-def run_gap(configuration, n_cores):
+def run_gap(configuration, max_force):
     raise NotImplementedError
 
 
-@work_in_tmp_dir()
-def run_dftb(configuration, n_cores=1):
+def run_dftb(configuration, max_force):
     """Run periodic DFTB+ on this configuration"""
-
-    # Environment variables required for ASE
-    env = os.environ.copy()
-    env['DFTB_PREFIX'] = GTConfig.dftb_data
-    env['DFTB_COMMAND'] = GTConfig.dftb_exe
-    env['OMP_NUM_THREADS'] = str(n_cores)
 
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
@@ -70,8 +63,14 @@ def run_dftb(configuration, n_cores=1):
                 Hamiltonian_Charge=configuration.charge)
 
     ase_atoms.set_calculator(dftb)
+
     try:
         configuration.energy.true = ase_atoms.get_potential_energy()
+
+        if max_force is not None:
+            minimisation = BFGS(ase_atoms)
+            minimisation.run(fmax=float(max_force))
+
     except ValueError:
         raise MethodFailed('DFTB+ failed to generate an energy')
 

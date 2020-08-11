@@ -112,17 +112,19 @@ class System:
 
         for molecule in np.random.permutation(system.molecules):
 
-            molecule.translate_to_origin()
-
-            # Randomly rotate the molecule
+            # Randomly rotate the molecule around the molecules centroid
             molecule.rotate(axis=np.random.uniform(-1.0, 1.0, size=3),
-                            theta=np.random.uniform(0.0, 2*np.pi))
+                            theta=np.random.uniform(0.0, 2*np.pi),
+                            origin=molecule.centroid())
+
+            molecule.translate(vec=sub_box.random_point())
 
             # Translate to a random position in the box..
             while (not molecule.in_box(sub_box)
                    or molecule.min_distance(coords) < min_dist_threshold):
 
-                molecule.translate_to_origin()
+                # Shift back to the origin
+                molecule.translate(vec=-molecule.centroid())
 
                 if on_grid:
                     vec = sub_box.random_grid_point(spacing=2*molecule.radius)
