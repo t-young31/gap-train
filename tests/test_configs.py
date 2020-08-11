@@ -99,6 +99,7 @@ def test_print_gro_file():
     for molecule in water_box.molecules:
         molecule.set_mm_atom_types()
     config = Configuration(water_box)
+    config.wrap()
     config.print_gro_file(system=water_box)
     assert os.path.exists('input.gro')
 

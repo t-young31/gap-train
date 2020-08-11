@@ -223,8 +223,9 @@ class MMSystem(System):
 
         with open('topol.top', 'w') as f:
             print(f'[ defaults ]',
-                  f'; nbfunc{0:<8}comb-rule{0:<7}gen-pairs{0:<7}fudgeLJ fudgeQQ',
-                  f'1               2               yes             0.5     0.8333\n'  # tidy this up
+                  f'{"; nbfunc":<16}{"comb-rule":<16}'
+                  f'{"gen-pairs":<16}{"fudgeLJ":<8}{"fudgeQQ":<8}',
+                  f'{"1":<16}{"2":<16}{"yes":<16}{"0.5":<8}{"0.8333":<8}\n'
                   , file=f, sep='\n')
 
             set_itp = set([mol.itp_filename for mol in solvents])

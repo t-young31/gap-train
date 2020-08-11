@@ -89,7 +89,7 @@ class Species(ade.species.Species):
                 while n < len(self.atoms):
                     n += 1
                     split_atoms = lines[i + n].split()
-                    atom_types.append(split_atoms[4])
+                    atom_types.append(split_atoms[4])  # this assumes atomtype is 5th entry
                 break
 
         for j, atom in enumerate(self.atoms):

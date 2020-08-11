@@ -1,0 +1,52 @@
+title		= NVT equilibration 
+; Run parameters
+integrator	= md		; leap-frog integrator
+nsteps		= 20000		; 20000 = 20 ps
+dt		    = 0.001		; 1 fs
+; For exact run continuation or redoing part of a run
+init_step                = 0
+; mode for center of mass motion removal
+comm-mode                = Linear
+; number of steps for center of mass motion removal
+
+; Output control
+nstxout		= 0		; save coordinates every ps
+nstvout		= 0		; save velocities every ps
+nstenergy	= 1000		; save energies every 1 ps
+nstlog		= 1000		; update log file every 1 ps
+; Output frequency and precision for xtc file
+nstxout-compressed  = 1000
+; Bond parameters
+continuation	        = no		; first dynamics run
+constraint_algorithm    = lincs	    ; holonomic constraints 
+constraints	            = h-bonds	; all bonds (even heavy atom-H bonds) constrained
+lincs_iter	            = 1		    ; accuracy of LINCS
+lincs_order	            = 4		    ; also related to accuracy
+; Neighborsearching
+cutoff-scheme   = Verlet
+ns_type		    = grid		; search neighboring grid cells
+nstlist		    = 10		; 10 fs, largely irrelevant with Verlet
+rcoulomb	    = 0.1		; short-range electrostatic cutoff (in nm)
+; Method for doing Van der Waals
+vdw-type                 = Cut-off
+rvdw                     = 0.1 ; rvdw cut-off (nm)
+; Electrostatics
+coulombtype	    = PME	; Particle Mesh Ewald for long-range electrostatics
+pme_order	    = 4		; cubic interpolation
+fourierspacing	= 0.12	; grid spacing for FFT
+; Temperature coupling is on
+tcoupl		= V-rescale	            ; modified Berendsen thermostat
+tc-grps		= system 	; two coupling groups are more accurate - more accurate if groups are not too small
+tau_t		= 0.1	  0.1          ; time constant, in ps
+ref_t		= 298.15  298.15          ; reference temperature, one for each group, in K
+; Pressure coupling is off
+pcoupl		= no 		; no pressure coupling in NVT
+; Periodic boundary conditions
+pbc		= xyz		    ; 3-D PBC
+; Dispersion correction
+DispCorr	= EnerPres	; account for cut-off vdW scheme
+; Velocity generation
+gen_vel		= yes		; assign velocities from Maxwell distribution
+gen-temp                 = 298.15
+gen-seed                 = -1 
+

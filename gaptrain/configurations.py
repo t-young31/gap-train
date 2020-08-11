@@ -92,6 +92,9 @@ class Configuration:
                 atom_list = []
                 for atom in molecule.atoms:
                     x, y, z = self.atoms[n].coord
+                    x = x / 10  # make this nicer
+                    y = y / 10
+                    z = z / 10
                     atom_list.append(atom.label)
                     print(f'{i+1:>5}'
                           f'{molecule.name:<5}'
@@ -101,6 +104,8 @@ class Configuration:
                           f'{y:>8.3f}'
                           f'{z:>8.3f}', file=f)
                     n += 1
+            print(f'{"10 10 10"}', file=f)
+
 
     def print(self, exyz_file, true_values=False, predicted_values=False):
         """Print this configuration to a extended xyz file"""
