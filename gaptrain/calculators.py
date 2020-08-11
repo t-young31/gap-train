@@ -26,21 +26,27 @@ class DFTB(Dftb):
 
 
 @work_in_tmp_dir()
-def run_gpaw(configuration, n_cores):
+def run_gpaw(configuration, n_cores=1):
     """Run a periodic DFT calculation using GPAW"""
+    from gpaw import GPAW, PW
 
-    """
-    'dft = GPAW(mode=PW(400),',
-              '      basis=\'dzp\',',
-              f'     charge={self.charge},',
-              '      xc=\'PBE\',',
-              f'     txt=\'{output_filename}\')',
-              'system.set_calculator(dft)',
-              'system.get_potential_energy()',
-              'system.get_forces()
-    """
+    os.environ['OMP_NUM_THREADS'] = str(n_cores)
+    os.environ['MLK_NUM_THREADS'] = str(n_cores)
+    os.environ['GPAW_SETUP_PATH'] = GTConfig.gpaw_setup_path
 
-    raise NotImplementedError
+    atoms = configuration.ase_atoms()
+
+    dft = GPAW(mode=PW(400),
+               basis='dzp',
+               charge=configuration.charge,
+               xc='PBE',
+               txt=None)
+
+    atoms.set_calculator(dft)
+    configuration.energy.true = atoms.get_potential_energy()
+    configuration.forces.set_true(forces=atoms.get_forces())
+
+    return configuration
 
 
 @work_in_tmp_dir()
@@ -49,13 +55,14 @@ def run_gap(configuration, n_cores):
 
 
 @work_in_tmp_dir()
-def run_dftb(configuration, n_cores):
+def run_dftb(configuration, n_cores=1):
     """Run periodic DFTB+ on this configuration"""
 
     # Environment variables required for ASE
-    os.environ['DFTB_PREFIX'] = GTConfig.dftb_data
-    os.environ['DFTB_COMMAND'] = GTConfig.dftb_exe
-    os.environ['OMP_NUM_THREADS'] = str(n_cores)
+    env = os.environ.copy()
+    env['DFTB_PREFIX'] = GTConfig.dftb_data
+    env['DFTB_COMMAND'] = GTConfig.dftb_exe
+    env['OMP_NUM_THREADS'] = str(n_cores)
 
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,

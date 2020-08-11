@@ -49,7 +49,7 @@ def test_system():
 
 def test_random_positions():
 
-    system = System(box_size=[10, 10, 10])
+    system = System(box_size=[15, 15, 15])
     methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
     system.add_molecules(methane, n=20)
 

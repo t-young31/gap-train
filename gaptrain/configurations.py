@@ -21,8 +21,38 @@ class Configuration:
                      pbc=True,
                      cell=self.box.size)
 
+    def all_atoms_in_box(self):
+        """Are all the atoms in the box? """
+        coords = self.coordinates()
+        return np.max(coords) < max(self.box.size) and np.min(coords) > 0.0
+
     def coordinates(self):
         return np.array([atom.coord for atom in self.atoms])
+
+    def wrap(self):
+        """Wrap all the atoms into the box"""
+        logger.info('Wrapping all atoms back into the box')
+
+        if self.all_atoms_in_box():
+            logger.info('All atoms in the box - nothing to be done')
+            return None
+
+        for atom in self.atoms:
+            for i, _ in enumerate(['x', 'y', 'z']):
+
+                # Atom is not in the upper right octant of 3D space
+                if atom.coord[i] < 0:
+                    atom.coord[i] += self.box.size[i]
+
+                # Atom is further than the upper right quadrant
+                if atom.coord[i] > self.box.size[i]:
+                    atom.coord[i] -= self.box.size[i]
+
+        while not self.all_atoms_in_box():
+            logger.info('All atoms are still not in the box')
+            return self.wrap()
+
+        return None
 
     def set_atoms(self, xyz_filename=None, atoms=None):
         """Set the coordinates """
@@ -67,28 +97,30 @@ class Configuration:
                     n += 1
 
     def print(self, exyz_file, true_values):
+    def print(self, exyz_file, true_values=False, predicted_values=False):
         """Print this configuration to a extended xyz file"""
 
-        a, b, c = self.box.size
         energy = self.energy.true if true_values else self.energy.predicted
 
-        if energy is None:
-            raise ex.NoEnergy
-
+        a, b, c = self.box.size
         print(f'{len(self.atoms)}\n'
               f'Lattice="{a:.6f} 0.000000 0.000000 0.000000 {b:.6f} 0.000000 '
               f'0.000000 0.000000 {c:.6f}" Properties=species:S:1:pos:R:3:'
               f'dft_forces:R:3 dft_energy={energy:.8f}',
               file=exyz_file)
 
-        # Print the coordinates and the forces
+        # Print the coordinates and the forces, if the latter are specified
         forces = self.forces.true() if true_values else self.forces.predicted()
 
         for i, atom in enumerate(self.atoms):
             x, y, z = atom.coord
-            fx, fy, fz = forces[i]
-            print(f'{atom.label} {x:.5f} {y:.5f} {z:.5f} '
-                  f'{fx:.5f} {fy:.5f} {fz:.5f}', file=exyz_file)
+            line = f'{atom.label} {x:.5f} {y:.5f} {z:.5f} '
+
+            if true_values or predicted_values:
+                fx, fy, fz = forces[i]
+                line += f'{fx:.5f} {fy:.5f} {fz:.5f}'
+
+            print(line, file=exyz_file)
 
         return None
 
@@ -197,13 +229,16 @@ class ConfigurationSet:
             configuration.set_atoms(atoms=atoms)
 
             configuration.energy.true = energy
-            configuration.forces.set_true(forces=np.array(forces))
+            # Set the true forces if there are some
+            if len(forces) > 0:
+                configuration.forces.set_true(forces=np.array(forces))
 
+            configuration.wrap()
             self._list.append(configuration)
 
         return None
 
-    def _save(self, true_values, override=True):
+    def save(self, true_values=False, predicted_values=False, override=True):
         """Save an extended xyz file for this set of configurations"""
 
         # Ensure the name is unique
@@ -218,15 +253,15 @@ class ConfigurationSet:
         with open(f'{self.name}.xyz', 'w') as exyz_file:
             for config in self._list:
                 # Print either the ground truth or predicted values
-                config.print(exyz_file, true_values=true_values)
+                config.print(exyz_file, true_values, predicted_values)
 
         return None
 
     def save_true(self, override=True):
-        return self._save(true_values=True, override=override)
+        return self.save(true_values=True, override=override)
 
     def save_predicted(self, override=True):
-        return self._save(true_values=False, override=override)
+        return self.save(true_values=False, override=override)
 
     def _run_parallel_est(self, method):
         """Run a set of electronic structure calculations on this set
@@ -235,24 +270,30 @@ class ConfigurationSet:
         logger.info(f'Running calculations over {len(self)} configurations\n'
                     f'Using {GTConfig.n_cores} total cores')
 
+        # Set OMP threads here as well??
+        os.environ['OMP_NUM_THREADS'] = str(1)
+        os.environ['MLK_NUM_THREADS'] = str(1)
+
         start_time = time()
         results = []
 
         with Pool(processes=GTConfig.n_cores) as pool:
             # Apply the method to each configuration in this set
             for i, config in enumerate(self._list):
-                result = pool.apply_async(func=method,
-                                          args=(config, 1))
+                result = pool.apply_async(func=method, args=(config,))
+                results.append(result)
 
-                # Reset all the configurations in this set with updated energy
-                # and forces (each with .true)
+            # Reset all the configurations in this set with updated energy
+            # and forces (each with .true)
+            for i, result in enumerate(results):
                 self._list[i] = result.get(timeout=None)
 
         logger.info(f'Calculations done in {(time() - start_time)/60:.1f} m')
         return None
 
     def async_gpaw(self):
-        raise NotImplementedError
+        from gaptrain.calculators import run_gpaw
+        return self._run_parallel_est(method=run_gpaw)
 
     def async_gap(self):
         raise NotImplementedError
@@ -262,7 +303,7 @@ class ConfigurationSet:
         from gaptrain.calculators import run_dftb
         return self._run_parallel_est(method=run_dftb)
 
-    def __init__(self, *args, name='configs'):
+    def __init__(self, *args, name='data'):
         """Set of configurations
 
         :param args: (gaptrain.configurations.Configuration)

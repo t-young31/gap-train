@@ -29,3 +29,6 @@ class GTConfig:
                                'n_sparse': 100,
                                'order': 6,
                                'delta': 0.01}
+
+    # ----------------------- GPAW -------------------------------
+    gpaw_setup_path = '/u/fd/ball4935/opt/anaconda3/envs/gpaw/share/gpaw-setups-0.9.20000'
