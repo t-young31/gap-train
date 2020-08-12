@@ -293,8 +293,9 @@ class ConfigurationSet:
         # Add all of the configurations to the extended xyz file
         for config in self._list:
             # Print either the ground truth or predicted values
-            config.save(f'{self.name}.xyz', true_values, predicted_values,
-                        append=True)
+            config.save(f'{self.name}.xyz', append=True,
+                        true_values=true_values,
+                        predicted_values=predicted_values)
 
         return None
 
@@ -304,7 +305,7 @@ class ConfigurationSet:
     def save_predicted(self, override=True):
         return self.save(true_values=False, override=override)
 
-    def _run_parallel_est(self, method):
+    def _run_parallel_est(self, method, max_force):
         """Run a set of electronic structure calculations on this set
         in parallel
         """
@@ -318,7 +319,8 @@ class ConfigurationSet:
 
             # Apply the method to each configuration in this set
             for i, config in enumerate(self._list):
-                result = pool.apply_async(func=method, args=(config,))
+                result = pool.apply_async(func=method,
+                                          args=(config, max_force))
                 results.append(result)
 
             # Reset all the configurations in this set with updated energy
@@ -329,17 +331,46 @@ class ConfigurationSet:
         logger.info(f'Calculations done in {(time() - start_time)/60:.1f} m')
         return None
 
-    def async_gpaw(self):
+    def async_gpaw(self, max_force=None):
         from gaptrain.calculators import run_gpaw
-        return self._run_parallel_est(method=run_gpaw)
+        return self._run_parallel_est(method=run_gpaw, max_force=max_force)
 
-    def async_gap(self):
+    def async_gap(self, max_force=None):
         raise NotImplementedError
 
-    def async_dftb(self):
+    def async_dftb(self, max_force=None):
         """Run periodic DFTB+ on these configurations"""
         from gaptrain.calculators import run_dftb
-        return self._run_parallel_est(method=run_dftb)
+        return self._run_parallel_est(method=run_dftb, max_force=max_force)
+
+    def remove_first(self, n):
+        """
+        Remove the first n configurations
+
+        :param n: (int)
+        """
+        self._list = self._list[n:]
+        return None
+
+    def remove_random(self, n=None, remainder=None):
+        """Randomly remove some configurations
+
+        :param n: (int) Number of configurations to remove
+        :param remainder: (int) Number of configurations left in these data
+        """
+        # Number to choose is the total minus the number to remove
+        if n is not None:
+            remainder = len(self) - int(n)
+
+        elif remainder is not None:
+            remainder = int(remainder)
+
+        else:
+            logger.warning('No configurations to remove')
+            return None
+
+        self._list = np.random.choice(self._list, size=remainder)
+        return None
 
     def __init__(self, *args, name='data'):
         """Set of configurations

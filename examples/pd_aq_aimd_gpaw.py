@@ -12,7 +12,7 @@ data = Data(name='AIMD_validation_GPAW')
 
 # Load the AIMD trajectory with 7858 frames that are saved every 5, using
 # a 0.5 fs timestep from a relaxed but not equilibrated NVT simulation
-data.load(pd_h2o, filename='PD_WATER-pos-1.xyz')
+data.load(filename='PD_WATER-pos-1.xyz', system=pd_h2o)
 
 # Remove the first 5 ps for equilibration then leave only 100 based on
 # a random selection

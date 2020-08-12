@@ -44,6 +44,10 @@ class Forces:
 
         return None
 
+    def true_magnitudes(self):
+        """Get a numpy array true magnitudes of the vectors"""
+        return np.array([np.linalg.norm(force.true) for force in self._list])
+
     def set_true(self, forces):
         """Set the true forces on this system from a numpy array"""
         return self._set(forces, true_values=True)

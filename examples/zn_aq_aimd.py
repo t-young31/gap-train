@@ -9,13 +9,11 @@ zn_h2o = System(Ion('Zn', charge=2),
 zn_h2o.add_molecules(h2o, n=52)
 
 # Generate a random configuration and minimise
-configuration = zn_h2o.random(on_grid=True,
-                              min_dist_threshold=1.2)
-configuration.save(filename='tmp.xyz')
-configuration.run_dftb(max_force=10)
+conf = zn_h2o.random(on_grid=True, min_dist_threshold=1.2)
+conf.run_dftb(max_force=10)
 
 # Generate a trajectory from a 10ps MD simulation
-trajectory = run_dftbmd(configuration,
+trajectory = run_dftbmd(conf,
                         ps=20,
                         dt=0.5,
                         temp=300,

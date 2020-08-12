@@ -54,6 +54,7 @@ def run_gap(configuration, max_force):
     raise NotImplementedError
 
 
+@work_in_tmp_dir()
 def run_dftb(configuration, max_force):
     """Run periodic DFTB+ on this configuration"""
 
