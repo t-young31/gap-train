@@ -22,7 +22,7 @@ data.remove_first(n=n_frames)
 data.remove_random(remainder=100)
 
 # Run GPAW on all the data
-data.async_gpaw()
+data.parallel_gpaw()
 
 # Save the ground truth DFTB+ coordinates, energy and forces
 data.save_true()

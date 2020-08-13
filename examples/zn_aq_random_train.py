@@ -1,14 +1,15 @@
 from gaptrain import *
+from gaptrain.loss import RMSE
 import matplotlib.pyplot as plt
-
+GTConfig.n_cores = 1
 
 zn_h2o = System(Ion('Zn', charge=2),
                 box_size=[12, 12, 12])
 zn_h2o.add_molecules(Molecule(xyz_filename='h2o.xyz'), n=52)
 
 # Load the validation data
-validation_data = Data(name='Zn_DFTBMD_data')
-validation_data.load(system=zn_h2o)
+validation = Data(name='Zn_DFTBMD_data')
+validation.load(system=zn_h2o)
 
 # Check the energy and force range of the data
 # validation_data.histogram()
@@ -27,12 +28,17 @@ for i in range(10):
         configs += config
 
     # Compute energies and forces and add to the training data
-    configs.async_dftb()
-    training_data += configs
+    # configs.parallel_dftb()
+    # training_data += configs
+    training_data.load(system=zn_h2o)
 
     # Train the GAP
-    gap.train(training_data)
-    gap.predict(validation_data)
+    # gap.train(training_data)
+    predictions = gap.predict(validation)
 
-    rmses.append((validation_data.energy_rmse(),
-                  validation_data.force_rmse()))
+    rmses.append(RMSE(validation, predictions))
+    print(rmses[-1])
+    exit()
+
+
+plt.plot()

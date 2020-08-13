@@ -29,7 +29,7 @@ validation_data += trajectory
 
 # Select 100 random points from the trajectory
 validation_data.remove_random(remainder=100)
-validation_data.async_dftb()
+validation_data.parallel_dftb()
 
 # Save the ground truth DFTB+ energy and forces
-validation_data.save_true()
+validation_data.save()

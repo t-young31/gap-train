@@ -1,4 +1,3 @@
-from gaptrain.ef import Energy, Forces
 from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
 import gaptrain.exceptions as ex
@@ -69,8 +68,7 @@ class Configuration:
         if atoms is not None:
             self.atoms = atoms
 
-        # Reset the forces to None
-        self.forces = Forces(n_atoms=len(self.atoms))
+        self.forces = None
         return None
 
     def run_dftb(self, max_force=None):
@@ -99,31 +97,21 @@ class Configuration:
         os.environ['MLK_NUM_THREADS'] = str(GTConfig.n_cores)
         return run_gpaw(self, max_force)
 
-    def save(self, filename, append=False, true_values=False,
-             predicted_values=False):
+    def save(self, filename, append=False):
         """Print this configuration as an extended xyz file
 
         -----------------------------------------------------------------------
         :param filename: (str)
 
         :param append: (bool) Append to the end of this exyz file
-
-        :param true_values: (bool) Print the ground truth energy and forces
-
-        :param predicted_values: (bool) Print the ML predicted values
         """
-        energy = self.energy.true if true_values else self.energy.predicted
-
-        if energy is None:
-            logger.warning('Printing configuration with no energy')
-            energy = 0.0
-
         a, b, c = self.box.size
-        if true_values:
-            forces = self.forces.true()
 
-        if predicted_values:
-            forces = self.forces.predicted()
+        # Energy needs to be formattable
+        energy = self.energy if self.energy is not None else 0.0
+
+        if energy == 0.0:
+            logger.warning('Printing configuration with no energy')
 
         with open(filename, 'a' if append else 'w') as exyz_file:
             print(f'{len(self.atoms)}\n'
@@ -138,8 +126,8 @@ class Configuration:
                 x, y, z = atom.coord
                 line = f'{atom.label} {x:.5f} {y:.5f} {z:.5f} '
 
-                if true_values or predicted_values:
-                    fx, fy, fz = forces[i]
+                if self.forces is not None:
+                    fx, fy, fz = self.forces[i]
                     line += f'{fx:.5f} {fy:.5f} {fz:.5f}'
 
                 print(line, file=exyz_file)
@@ -167,8 +155,8 @@ class Configuration:
             for molecule in system.molecules:
                 self.atoms += molecule.atoms
 
-        self.forces = Forces(n_atoms=len(self.atoms))
-        self.energy = Energy()
+        self.forces = None                                  # eV Å-1
+        self.energy = None                                  # eV
 
         self.box = system.box if system is not None else box
         self.charge = system.charge() if system is not None else charge
@@ -211,6 +199,7 @@ class ConfigurationSet:
         a system to be able to assign a charge, multiplicity and box size.
         Will set the *true* values
 
+        ----------------------------------------------------------------------
         :param system: (gaptrain.systems.System)
 
         :param filename: (str) Filename to load configurations from if
@@ -227,8 +216,9 @@ class ConfigurationSet:
         if not os.path.exists(filename):
             raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
 
-        if system is None:
-            assert all((box, charge, mult))
+        if system is None and not all((box, charge, mult)):
+            raise ex.LoadingFailed('Configurations must be loaded with either'
+                                   'a system or box, charge & multiplicity')
 
         lines = open(filename, 'r').readlines()
 
@@ -269,17 +259,18 @@ class ConfigurationSet:
             configuration = Configuration(system, box, charge, mult)
             configuration.set_atoms(atoms=atoms)
 
-            configuration.energy.true = energy
-            # Set the true forces if there are some
+            configuration.energy = energy
+
+            # Set the  forces if there are some
             if len(forces) > 0:
-                configuration.forces.set_true(forces=np.array(forces))
+                configuration.forces = np.array(forces)
 
             configuration.wrap()
             self._list.append(configuration)
 
         return None
 
-    def save(self, true_values=False, predicted_values=False, override=True):
+    def save(self, override=True):
         """Save an extended xyz file for this set of configurations"""
 
         # Ensure the name is unique
@@ -293,21 +284,20 @@ class ConfigurationSet:
         # Add all of the configurations to the extended xyz file
         for config in self._list:
             # Print either the ground truth or predicted values
-            config.save(f'{self.name}.xyz', append=True,
-                        true_values=true_values,
-                        predicted_values=predicted_values)
+            config.save(f'{self.name}.xyz', append=True)
 
         return None
 
-    def save_true(self, override=True):
-        return self.save(true_values=True, override=override)
-
-    def save_predicted(self, override=True):
-        return self.save(true_values=False, override=override)
-
-    def _run_parallel_est(self, method, max_force):
+    def _run_parallel_method(self, method, max_force, **kwargs):
         """Run a set of electronic structure calculations on this set
         in parallel
+
+        :param method: (function) A method to calculate energy and forces
+                       on a configuration
+
+        :param max_force: (float) Maximum force on an atom within a
+                          configuration. If None then only a single point
+                          energy evaluation is performed
         """
         logger.info(f'Running calculations over {len(self)} configurations\n'
                     f'Using {GTConfig.n_cores} total cores')
@@ -320,7 +310,8 @@ class ConfigurationSet:
             # Apply the method to each configuration in this set
             for i, config in enumerate(self._list):
                 result = pool.apply_async(func=method,
-                                          args=(config, max_force))
+                                          args=(config, max_force),
+                                          kwds=kwargs)
                 results.append(result)
 
             # Reset all the configurations in this set with updated energy
@@ -331,17 +322,20 @@ class ConfigurationSet:
         logger.info(f'Calculations done in {(time() - start_time)/60:.1f} m')
         return None
 
-    def async_gpaw(self, max_force=None):
+    def parallel_gpaw(self, max_force=None):
         from gaptrain.calculators import run_gpaw
-        return self._run_parallel_est(method=run_gpaw, max_force=max_force)
+        return self._run_parallel_method(run_gpaw, max_force=max_force)
 
-    def async_gap(self, max_force=None):
-        raise NotImplementedError
+    def parallel_gap(self, gap, max_force=None):
+        """Run single point or optimisation up to a F threshold using a GAP"""
+        from gaptrain.calculators import run_gap
+        return self._run_parallel_method(run_gap, max_force=max_force,
+                                         gap=gap)
 
-    def async_dftb(self, max_force=None):
+    def parallel_dftb(self, max_force=None):
         """Run periodic DFTB+ on these configurations"""
         from gaptrain.calculators import run_dftb
-        return self._run_parallel_est(method=run_dftb, max_force=max_force)
+        return self._run_parallel_method(run_dftb, max_force=max_force)
 
     def remove_first(self, n):
         """

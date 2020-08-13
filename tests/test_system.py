@@ -40,7 +40,7 @@ def test_system():
     assert len(system) == 13
 
     # Should be able to print an xyz file of the configuration
-    system.configuration().print_xyz_file(filename='test.xyz')
+    system.configuration().save(filename='test.xyz')
     assert os.path.exists('test.xyz')
     os.remove('test.xyz')
 
@@ -52,7 +52,7 @@ def test_random_positions():
     system.add_molecules(methane, n=20)
 
     config = system.random()
-    config.print_xyz_file(filename='test_random.xyz')
+    config.save(filename='test_random.xyz')
 
     # Minimum pairwise distance should be ~ the C-H distance (1.109 Å)
     atoms = xyz_file_to_atoms('test_random.xyz')
@@ -72,7 +72,7 @@ def test_random_grid_positions():
     system.add_molecules(methane, n=5)
 
     config = system.random(grid=True)
-    config.print_xyz_file(filename='test_random.xyz')
+    config.save(filename='test_random.xyz')
 
     # Minimum pairwise distance should be ~ the C-H distance (1.109 Å)
     atoms = xyz_file_to_atoms('test_random.xyz')

@@ -38,7 +38,7 @@ def test_gap_train():
     system = System(box_size=[10, 10, 10])
 
     training_data = Data(name='test')
-    training_data.load(system,
+    training_data.load(system=system,
                        filename=os.path.join(here, 'data', 'rnd_training.xyz'))
 
     assert len(training_data) == 10

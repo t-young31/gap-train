@@ -31,6 +31,10 @@ class GTConfig:
     gap_fit_command = ['singularity', 'exec',
                        '/u/fd/ball4935/opt/QUIP.sif', 'teach_sparse']
 
+    quippy_gap_command = ['singularity', 'exec',
+                          '/u/fd/ball4935/opt/QUIP.sif',
+                          '/usr/local/bin/python']
+
     # Default parameters for a GAP potential
     gap_default_params = {'sigma_E': 10**(-2.5),        # eV
                           'sigma_F': 10**(-1)}          # eV Å-1

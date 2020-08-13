@@ -85,7 +85,7 @@ class GAP:
 
         :param plot_force: (bool) Plot a force correlation
         """
-        data.run_gap(self)
+        data.parallel_gap(self)
         raise NotImplementedError
 
     def train(self, data):
@@ -100,7 +100,7 @@ class GAP:
         start_time = time()
 
         self.training_data = data
-        self.training_data.save_true()
+        self.training_data.save()
 
         # Run the training using a specified number of total cores
         os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)

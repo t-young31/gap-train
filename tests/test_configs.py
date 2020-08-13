@@ -22,23 +22,39 @@ def test_print_exyz():
     for _ in range(5):
         configs += system.random()
 
-    # Should not be able to save ground truth without calculating
-    # energies or forces
-    with pytest.raises(NoEnergy):
-        configs.save_true()
-
+    configs.save()
+    assert os.path.exists('test.xyz')
     os.remove('test.xyz')
 
     # If the energy and forces are set for all the configurations an exyz
     # should be able to be printed
     for config in configs:
-        config.energy.true = 1.0
-        for i in range(9):
-            config.forces[i].true = np.zeros(3)
+        config.energy = 1.0
+        config.forces = np.zeros(shape=(9, 3))
 
-    configs.save_true()
+    configs.save()
 
     assert os.path.exists('test.xyz')
+    for line in open('test.xyz', 'r'):
+
+        items = line.split()
+        # Number of atoms in the configuration
+        if len(items) == 1:
+            assert int(items[0]) == 9
+
+        if len(items) == 7:
+            atomic_symbol, x, y, z, fx, fy, fz = items
+
+            # Atomic symbols should be letters
+            assert all(letter.isalpha() for letter in atomic_symbol)
+
+            # Positions should be float-able and inside the box
+            for component in (x, y, z):
+                assert 0.0 < float(component) < side_length
+
+            # Forces should be ~0, as they were set above
+            assert all(-1E-6 < float(fk) < 1E-6 for fk in (fx, fy, fz))
+
     os.remove('test.xyz')
 
 
@@ -79,10 +95,9 @@ def test_dftb_plus():
         return
 
     config.run_dftb()
-    assert config.energy.true is not None
-    assert config.energy.predicted is None
+    assert config.energy is not None
 
-    forces = config.forces.true()
+    forces = config.forces
     assert type(forces) is np.ndarray
     assert forces.shape == (30, 3)
 
