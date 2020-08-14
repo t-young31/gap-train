@@ -177,7 +177,7 @@ class System:
         System containing a set of molecules.
 
         e.g. pd_1water = (Pd, water, box_size=[10, 10, 10], charge=2)
-        for a system containing a Pd(II) ion and one water in a 10 Å^3 box
+        for a system containing a Pd(II) ion and one water in a 1 nm^3 box
 
         ----------------------------------------------------------------------
         :param args: (gaptrain.molecules.Molecule) Molecules that comprise

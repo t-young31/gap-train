@@ -71,6 +71,19 @@ def test_wrap():
     config.wrap()
     assert np.max(config.coordinates()) < 7.0
 
+    # An atom several box lengths outside the box should still be able to be
+    # wrapped into the box
+    for atom in config.atoms[:3]:
+        atom.translate(vec=np.array([30.0, 0, 0]))
+
+    config.wrap()
+    assert np.max(config.coordinates()) < 7.0
+
+    # With a coordinate at infinity then the function should not overflow
+    config.atoms[0].translate(vec=np.array([np.inf, 0, 0]))
+    config.wrap()
+    assert config.atoms[0].coord[0] == np.inf
+
 
 def test_ase_atoms():
 
@@ -103,3 +116,22 @@ def test_dftb_plus():
 
     # Should all be non-zero length force vectors in ev Å^-1
     assert all(0 < np.linalg.norm(force) < 70 for force in forces)
+
+
+def test_remove():
+
+    configs = ConfigurationSet()
+    for _ in range(10):
+        configs += Configuration()
+
+    configs[0].energy = 1
+
+    # Removing the
+    configs.remove_first(n=1)
+    assert configs[0].energy is None
+
+    configs.remove_random(n=2)
+    assert len(configs) == 7
+
+    configs.remove_random(remainder=2)
+    assert len(configs) == 2

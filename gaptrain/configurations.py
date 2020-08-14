@@ -30,7 +30,6 @@ class Configuration:
     def wrap(self, max_wraps=100):
         """Wrap all the atoms into the box"""
         logger.info('Wrapping all atoms back into the box')
-        wrap_n = 0
 
         if self.all_atoms_in_box():
             logger.info('All atoms in the box - nothing to be done')
@@ -49,15 +48,15 @@ class Configuration:
 
         while not self.all_atoms_in_box():
             logger.info('All atoms are still not in the box')
-            wrap_n += 1
+            self.n_wraps += 1
 
             # Prevent an overflow in the recursive call by setting a threshold
-            if wrap_n > max_wraps:
-                logger.error('Could not wrap the atoms back into the box')
+            if self.n_wraps > max_wraps:
                 return None
 
             return self.wrap()
 
+        # Reset the number of wraps performed on this configuration(?)
         return None
 
     def set_atoms(self, xyz_filename=None, atoms=None):
@@ -161,6 +160,8 @@ class Configuration:
         self.box = system.box if system is not None else box
         self.charge = system.charge() if system is not None else charge
         self.mult = system.mult() if system is not None else mult
+
+        self.n_wraps = 0
 
 
 class ConfigurationSet:

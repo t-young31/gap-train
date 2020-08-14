@@ -55,10 +55,14 @@ def run_gpaw(configuration, max_force):
 @work_in_tmp_dir()
 def run_gap(configuration, max_force, gap):
     """
-    Run a GAP calculation using quippy as the driver
+    Run a GAP calculation using quippy as the driver which is a wrapper around
+    the F90 QUIP code used to evaluate forces and energies using a GAP
 
+    --------------------------------------------------------------------------
     :param configuration: (gaptrain.configurations.Configuration)
+
     :param max_force: (float) or None
+
     :param gap: (gaptrain.gap.GAP)
     :return:
     """
@@ -73,12 +77,12 @@ def run_gap(configuration, max_force, gap):
               'from ase.io import read, write',
               'from ase.optimize import BFGS',
               'from ase.io.trajectory import Trajectory',
-              f'system = read(\'config.xyz\')',
+              f'system = read("config.xyz")',
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              f'pot = quippy.Potential(\'IP GAP\', \n'
-              f'                      param_filename=\'{gap.name}.xml\')',
+              f'pot = quippy.Potential("IP GAP", \n'
+              f'                      param_filename="{gap.name}.xml")',
               'system.set_calculator(pot)',
               'print("energy=" system.get_potential_energy())',
               'np.savetxt("forces.txt", system.get_forces())',

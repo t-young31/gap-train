@@ -1,5 +1,6 @@
 from gaptrain.configurations import ConfigurationSet
 from gaptrain.log import logger
+import gaptrain.exceptions as ex
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -13,7 +14,11 @@ class Data(ConfigurationSet):
         fig, (ax_e, ax_f) = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
 
         # Total energy histogram
-        energies = [config.energy.true for config in self._list]
+        energies = [config.energy for config in self._list]
+
+        if any(energy is None for energy in energies):
+            raise ex.NoEnergy('Cannot histogram data - some energies = None')
+
         ax_e.hist(energies, bins=np.linspace(min(energies), max(energies), 30),
                   alpha=0.5,
                   edgecolor='black',
@@ -24,8 +29,12 @@ class Data(ConfigurationSet):
         ax_e.set_xlabel('Energy / eV')
 
         # Force magnitude histogram
-        force_magnitudes = tuple(c.forces.true_magnitudes() for c in self._list)
-        all_mod_f = np.concatenate(force_magnitudes)
+        all_mod_f = []
+
+        for config in self._list:
+            force_magnitudes = np.linalg.norm(config.forces, axis=0)
+            all_mod_f += force_magnitudes.tolist()
+
         ax_f.hist(all_mod_f,
                   bins=np.linspace(min(all_mod_f), max(all_mod_f), 100),
                   color='orange',
