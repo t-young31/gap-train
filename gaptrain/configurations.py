@@ -4,6 +4,7 @@ import gaptrain.exceptions as ex
 from autode.input_output import xyz_file_to_atoms
 from autode.atoms import Atom
 from multiprocessing import Pool
+from copy import deepcopy
 from time import time
 import numpy as np
 import os
@@ -81,8 +82,12 @@ class Configuration:
         os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
         return run_dftb(self, max_force)
 
-    def run_gap(self, max_force=None):
-        raise NotImplementedError
+    def run_gap(self, gap, max_force=None):
+        """Run GAP to predict energy and forces"""
+        from gaptrain.calculators import run_gap
+        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+
+        return run_gap(self, max_force=max_force, gap=gap)
 
     def run_gpaw(self, max_force=None):
         """Run a GPAW DFT calculation, either a minimisation or optimisation
@@ -192,6 +197,9 @@ class ConfigurationSet:
                                f' ConfigurationSet, not {type(other)}')
 
         return self
+
+    def copy(self):
+        return deepcopy(self)
 
     def load(self, filename=None, system=None,
              box=None, charge=None, mult=None):

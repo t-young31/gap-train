@@ -1,5 +1,6 @@
 from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
+from gaptrain.plotting import correlation
 from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations
@@ -85,8 +86,22 @@ class GAP:
 
         :param plot_force: (bool) Plot a force correlation
         """
-        data.parallel_gap(self)
-        raise NotImplementedError
+
+        # Run GAP in parallel to predict energies and forces
+        predictions = data.copy()
+        predictions.name += '_pred'
+
+        predictions.parallel_gap(self)
+
+        # Plot the correlation for energies and forces
+        correlation(data.energies() if plot_energy else None,
+                    predictions.energies() if plot_energy else None,
+                    data.force_magnitudes() if plot_force else None,
+                    predictions.force_magnitudes() if plot_force else None,
+                    name=self.name)
+
+        predictions.save(override=True)
+        return predictions
 
     def train(self, data):
         """

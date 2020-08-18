@@ -1,7 +1,7 @@
 from gaptrain import *
 from gaptrain.loss import RMSE
 import matplotlib.pyplot as plt
-GTConfig.n_cores = 1
+GTConfig.n_cores = 8
 
 zn_h2o = System(Ion('Zn', charge=2),
                 box_size=[12, 12, 12])
@@ -28,17 +28,16 @@ for i in range(10):
         configs += config
 
     # Compute energies and forces and add to the training data
-    # configs.parallel_dftb()
-    # training_data += configs
-    training_data.load(system=zn_h2o)
+    configs.parallel_dftb()
+    training_data += configs
 
     # Train the GAP
-    # gap.train(training_data)
+    gap.train(training_data)
     predictions = gap.predict(validation)
 
     rmses.append(RMSE(validation, predictions))
     print(rmses[-1])
-    exit()
 
-
-plt.plot()
+# Plot the learning curve..
+plt.plot(list(range(len(rmses))),
+         [rmse.energy for rmse in rmses])

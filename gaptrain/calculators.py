@@ -5,6 +5,7 @@ from gaptrain.exceptions import MethodFailed
 from gaptrain.gtconfig import GTConfig
 from ase.optimize import BFGS
 from subprocess import Popen, PIPE
+import os
 
 
 class DFTB(Dftb):
@@ -84,7 +85,8 @@ def run_gap(configuration, max_force, gap):
               f'pot = quippy.Potential("IP GAP", \n'
               f'                      param_filename="{gap.name}.xml")',
               'system.set_calculator(pot)',
-              'print("energy=" system.get_potential_energy())',
+              'np.savetxt("energy.txt",\n'
+              '           np.array([system.get_potential_energy()]))',
               'np.savetxt("forces.txt", system.get_forces())',
               sep='\n', file=quippy_script)
 
@@ -103,17 +105,17 @@ def run_gap(configuration, max_force, gap):
     # Run the process
     subprocess = Popen(GTConfig.quippy_gap_command + ['gap.py'],
                        shell=False, stdout=PIPE, stderr=PIPE)
-    out, err = subprocess.communicate()
+    subprocess.wait()
 
-    # Grab the energy from the output
-    for line in out:
-        if b'energy' in line:
-            configuration.energy = float(line.decode().split()[-1])
+    # Grab the energy from the output after unsetting it
+    configuration.energy = np.loadtxt('energy.txt')
+    os.remove('energy.txt')
 
     # Grab the final forces from the numpy array
     configuration.forces = np.loadtxt('forces.txt')
+    os.remove('forces.txt')
 
-    return None
+    return configuration
 
 
 @work_in_tmp_dir()
