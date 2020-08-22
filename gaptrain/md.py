@@ -38,7 +38,23 @@ def run_mmmd(mmsystem, *kwargs):
 
 
 def run_dftbmd(configuration, temp, dt, interval, **kwargs):
-    """Run ab-initio molecular dynamics on a system"""
+    """
+    Run ab-initio molecular dynamics on a system. To run a 10 ps simulation
+    with a timestep of 0.5 ps saving every 10th step at 300K
+
+    run_dftbmd(config, temp=300, dt=0.5, interval=10, ps=10)
+
+    ---------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param temp: (float) Temperature in K to use
+
+    :param dt: (float) Timestep in fs
+
+    :param interval: (int) Interval between prrining the geometry
+
+    :param kwargs: {fs, ps, ns} Simulation time in some units
+    """
     ase_atoms = configuration.ase_atoms()
 
     dftb = DFTB(atoms=ase_atoms,

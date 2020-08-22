@@ -8,12 +8,14 @@ class Loss:
                 f'force  = {self.force:.4f} eV Å-1')
 
     def function(self, deltas):
+        """Function that transforms [∆v1, ∆v2, ..] into a float e.g. MSE"""
         raise NotImplementedError
 
     def loss(self, cfs_a, cfs_b, attr):
         """
         Compute the root mean squared loss between two sets of configurations
 
+        -----------------------------------------------------------------------
         :param cfs_a: (gaptrain.configurations.ConfigurationSet)
 
         :param cfs_b: (gaptrain.configurations.ConfigurationSet)
@@ -33,6 +35,9 @@ class Loss:
         """
         A loss on energies (eV) and forces (eV Å-1). Force loss is computed
         element-wise
+
+        :param cfs_a: (gaptrain.configurations.ConfigurationSet)
+        :param cfs_b: (gaptrain.configurations.ConfigurationSet)
         """
         self.energy = self.loss(cfs_a, cfs_b, attr='energy')
         self.force = self.loss(cfs_a, cfs_b, attr='forces')

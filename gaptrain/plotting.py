@@ -59,7 +59,6 @@ def correlation(true_energies=None,
     :param true_forces: (list(float))
     :param predicted_forces: (list(float))
     :param name: (str) or None
-    :return:
     """
     if true_energies is not None:
         assert predicted_energies is not None

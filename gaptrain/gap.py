@@ -66,7 +66,7 @@ class GAP:
         # Remove the final unnecessary colon
         params = params.rstrip(': ')
 
-        # Reference energy and forces labels  and don't separate xml files
+        # Reference energy and forces labels and don't separate xml files
         params += ('} energy_parameter_name=dft_energy '
                    'force_parameter_name=dft_forces '
                    'sparse_separate_file=F')
@@ -119,6 +119,7 @@ class GAP:
 
         # Run the training using a specified number of total cores
         os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+
         p = Popen(GTConfig.gap_fit_command + self.train_command(),
                   shell=False, stdout=PIPE, stderr=PIPE)
         out, err = p.communicate()

@@ -21,15 +21,29 @@ class Configuration:
                      cell=self.box.size)
 
     def all_atoms_in_box(self):
-        """Are all the atoms in the box? """
+        """Are all the atoms in the box?
+
+        :return: (bool)
+        """
         coords = self.coordinates()
-        return np.max(coords) < max(self.box.size) and np.min(coords) > 0.0
+        max_xyz = np.max(coords, axis=0)
+        # The maximum x, y, z values nee dto be smaller than the box and all >0
+        return max(max_xyz - self.box.size) < 0 and np.min(coords) > 0.0
 
     def coordinates(self):
+        """
+        Atomic positions for this configuration
+
+        :return: (np.ndarray) matrix of coordinates shape = (n, 3)
+        """
         return np.array([atom.coord for atom in self.atoms])
 
     def wrap(self, max_wraps=100):
-        """Wrap all the atoms into the box"""
+        """
+        Wrap all the atoms into the box
+
+        :param max_wraps: (int) Maximum number of recursive calls
+        """
         logger.info('Wrapping all atoms back into the box')
 
         if self.all_atoms_in_box():
@@ -61,7 +75,12 @@ class Configuration:
         return None
 
     def set_atoms(self, xyz_filename=None, atoms=None):
-        """Set the coordinates """
+        """
+        Set self.atoms from either an xyz file or a list of atoms
+
+        :param xyz_filename: (str)
+        :param atoms: (list(autode.atoms.Atom))
+        """
         if xyz_filename is not None:
             self.atoms = xyz_file_to_atoms(xyz_filename)
 
@@ -72,7 +91,8 @@ class Configuration:
         return None
 
     def run_dftb(self, max_force=None):
-        """Run a DFTB+ calculation, either a minimisation or optimisation
+        """
+        Run a DFTB+ calculation, either a minimisation or optimisation
 
         :param max_force: (float) Maximum force in eV Å-1. If None then a
                           single point energy and force evaluation is performed
@@ -102,12 +122,16 @@ class Configuration:
         return run_gpaw(self, max_force)
 
     def save(self, filename, append=False):
-        """Print this configuration as an extended xyz file
+        """
+        Print this configuration as an extended xyz file where the first 4
+        columns are the atom symbol, x, y, z and, if this configuration
+        contains forces then add the x, y, z components of the force on as
+        columns 4-7.
 
         -----------------------------------------------------------------------
         :param filename: (str)
 
-        :param append: (bool) Append to the end of this exyz file
+        :param append: (bool) Append to the end of this exyz file?
         """
         a, b, c = self.box.size
 
@@ -332,6 +356,7 @@ class ConfigurationSet:
         return None
 
     def parallel_gpaw(self, max_force=None):
+        """Run single point or optimisation up to a F threshold using GPAW"""
         from gaptrain.calculators import run_gpaw
         return self._run_parallel_method(run_gpaw, max_force=max_force)
 

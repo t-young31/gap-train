@@ -1,6 +1,4 @@
 import logging
-import coloredlogs
-
 import os
 
 try:
@@ -16,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Try and use colourful logs
 try:
+    import coloredlogs
     coloredlogs.install(level=getattr(logging, ll), logger=logger)
 except ImportError:
     pass

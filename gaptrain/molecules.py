@@ -40,7 +40,11 @@ class Species(ade.species.Species):
         return np.min(cdist(coords, self.get_coordinates()))
 
     def centroid(self):
-        """Get the centroid of this molecule"""
+        """
+        Get the centroid of this molecule
+
+        :return: (np.ndarray) shape = (3,)
+        """
         return np.average(self.get_coordinates(), axis=0)
 
     def calculate_radius(self, with_vdw=False):
@@ -50,6 +54,8 @@ class Species(ade.species.Species):
 
         :param with_vdw: (bool) Add the van der Walls radius to the two
                          most distant atoms
+
+        :return: (float) Radius in Å
         """
         if with_vdw:
             raise NotImplementedError

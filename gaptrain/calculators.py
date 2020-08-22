@@ -30,7 +30,15 @@ class DFTB(Dftb):
 
 @work_in_tmp_dir()
 def run_gpaw(configuration, max_force):
-    """Run a periodic DFT calculation using GPAW"""
+    """Run a periodic DFT calculation using GPAW. Will set configuration.energy
+    and configuration.forces as their DFT calculated values at the 400eV/PBE
+    level of theory
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
     from gpaw import GPAW, PW
 
     ase_atoms = configuration.ase_atoms()
@@ -120,7 +128,14 @@ def run_gap(configuration, max_force, gap):
 
 @work_in_tmp_dir()
 def run_dftb(configuration, max_force):
-    """Run periodic DFTB+ on this configuration"""
+    """Run periodic DFTB+ on this configuration. Will set configuration.energy
+    and configuration.forces as their calculated values at the TB-DFT level
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
 
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
