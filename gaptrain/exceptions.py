@@ -16,3 +16,7 @@ class LoadingFailed(Exception):
 
 class MethodFailed(Exception):
     """Exception for an electronic structure or ML method failure"""
+
+
+class RandomiseFailed(Exception):
+    """Exception for where randomising a configuration is not possible"""

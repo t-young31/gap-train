@@ -1,6 +1,7 @@
 import autode as ade
 from autode.input_output import xyz_file_to_atoms
 from autode.atoms import Atom
+from autode.atoms import get_vdw_radius
 from gaptrain.log import logger
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
@@ -47,27 +48,23 @@ class Species(ade.species.Species):
         """
         return np.average(self.get_coordinates(), axis=0)
 
-    def calculate_radius(self, with_vdw=False):
+    def calculate_radius(self):
         """
         Calculate the radius of this species as half the maximum distance
-        between two atoms
-
-        :param with_vdw: (bool) Add the van der Walls radius to the two
-                         most distant atoms
+        between two atoms plus the van der Walls radius of H if there are >1
+        atoms otherwise
 
         :return: (float) Radius in Å
         """
-        if with_vdw:
-            raise NotImplementedError
-
-        # No radius for a single atom
         if self.n_atoms == 1:
-            return 0.0
+            return get_vdw_radius(atom_label=self.atoms[0].label)
 
         coords = self.get_coordinates()
         max_distance = np.max(distance_matrix(coords, coords))
 
-        return max_distance / 2.0
+        logger.warning('Assuming hydrogen on the exterior in calculating the'
+                       f'radius of {self.name}')
+        return max_distance / 2.0 + get_vdw_radius('H')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -19,5 +19,5 @@ def test_ion():
     assert na.charge == 1
     assert na.mult == 1
 
-    # By default VdW radii are not added to the molecule's size
-    assert na.radius == 0.0
+    # An ion should have a non-zero radius (Å)
+    assert na.radius > 1.0

@@ -1,10 +1,9 @@
-from gaptrain.molecules import Molecule
 from gaptrain.box import Box
-from autode.input_output import atoms_to_xyz_file
 from gaptrain.log import logger
 from gaptrain.configurations import Configuration
+import gaptrain.exceptions as ex
+from autode.species.species import Species
 from copy import deepcopy
-from scipy.spatial.distance import cdist
 import numpy as np
 
 
@@ -41,10 +40,10 @@ class System:
         """Add another list or molecule to the system"""
 
         if type(other) is list or type(other) is tuple:
-            assert all(isinstance(m, Molecule) for m in other)
+            assert all(isinstance(m, Species) for m in other)
             self.molecules += list(other)
 
-        elif isinstance(other, Molecule):
+        elif isinstance(other, Species):
             self.molecules.append(other)
 
         elif isinstance(other, System):
@@ -87,18 +86,22 @@ class System:
         return None
 
     def random(self, min_dist_threshold=1.5, with_intra=False, on_grid=False,
-               **kwargs):
+               max_attempts=10000, **kwargs):
         """Randomise the configuration
 
         -----------------------------------------------------------------------
         :param min_dist_threshold: (float) Minimum distance in Å that a
                                    molecule is permitted to be to another atom
 
-        :param on_grid: (bool)
 
         :param with_intra: (bool) Randomise both the inter (i.e. molecules)
                            and also the intramolecular DOFs (i.e. bond
                            lengths and angles)
+
+        :param on_grid: (bool)
+
+        :param max_attempts: (int) Maximum number of times a molecule can be
+                             placed randomly without raising RandomiseFailed
         """
         logger.info(f'Randomising all {len(self)} molecules in the box')
 
@@ -110,6 +113,14 @@ class System:
         # need to be generated in a smaller sub-box
         sub_box = Box(size=self.box.size - min_dist_threshold)
 
+        def random_translate():
+            """Randomly translate a molecule either on a grid or not"""
+            if on_grid:
+                vec = sub_box.random_grid_point(spacing=molecule.radius)
+                molecule.translate(vec=vec)
+            else:
+                molecule.translate(vec=sub_box.random_point())
+
         for molecule in np.random.permutation(system.molecules):
 
             # Randomly rotate the molecule around the molecules centroid
@@ -117,21 +128,24 @@ class System:
                             theta=np.random.uniform(0.0, 2*np.pi),
                             origin=molecule.centroid())
 
-            molecule.translate(vec=sub_box.random_point())
+            random_translate()
 
-            # Translate to a random position in the box..
+            # Keep track of the number of times that this molecule has been
+            # placed randomly in the box
+            n_attempts = 0
+
+            # Translate to a random position in the box that is also not too
+            # close to any other molecule
             while (not molecule.in_box(sub_box)
                    or molecule.min_distance(coords) < min_dist_threshold):
 
-                # Shift back to the origin
+                # Shift back to the origin then to a random point
                 molecule.translate(vec=-molecule.centroid())
+                random_translate()
+                n_attempts += 1
 
-                if on_grid:
-                    vec = sub_box.random_grid_point(spacing=2*molecule.radius)
-                    molecule.translate(vec=vec)
-
-                else:
-                    molecule.translate(vec=sub_box.random_point())
+                if n_attempts > max_attempts:
+                    raise ex.RandomiseFailed('Maximum attempts exceeded')
 
             # Add the coordinates to the full set
             coords = np.vstack((coords, molecule.get_coordinates()))
@@ -150,6 +164,7 @@ class System:
 
     def add_molecules(self, molecule, n=1):
         """Add a number of the same molecule to the system"""
+        assert isinstance(molecule, Species)
         self.molecules += [deepcopy(molecule) for _ in range(n)]
         return None
 

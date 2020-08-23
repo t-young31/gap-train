@@ -1,4 +1,5 @@
 import numpy as np
+import gaptrain.exceptions as ex
 
 
 class Box:
@@ -8,6 +9,10 @@ class Box:
 
         vector = []
         for length in self.size:
+
+            if length < spacing:
+                raise ex.RandomiseFailed('Not enough space in the box')
+
             value = np.random.choice(np.arange(0, length, spacing))
             vector.append(value)
 
