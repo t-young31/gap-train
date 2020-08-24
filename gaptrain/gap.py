@@ -1,6 +1,7 @@
 from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
 from gaptrain.plotting import correlation
+from gaptrain.exceptions import GAPFailed
 from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations
@@ -128,7 +129,7 @@ class GAP:
         print(f'GAP training ran in {delta_time/60:.1f} m')
 
         if delta_time < 0.5 or b'SYSTEM ABORT' in err:
-            raise Exception(f'GAP train errored with:\n '
+            raise GAPFailed(f'GAP train errored with:\n '
                             f'{err.decode()}\n'
                             f'{" ".join(self.train_command())}')
         return None

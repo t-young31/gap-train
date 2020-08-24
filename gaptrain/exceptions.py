@@ -20,3 +20,11 @@ class MethodFailed(Exception):
 
 class RandomiseFailed(Exception):
     """Exception for where randomising a configuration is not possible"""
+
+
+class PlottingFailed(Exception):
+    """Exception for not being able to plot a set of data"""
+
+
+class GAPFailed(Exception):
+    """Exception for where a GAP cannot be run or energies/forces predicted"""

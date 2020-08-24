@@ -1,41 +1,65 @@
 import matplotlib.pyplot as plt
+from gaptrain.exceptions import PlottingFailed
 from matplotlib.colors import LogNorm
+import matplotlib as mpl
 import numpy as np
 
+mpl.rcParams['axes.labelsize'] = 13
+mpl.rcParams['lines.linewidth'] = 1
+mpl.rcParams['lines.markersize'] = 5
+mpl.rcParams['xtick.labelsize'] = 12
+mpl.rcParams['ytick.labelsize'] = 12
+mpl.rcParams['xtick.direction'] = 'in'
+mpl.rcParams['ytick.direction'] = 'in'
+mpl.rcParams['xtick.top'] = True
+mpl.rcParams['ytick.right'] = True
+mpl.rcParams['axes.linewidth'] = 1
 
-def histogram(energies=None, forces=None, name=None):
+
+def histogram(energies=None, forces=None, name=None, relative_energies=True):
     """
     Plot a histogram of energies, forces or both
 
     :param energies: (list(float))
     :param forces: (list(float))
     :param name: (str) or None
+    ;:param relative_energies: (bool)
     """
     assert energies is not None or forces is not None
     fig, ax = fig_ax(energies, forces)
 
     if energies is not None:
+
+        if len(energies) == 0:
+            raise PlottingFailed('No energies')
+
         ax_e = ax if forces is None else ax[0]
+
+        if relative_energies:
+            energies = np.array(energies) - min(energies)
 
         ax_e.hist(energies,
                   bins=np.linspace(min(energies), max(energies), 30),
                   alpha=0.5,
-                  edgecolor='black',
-                  linewidth=0.2)
+                  edgecolor='darkblue',
+                  linewidth=0.2
+                  )
 
         # Energy histogram formatting
-        ax_e.ticklabel_format(style='sci', scilimits=(0, 0))
         ax_e.set_xlabel('Energy / eV')
         ax_e.set_ylabel('Frequency')
 
     if forces is not None:
+        if len(forces) == 0:
+            raise PlottingFailed('No energies')
+
         ax_f = ax if energies is None else ax[1]
 
         ax_f.hist(forces,
-                  bins=np.linspace(min(forces), max(forces), 100),
+                  bins=np.linspace(min(forces), max(forces), 50),
                   color='orange',
                   alpha=0.5,
-                  edgecolor='black',
+                  edgecolor='darkorange',
                   linewidth=0.2)
 
         # Force histogram formatting
@@ -86,9 +110,8 @@ def correlation(true_energies=None,
         ax_e.set_ylim(*pair)
 
         # Energy plot formatting
-        ax_e.ticklabel_format(style='sci', scilimits=(0, 0))
-        ax_e.set_xlabel('True Energy / eV')
-        ax_e.set_ylabel('Predicted Energy / eV')
+        ax_e.set_xlabel('True Energy / eV', size=12)
+        ax_e.set_ylabel('Predicted Energy / eV', size=12)
 
     if true_forces is not None:
         ax_f = ax if true_energies is None else ax[1]
@@ -116,7 +139,6 @@ def correlation(true_energies=None,
         fig.colorbar(hist[3], ax=ax_f)
 
         # Energy plot formatting
-        ax_f.ticklabel_format(style='sci', scilimits=(0, 0))
         ax_f.set_xlabel('True Force / eV Å$^{-1}$')
         ax_f.set_ylabel('Predicted Force / eV Å$^{-1}$')
 
@@ -125,6 +147,7 @@ def correlation(true_energies=None,
 
 def show_or_save(name):
     """If name is None then show the plot otherwise save it as a .png"""
+    plt.tight_layout()
 
     if name is None:
         plt.show()
@@ -140,11 +163,11 @@ def fig_ax(energies, forces):
     """Get the appropriate axes for a set of energies and forces"""
 
     if energies is not None and forces is not None:
-        size = (14, 7)
+        size = (10, 4.5)
         cols = 2
 
     else:
-        size = (7, 7)
+        size = (4.5, 4.5)
         cols = 1
 
     return plt.subplots(nrows=1, ncols=cols, figsize=size)

@@ -6,6 +6,7 @@ from gaptrain.gap import GAP
 from gaptrain.data import Data
 from gaptrain.gtconfig import GTConfig
 from gaptrain.trajectories import Trajectory
+from gaptrain.loss import RMSE
 
 __all__ = ['System',
            'ConfigurationSet',
@@ -14,4 +15,5 @@ __all__ = ['System',
            'GAP',
            'Data',
            'GTConfig',
-           'Trajectory']
+           'Trajectory',
+           'RMSE']
