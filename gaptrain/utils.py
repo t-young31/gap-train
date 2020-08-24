@@ -19,6 +19,9 @@ def work_in_tmp_dir():
                 if os.path.isdir(item):
                     continue
 
+                if item.startswith('tmp'):
+                    continue
+
                 shutil.copy(item, tmpdir_path)
 
             # Move directories and execute
