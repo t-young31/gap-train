@@ -334,6 +334,8 @@ class ConfigurationSet:
         """
         logger.info(f'Running calculations over {len(self)} configurations\n'
                     f'Using {GTConfig.n_cores} total cores')
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MLK_NUM_THREADS'] = '1'
 
         start_time = time()
         results = []
