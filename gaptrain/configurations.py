@@ -314,6 +314,10 @@ class ConfigurationSet:
 
             self.name = f'{self.name}{n}'
 
+        if override:
+            # Empty the file
+            open(f'{self.name}.xyz', 'w').close()
+
         # Add all of the configurations to the extended xyz file
         for config in self._list:
             # Print either the ground truth or predicted values

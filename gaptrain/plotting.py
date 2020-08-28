@@ -95,7 +95,9 @@ def correlation(true_energies=None,
     if true_energies is not None:
         ax_e = ax if true_forces is None else ax[0]
         # Scatter the true and predicted data
-        ax_e.scatter(true_energies, predicted_energies)
+        ax_e.scatter(true_energies, predicted_energies,
+                     edgecolors='k',
+                     linewidth=0.5)
 
         # Plot a y = x line
         all_energies = [e for energies in (true_energies, predicted_energies)
@@ -113,13 +115,22 @@ def correlation(true_energies=None,
         ax_e.set_xlabel('True Energy / eV', size=12)
         ax_e.set_ylabel('Predicted Energy / eV', size=12)
 
+        for axis in (ax_e.xaxis, ax_e.yaxis):
+            axis.set_ticks([np.round(val, 1)
+                            for val in np.linspace(np.round(min_e, 1),
+                                                   np.round(max_e, 1), 6)])
     if true_forces is not None:
         ax_f = ax if true_energies is None else ax[1]
 
         all_forces = [f for forces in (true_forces, predicted_forces)
                       for f in forces]
 
-        min_f, max_f = min(all_forces), max(all_forces)
+        if any(f < 0 for f in all_forces):
+            max_f = max(all_forces)
+            min_f = -max_f
+
+        else:
+            min_f, max_f = min(all_forces), max(all_forces)
 
         # Histogram the forces in 2D
         hist = ax_f.hist2d(true_forces, predicted_forces,
@@ -136,11 +147,24 @@ def correlation(true_energies=None,
         ax_f.set_xlim(*pair)
         ax_f.set_ylim(*pair)
 
-        fig.colorbar(hist[3], ax=ax_f)
+        cbar = fig.colorbar(hist[3], ax=ax_f)
+        cbar.set_label('Frequency')
 
         # Energy plot formatting
         ax_f.set_xlabel('True Force / eV Å$^{-1}$')
         ax_f.set_ylabel('Predicted Force / eV Å$^{-1}$')
+
+        ticks = np.linspace(np.round(min_f, 1), np.round(max_f, 1), 5)
+
+        # If there are any negative force (components) then ensure 0 is
+        # included in the tick list
+        if any(val < 0 for val in ticks):
+            ticks = ([val for val in ticks if val < 0]
+                     + [0]
+                     + [val for val in ticks if val > 0])
+
+        for axis in (ax_f.xaxis, ax_f.yaxis):
+            axis.set_ticks([np.round(val, 1) for val in ticks])
 
     return show_or_save(name)
 
@@ -163,11 +187,12 @@ def fig_ax(energies, forces):
     """Get the appropriate axes for a set of energies and forces"""
 
     if energies is not None and forces is not None:
-        size = (10, 4.5)
+        size = (11, 4.5)
         cols = 2
 
     else:
         size = (4.5, 4.5)
         cols = 1
 
-    return plt.subplots(nrows=1, ncols=cols, figsize=size)
+    return plt.subplots(nrows=1, ncols=cols, figsize=size,
+                        gridspec_kw={'width_ratios': [1, 1.2]})

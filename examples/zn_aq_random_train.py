@@ -1,6 +1,6 @@
 import gaptrain as gt
 from gaptrain.exceptions import GAPFailed
-gt.GTConfig.n_cores = 12
+gt.GTConfig.n_cores = 8
 
 zn_h2o = gt.System(gt.Ion('Zn', charge=2), box_size=[12, 12, 12])
 zn_h2o.add_molecules(gt.Molecule(xyz_filename='h2o.xyz'), n=52)
@@ -16,7 +16,8 @@ gap = gt.GAP(name='Zn_random_train', system=zn_h2o)
 train_errs, val_errs = [], []
 
 out_file = open('out.txt', 'w')
-print('RMSE(E_train), RMSE(|F|_train), RMSE(E_val), RMSE(|F|_val)', file=out_file)
+print('RMSE(E_train), RMSE(|F|_train), RMSE(E_val), RMSE(|F|_val)',
+      file=out_file)
 
 for i in range(10):
 
@@ -42,7 +43,8 @@ for i in range(10):
     predictions = gap.predict(training_data)
     train = gt.RMSE(training_data, predictions)
 
-    print(f'{train.energy},{train.force},{val.energy},{val.force}', file=out_file)
+    print(f'{train.energy},{train.force},{val.energy},{val.force}',
+          file=out_file)
 
 out_file.close()
 

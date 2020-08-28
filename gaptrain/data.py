@@ -17,15 +17,24 @@ class Data(ConfigurationSet):
 
         return np.array(energies)
 
+    def force_components(self):
+        """Get a 1D numpy array of all F_k in these data"""
+        fs = []
+
+        for config in self._list:
+            fs += [component for force in config.forces for component in force]
+
+        return np.array(fs)
+
     def force_magnitudes(self):
-        """Get a list of all |F| in these data"""
+        """Get a 1D numpy array of all |F| in these data"""
         mod_fs = []
 
         for config in self._list:
             force_magnitudes = np.linalg.norm(config.forces, axis=1)
             mod_fs += force_magnitudes.tolist()
 
-        return mod_fs
+        return np.array(mod_fs)
 
     def histogram(self, name=None, ref_energy=None):
         """Generate a histogram of the energies and forces in these data"""
