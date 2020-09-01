@@ -12,6 +12,8 @@ def test_histogram():
 
     # Should be able to plot energies and/or forces
     for energies, forces in energies_forces:
+        print(energies, forces)
+
         histogram(energies, forces, name='test')
         assert os.path.exists('test.png')
         os.remove('test.png')

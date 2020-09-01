@@ -150,6 +150,7 @@ def run_dftb(configuration, max_force):
         if max_force is not None:
             minimisation = BFGS(ase_atoms)
             minimisation.run(fmax=float(max_force))
+            configuration.n_opt_steps = minimisation.get_number_of_steps()
 
     except ValueError:
         raise MethodFailed('DFTB+ failed to generate an energy')

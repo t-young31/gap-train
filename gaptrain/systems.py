@@ -57,34 +57,6 @@ class System:
 
         return self
 
-    def add_perturbation(self, sigma=0.05, max_length=0.2):
-        """Add a random perturbation to all atoms in the system
-
-        ----------------------------------------------------------------------
-        :param sigma: (float) Variance of the normal distribution used to
-                      generate displacements in Å
-
-        :param max_length: (float) Maximum length of the random displacement
-                           vector in Å
-        """
-        logger.info(f'Displacing all atoms in the system using a random '
-                    f'displacments from a normal distribution:\n'
-                    f'σ        = {sigma} Å\n'
-                    f'max(|v|) = {max_length} Å')
-
-        for molecule in self.molecules:
-            for atom in molecule.atoms:
-
-                # Generate random vectors until one has length < threshold
-                while True:
-                    vector = np.random.normal(loc=0.0, scale=sigma, size=3)
-
-                    if np.linalg.norm(vector) < max_length:
-                        atom.translate(vector)
-                        break
-
-        return None
-
     def random(self, min_dist_threshold=1.5, with_intra=False, on_grid=False,
                max_attempts=10000, **kwargs):
         """Randomise the configuration
@@ -124,9 +96,9 @@ class System:
         for molecule in np.random.permutation(system.molecules):
 
             # Randomly rotate the molecule around the molecules centroid
+            molecule.translate(vec=-molecule.centroid())
             molecule.rotate(axis=np.random.uniform(-1.0, 1.0, size=3),
-                            theta=np.random.uniform(0.0, 2*np.pi),
-                            origin=molecule.centroid())
+                            theta=np.random.uniform(0.0, 2*np.pi))
 
             random_translate()
 
@@ -151,11 +123,12 @@ class System:
             coords = np.vstack((coords, molecule.get_coordinates()))
 
         logger.info('Randomised all molecules in the system')
+        config = system.configuration()
 
         if with_intra:
-            system.add_perturbation(**kwargs)
+            config.add_perturbation(**kwargs)
 
-        return system.configuration()
+        return config
 
     def add_solvent(self, solvent_name):
         """Add water to the system to generate a ~1 g cm-3 density"""

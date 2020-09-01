@@ -189,10 +189,12 @@ def fig_ax(energies, forces):
     if energies is not None and forces is not None:
         size = (11, 4.5)
         cols = 2
+        gridspec = {'width_ratios': [1, 1.2]}
 
     else:
         size = (4.5, 4.5)
         cols = 1
+        gridspec = None
 
     return plt.subplots(nrows=1, ncols=cols, figsize=size,
-                        gridspec_kw={'width_ratios': [1, 1.2]})
+                        gridspec_kw=gridspec)

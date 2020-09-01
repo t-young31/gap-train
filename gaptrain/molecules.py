@@ -62,7 +62,7 @@ class Species(ade.species.Species):
         coords = self.get_coordinates()
         max_distance = np.max(distance_matrix(coords, coords))
 
-        logger.warning('Assuming hydrogen on the exterior in calculating the'
+        logger.warning('Assuming hydrogen on the exterior in calculating the '
                        f'radius of {self.name}')
         return max_distance / 2.0 + get_vdw_radius('H')
 
@@ -74,8 +74,8 @@ class Species(ade.species.Species):
 
 class Molecule(Species):
 
-    def __init__(self,  xyz_filename,  charge=0, spin_multiplicity=1,
-                 gmx_itp_filename=None):
+    def __init__(self,  xyz_filename=None,  charge=0, spin_multiplicity=1,
+                 gmx_itp_filename=None, atoms=None):
         """Molecule e.g. H2O
 
         -----------------------------------------------------------------------
@@ -87,11 +87,14 @@ class Molecule(Species):
 
         :param gmx_itp_filename: (str) Filename(path) of the GROMACS .itp file
                                  containing MM parameters required to simulate
+
+        :param atoms: (list(autode.atoms.Atom))
         """
-        super().__init__(name='mol',
-                         charge=charge,
-                         mult=spin_multiplicity,
-                         atoms=xyz_file_to_atoms(xyz_filename))
+        if xyz_filename is not None:
+            atoms = xyz_file_to_atoms(xyz_filename)
+
+        super().__init__(name='mol', charge=charge, mult=spin_multiplicity,
+                         atoms=atoms)
 
         self.itp_filename = gmx_itp_filename
 

@@ -30,6 +30,33 @@ class Configuration:
         # The maximum x, y, z values nee dto be smaller than the box and all >0
         return max(max_xyz - self.box.size) < 0 and np.min(coords) > 0.0
 
+    def add_perturbation(self, sigma=0.05, max_length=0.2):
+        """Add a random perturbation to all atoms in the configuration
+
+        ----------------------------------------------------------------------
+        :param sigma: (float) Variance of the normal distribution used to
+                      generate displacements in Å
+
+        :param max_length: (float) Maximum length of the random displacement
+                           vector in Å
+        """
+        logger.info(f'Displacing all atoms in the system using a random '
+                    f'displacments from a normal distribution:\n'
+                    f'σ        = {sigma} Å\n'
+                    f'max(|v|) = {max_length} Å')
+
+        for atom in self.atoms:
+
+            # Generate random vectors until one has length < threshold
+            while True:
+                vector = np.random.normal(loc=0.0, scale=sigma, size=3)
+
+                if np.linalg.norm(vector) < max_length:
+                    atom.translate(vector)
+                    break
+
+        return None
+
     def coordinates(self):
         """
         Atomic positions for this configuration
@@ -249,8 +276,9 @@ class ConfigurationSet:
         if not os.path.exists(filename):
             raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
 
-        if system is None and not all((box, charge, mult)):
-            raise ex.LoadingFailed('Configurations must be loaded with either'
+        if system is None and any(prm is None for prm in (box, charge, mult)):
+            print(box, charge, mult)
+            raise ex.LoadingFailed('Configurations must be loaded with either '
                                    'a system or box, charge & multiplicity')
 
         lines = open(filename, 'r').readlines()
@@ -298,7 +326,6 @@ class ConfigurationSet:
             if len(forces) > 0:
                 configuration.forces = np.array(forces)
 
-            configuration.wrap()
             self._list.append(configuration)
 
         return None
