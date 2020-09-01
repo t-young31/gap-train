@@ -1,8 +1,11 @@
 from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
+from gaptrain.plotting import correlation
+from gaptrain.exceptions import GAPFailed
 from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations
+import pickle
 from time import time
 import os
 
@@ -65,7 +68,7 @@ class GAP:
         # Remove the final unnecessary colon
         params = params.rstrip(': ')
 
-        # Reference energy and forces labels  and don't separate xml files
+        # Reference energy and forces labels and don't separate xml files
         params += ('} energy_parameter_name=dft_energy '
                    'force_parameter_name=dft_forces '
                    'sparse_separate_file=F')
@@ -74,19 +77,49 @@ class GAP:
         return [f'at_file={self.training_data.name}.xyz', params,
                 f'gp_file={self.name}.xml']
 
-    def predict(self, data, plot_energy=True, plot_force=True):
+    def plot_correlation(self, true_data, predicted_data, rel_energies=True):
+        """
+        Plot predicted vs. true for a GAP predicted values
+
+        :param true_data: (gaptrain.data.Data)
+        :param predicted_data: (gaptrain.data.Data)
+        :param rel_energies: (bool)
+        """
+        true_energies = true_data.energies()
+        pred_energies = predicted_data.energies()
+
+        # If required calculate the energies relative to the lowest true value
+        if rel_energies:
+            min_energy = min(true_energies)
+            true_energies -= min_energy
+            pred_energies -= min_energy
+
+        # Plot the correlation for energies and forces
+        correlation(true_energies,
+                    pred_energies,
+                    true_data.force_components(),
+                    predicted_data.force_components(),
+                    name=self.name)
+
+        return None
+
+    def predict(self, data):
         """
         Predict energies and forces for a set of data
 
-        -----------------------------------------------------------------------
         :param data: (gaptrain.data.Data)
-
-        :param plot_energy: (bool) Plot an energy correlation: predicted v true
-
-        :param plot_force: (bool) Plot a force correlation
         """
-        data.run_gap(self)
-        raise NotImplementedError
+
+        # Run GAP in parallel to predict energies and forces
+        predictions = data.copy()
+        predictions.name += '_pred'
+
+        predictions.parallel_gap(self)
+
+        self.plot_correlation(data, predictions, rel_energies=True)
+        predictions.save(override=True)
+
+        return predictions
 
     def train(self, data):
         """
@@ -100,10 +133,11 @@ class GAP:
         start_time = time()
 
         self.training_data = data
-        self.training_data.save_true()
+        self.training_data.save()
 
         # Run the training using a specified number of total cores
         os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+
         p = Popen(GTConfig.gap_fit_command + self.train_command(),
                   shell=False, stdout=PIPE, stderr=PIPE)
         out, err = p.communicate()
@@ -112,13 +146,20 @@ class GAP:
         print(f'GAP training ran in {delta_time/60:.1f} m')
 
         if delta_time < 0.5 or b'SYSTEM ABORT' in err:
-            raise Exception(f'GAP train errored with:\n '
+            raise GAPFailed(f'GAP train errored with:\n '
                             f'{err.decode()}\n'
-                            f'{self.train_command()}')
+                            f'{" ".join(self.train_command())}')
         return None
 
-    def save(self):
-        raise NotImplementedError
+    def save_params(self):
+        """Save the parameters used in this GAP"""
+        return pickle.dump(self.params,
+                           file=open(f'{self.name}.gap', 'wb'))
+
+    def load_params(self):
+        """Load the parameters used"""
+        self.params = pickle.load(open(f'{self.name}.gap', 'rb'))
+        return None
 
     def __init__(self, name, system):
         """A Gaussian Approximation Potential"""

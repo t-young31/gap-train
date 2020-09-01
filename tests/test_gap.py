@@ -10,7 +10,8 @@ h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
 def test_gap():
 
-    water_dimer = System(h2o, h2o, box_size=[3.0, 3.0, 3.0])
+    water_dimer = System(box_size=[3.0, 3.0, 3.0])
+    water_dimer.add_molecules(h2o, n=2)
 
     gap = GAP(name='test', system=water_dimer)
 
@@ -37,7 +38,7 @@ def test_gap_train():
     system = System(box_size=[10, 10, 10])
 
     training_data = Data(name='test')
-    training_data.load(system,
+    training_data.load(system=system,
                        filename=os.path.join(here, 'data', 'rnd_training.xyz'))
 
     assert len(training_data) == 10

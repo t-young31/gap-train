@@ -19,7 +19,13 @@ def work_in_tmp_dir():
                 if os.path.isdir(item):
                     continue
 
-                shutil.copy(item, tmpdir_path)
+                if item.startswith('tmp'):
+                    continue
+
+                try:
+                    shutil.copy(item, tmpdir_path)
+                except FileNotFoundError:
+                    pass
 
             # Move directories and execute
             os.chdir(tmpdir_path)
