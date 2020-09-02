@@ -9,3 +9,4 @@ codecov
 autode
 ase
 coloredlogs
+dscribe

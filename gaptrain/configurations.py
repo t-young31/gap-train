@@ -65,6 +65,9 @@ class Configuration:
         """
         return np.array([atom.coord for atom in self.atoms])
 
+    def copy(self):
+        return deepcopy(self)
+
     def wrap(self, max_wraps=100):
         """
         Wrap all the atoms into the box
