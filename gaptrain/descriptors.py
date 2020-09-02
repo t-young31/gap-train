@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from gaptrain.log import logger
 
 
 def soap(*args):
@@ -25,6 +26,9 @@ def soap(*args):
     if len(args) == 1 and isinstance(args[0], Iterable):
         configurations = args[0]
 
+    logger.info(f'Calculating SOAP descriptor for {len(configurations)}'
+                f' configurations')
+
     unique_elements = list(set(atom.label for atom in configurations[0].atoms))
 
     # Compute the average SOAP vector where the expansion coefficients are
@@ -37,4 +41,5 @@ def soap(*args):
 
     soap_vec = soap_desc.create([conf.ase_atoms() for conf in configurations])
 
+    logger.info('SOAP calculation done')
     return soap_vec

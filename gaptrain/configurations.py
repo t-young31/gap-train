@@ -1,4 +1,4 @@
-from gaptrain.gtconfig import GTConfig
+import gaptrain as gt
 from gaptrain.log import logger
 import gaptrain.exceptions as ex
 from autode.input_output import xyz_file_to_atoms
@@ -129,13 +129,13 @@ class Configuration:
         """
         from gaptrain.calculators import run_dftb
 
-        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
         return run_dftb(self, max_force)
 
     def run_gap(self, gap, max_force=None):
         """Run GAP to predict energy and forces"""
         from gaptrain.calculators import run_gap
-        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
 
         return run_gap(self, max_force=max_force, gap=gap)
 
@@ -147,8 +147,8 @@ class Configuration:
         """
         from gaptrain.calculators import run_gpaw
 
-        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
-        os.environ['MLK_NUM_THREADS'] = str(GTConfig.n_cores)
+        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
+        os.environ['MLK_NUM_THREADS'] = str(gt.GTConfig.n_cores)
         return run_gpaw(self, max_force)
 
     def save(self, filename, append=False):
@@ -251,6 +251,13 @@ class ConfigurationSet:
                                f' ConfigurationSet, not {type(other)}')
 
         return self
+
+    def add(self, other):
+        """Add another configuration to this set of configurations"""
+        assert isinstance(other, Configuration)
+        self._list.append(other)
+
+        return None
 
     def copy(self):
         return deepcopy(self)
@@ -367,14 +374,14 @@ class ConfigurationSet:
                           energy evaluation is performed
         """
         logger.info(f'Running calculations over {len(self)} configurations\n'
-                    f'Using {GTConfig.n_cores} total cores')
+                    f'Using {gt.GTConfig.n_cores} total cores')
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MLK_NUM_THREADS'] = '1'
 
         start_time = time()
         results = []
 
-        with Pool(processes=GTConfig.n_cores) as pool:
+        with Pool(processes=gt.GTConfig.n_cores) as pool:
 
             # Apply the method to each configuration in this set
             for i, config in enumerate(self._list):
@@ -430,10 +437,32 @@ class ConfigurationSet:
             remainder = int(remainder)
 
         else:
-            logger.warning('No configurations to remove')
-            return None
+            raise ValueError('No configurations to remove')
 
         self._list = np.random.choice(self._list, size=remainder)
+        return None
+
+    def truncate(self, n, method='random'):
+        """
+        Truncate this set of configurations to a n configurations
+
+        :param n: (int) Number of configurations to truncate to
+        :param method: (str)
+        """
+        implemented_methods = ['random', 'cur']
+
+        if method.lower() not in implemented_methods:
+            raise NotImplementedError(f'Methods are {implemented_methods}')
+
+        if method.lower() == 'random':
+            return self.remove_random(remainder=n)
+
+        if method.lower() == 'cur':
+            soap_matrix = gt.descriptors.soap(self)
+            cur_idxs = gt.cur.rows(soap_matrix, k=n, return_indexes=True)
+
+            self._list = [self._list[idx] for idx in cur_idxs]
+
         return None
 
     def __init__(self, *args, name='data'):

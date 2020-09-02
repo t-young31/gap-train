@@ -30,7 +30,7 @@ def rows(matrix, k=2, epsilon=1, return_indexes=False, n_iters=100):
                     chosen from the list of rows in the matrix
     :return:
     """
-    logger.info('Calculating partial CUR decomposition for rows on'
+    logger.info('Calculating partial CUR decomposition for rows on '
                 f'a matrix with dimensions {matrix.shape}')
 
     if k < 1:
