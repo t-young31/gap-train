@@ -2,11 +2,11 @@ from gaptrain.molecules import Molecule
 from gaptrain.molecules import Species
 from gaptrain.solvents import solvents, get_solvent
 from gaptrain.box import Box
-from autode.input_output import atoms_to_xyz_file
 from gaptrain.log import logger
 from gaptrain.configurations import Configuration
+import gaptrain.exceptions as ex
+from autode.species.species import Species
 from copy import deepcopy
-from scipy.spatial.distance import cdist
 import numpy as np
 
 
@@ -43,10 +43,10 @@ class System:
         """Add another list or molecule to the system"""
 
         if type(other) is list or type(other) is tuple:
-            assert all(isinstance(m, Molecule) for m in other)
+            assert all(isinstance(m, Species) for m in other)
             self.molecules += list(other)
 
-        elif isinstance(other, Molecule):
+        elif isinstance(other, Species):
             self.molecules.append(other)
 
         elif isinstance(other, System):
@@ -60,57 +60,23 @@ class System:
 
         return self
 
-    def __str__(self):
-        """Generate the name of this system e.g. 'System: 1 Pd, 10 H2O' """
-        name = 'System: '
-        molecule_names = [molecule.name for molecule in self.molecules]
-
-        for unique_name in set(molecule_names):
-            name += f'{molecule_names.count(unique_name)} {unique_name}'
-
-        return name
-
-    def add_perturbation(self, sigma=0.05, max_length=0.2):
-        """Add a random perturbation to all atoms in the system
-
-        ----------------------------------------------------------------------
-        :param sigma: (float) Variance of the normal distribution used to
-                      generate displacements in Å
-
-        :param max_length: (float) Maximum length of the random displacement
-                           vector in Å
-        """
-        logger.info(f'Displacing all atoms in the system using a random '
-                    f'displacments from a normal distribution:\n'
-                    f'σ        = {sigma} Å\n'
-                    f'max(|v|) = {max_length} Å')
-
-        for molecule in self.molecules:
-            for atom in molecule.atoms:
-
-                # Generate random vectors until one has length < threshold
-                while True:
-                    vector = np.random.normal(loc=0.0, scale=sigma, size=3)
-
-                    if np.linalg.norm(vector) < max_length:
-                        atom.translate(vector)
-                        break
-
-        return None
-
     def random(self, min_dist_threshold=1.5, with_intra=False, on_grid=False,
-               **kwargs):
+               max_attempts=10000, **kwargs):
         """Randomise the configuration
 
         -----------------------------------------------------------------------
         :param min_dist_threshold: (float) Minimum distance in Å that a
                                    molecule is permitted to be to another atom
 
-        :param on_grid: (bool)
 
         :param with_intra: (bool) Randomise both the inter (i.e. molecules)
                            and also the intramolecular DOFs (i.e. bond
                            lengths and angles)
+
+        :param on_grid: (bool)
+
+        :param max_attempts: (int) Maximum number of times a molecule can be
+                             placed randomly without raising RandomiseFailed
         """
         logger.info(f'Randomising all {len(self)} molecules in the box')
 
@@ -122,36 +88,50 @@ class System:
         # need to be generated in a smaller sub-box
         sub_box = Box(size=self.box.size - min_dist_threshold)
 
+        def random_translate():
+            """Randomly translate a molecule either on a grid or not"""
+            if on_grid:
+                vec = sub_box.random_grid_point(spacing=molecule.radius)
+                molecule.translate(vec=vec)
+            else:
+                molecule.translate(vec=sub_box.random_point())
+
         for molecule in np.random.permutation(system.molecules):
 
-            molecule.translate_to_origin()
-
-            # Randomly rotate the molecule
+            # Randomly rotate the molecule around the molecules centroid
+            molecule.translate(vec=-molecule.centroid())
             molecule.rotate(axis=np.random.uniform(-1.0, 1.0, size=3),
                             theta=np.random.uniform(0.0, 2*np.pi))
 
-            # Translate to a random position in the box..
+            random_translate()
+
+            # Keep track of the number of times that this molecule has been
+            # placed randomly in the box
+            n_attempts = 0
+
+            # Translate to a random position in the box that is also not too
+            # close to any other molecule
             while (not molecule.in_box(sub_box)
                    or molecule.min_distance(coords) < min_dist_threshold):
 
-                molecule.translate_to_origin()
+                # Shift back to the origin then to a random point
+                molecule.translate(vec=-molecule.centroid())
+                random_translate()
+                n_attempts += 1
 
-                if on_grid:
-                    vec = sub_box.random_grid_point(spacing=2*molecule.radius)
-                    molecule.translate(vec=vec)
-
-                else:
-                    molecule.translate(vec=sub_box.random_point())
+                if n_attempts > max_attempts:
+                    raise ex.RandomiseFailed('Maximum attempts exceeded')
 
             # Add the coordinates to the full set
             coords = np.vstack((coords, molecule.get_coordinates()))
 
         logger.info('Randomised all molecules in the system')
+        config = system.configuration()
 
         if with_intra:
-            system.add_perturbation(**kwargs)
+            config.add_perturbation(**kwargs)
 
-        return system.configuration()
+        return config
 
     def add_solvent(self, solvent_name, n):
         """Add water to the system to generate a ~1 g cm-3 density
@@ -165,6 +145,7 @@ class System:
 
     def add_molecules(self, molecule, n=1):
         """Add a number of the same molecule to the system"""
+        assert isinstance(molecule, Species)
         self.molecules += [deepcopy(molecule) for _ in range(n)]
         return None
 
@@ -192,7 +173,7 @@ class System:
         System containing a set of molecules.
 
         e.g. pd_1water = (Pd, water, box_size=[10, 10, 10], charge=2)
-        for a system containing a Pd(II) ion and one water in a 10 Å^3 box
+        for a system containing a Pd(II) ion and one water in a 1 nm^3 box
 
         ----------------------------------------------------------------------
         :param args: (gaptrain.molecules.Molecule) Molecules that comprise

@@ -1,43 +1,54 @@
 from gaptrain.configurations import ConfigurationSet
 from gaptrain.log import logger
-import matplotlib.pyplot as plt
+import gaptrain.exceptions as ex
+from gaptrain.plotting import histogram
 import numpy as np
 
 
 class Data(ConfigurationSet):
 
-    def histogram(self):
+    def energies(self):
+        """Get a list of all the energies in these data"""
+
+        energies = [config.energy for config in self._list]
+
+        if any(energy is None for energy in energies):
+            raise ex.NoEnergy('Cannot histogram data - some energies = None')
+
+        return np.array(energies)
+
+    def force_components(self):
+        """Get a 1D numpy array of all F_k in these data"""
+        fs = []
+
+        for config in self._list:
+            fs += [component for force in config.forces for component in force]
+
+        return np.array(fs)
+
+    def force_magnitudes(self):
+        """Get a 1D numpy array of all |F| in these data"""
+        mod_fs = []
+
+        for config in self._list:
+            force_magnitudes = np.linalg.norm(config.forces, axis=1)
+            mod_fs += force_magnitudes.tolist()
+
+        return np.array(mod_fs)
+
+    def histogram(self, name=None, ref_energy=None):
         """Generate a histogram of the energies and forces in these data"""
-        raise NotImplementedError
-
-    def remove_first(self, n):
-        """
-        Remove the first n configurations from these data
-
-        :param n: (int)
-        """
-        self._list = self._list[n:]
-        return None
-
-    def remove_random(self, n=None, remainder=None):
-        """Randomly remove some configurations from these data
-
-        :param n: (int) Number of configurations to remove
-        :param remainder: (int) Number of configurations left in these data
-        """
-        # Number to choose is the total minus the number to remove
-        if n is not None:
-            remainder = len(self) - int(n)
-
-        elif remainder is not None:
-            remainder = int(remainder)
+        logger.info('Plotting histogram of energies and forces')
+        # Histogram |F_ij| rather than the components F_ijk for a force F in on
+        # an atom j in a configuration i
+        if ref_energy is not None:
+            logger.info(f'Referencing energy to {ref_energy} eV')
+            energies = self.energies() - ref_energy
 
         else:
-            logger.warning('No configurations to remove')
-            return None
+            energies = self.energies()
 
-        self._list = np.random.choice(self._list, size=remainder)
-        return None
+        return histogram(energies, self.force_magnitudes(), name=name)
 
-    def __init__(self, *args, name):
+    def __init__(self, *args, name=None):
         super().__init__(*args, name=name)

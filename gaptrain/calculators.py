@@ -1,7 +1,10 @@
+import numpy as np
 from ase.calculators.dftb import Dftb
-from gaptrain.gtconfig import GTConfig
 from gaptrain.utils import work_in_tmp_dir
 from gaptrain.exceptions import MethodFailed
+from gaptrain.gtconfig import GTConfig
+from ase.optimize import BFGS
+from subprocess import Popen, PIPE
 import os
 
 
@@ -26,15 +29,19 @@ class DFTB(Dftb):
 
 
 @work_in_tmp_dir()
-def run_gpaw(configuration, n_cores=1):
-    """Run a periodic DFT calculation using GPAW"""
+def run_gpaw(configuration, max_force):
+    """Run a periodic DFT calculation using GPAW. Will set configuration.energy
+    and configuration.forces as their DFT calculated values at the 400eV/PBE
+    level of theory
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
     from gpaw import GPAW, PW
 
-    os.environ['OMP_NUM_THREADS'] = str(n_cores)
-    os.environ['MLK_NUM_THREADS'] = str(n_cores)
-    os.environ['GPAW_SETUP_PATH'] = GTConfig.gpaw_setup_path
-
-    atoms = configuration.ase_atoms()
+    ase_atoms = configuration.ase_atoms()
 
     dft = GPAW(mode=PW(400),
                basis='dzp',
@@ -42,27 +49,93 @@ def run_gpaw(configuration, n_cores=1):
                xc='PBE',
                txt=None)
 
-    atoms.set_calculator(dft)
-    configuration.energy.true = atoms.get_potential_energy()
-    configuration.forces.set_true(forces=atoms.get_forces())
+    ase_atoms.set_calculator(dft)
+
+    if max_force is not None:
+        minimisation = BFGS(ase_atoms)
+        minimisation.run(fmax=float(max_force))
+
+    configuration.energy = ase_atoms.get_potential_energy()
+    configuration.forces = ase_atoms.get_forces()
 
     return configuration
 
 
 @work_in_tmp_dir()
-def run_gap(configuration, n_cores):
-    raise NotImplementedError
+def run_gap(configuration, max_force, gap):
+    """
+    Run a GAP calculation using quippy as the driver which is a wrapper around
+    the F90 QUIP code used to evaluate forces and energies using a GAP
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+
+    :param gap: (gaptrain.gap.GAP)
+    :return:
+    """
+    configuration.save(filename='config.xyz')
+    a, b, c = configuration.box.size
+
+    # Print a Python script to execute quippy - likely not installed in the
+    # current interpreter..
+    with open(f'gap.py', 'w') as quippy_script:
+        print('import quippy',
+              'import numpy as np',
+              'from ase.io import read, write',
+              'from ase.optimize import BFGS',
+              'from ase.io.trajectory import Trajectory',
+              f'system = read("config.xyz")',
+              f'system.cell = [{a}, {b}, {c}]',
+              'system.pbc = True',
+              'system.center()',
+              f'pot = quippy.Potential("IP GAP", \n'
+              f'                      param_filename="{gap.name}.xml")',
+              'system.set_calculator(pot)',
+              'np.savetxt("energy.txt",\n'
+              '           np.array([system.get_potential_energy()]))',
+              'np.savetxt("forces.txt", system.get_forces())',
+              sep='\n', file=quippy_script)
+
+    if max_force is not None:
+        """
+        Add something like:
+        
+          f'traj = Trajectory(\'out.traj\', \'w\', system)',
+          'dyn = BFGS(system)',
+          'dyn.attach(traj.write, interval=2)',
+          f'dyn.run(steps={n_steps})',
+          f'write(\'{opt_filename}\', system)',
+        """
+        raise NotImplementedError
+
+    # Run the process
+    subprocess = Popen(GTConfig.quippy_gap_command + ['gap.py'],
+                       shell=False, stdout=PIPE, stderr=PIPE)
+    subprocess.wait()
+
+    # Grab the energy from the output after unsetting it
+    configuration.energy = np.loadtxt('energy.txt')
+    os.remove('energy.txt')
+
+    # Grab the final forces from the numpy array
+    configuration.forces = np.loadtxt('forces.txt')
+    os.remove('forces.txt')
+
+    return configuration
 
 
 @work_in_tmp_dir()
-def run_dftb(configuration, n_cores=1):
-    """Run periodic DFTB+ on this configuration"""
+def run_dftb(configuration, max_force):
+    """Run periodic DFTB+ on this configuration. Will set configuration.energy
+    and configuration.forces as their calculated values at the TB-DFT level
 
-    # Environment variables required for ASE
-    env = os.environ.copy()
-    env['DFTB_PREFIX'] = GTConfig.dftb_data
-    env['DFTB_COMMAND'] = GTConfig.dftb_exe
-    env['OMP_NUM_THREADS'] = str(n_cores)
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
 
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
@@ -70,12 +143,19 @@ def run_dftb(configuration, n_cores=1):
                 Hamiltonian_Charge=configuration.charge)
 
     ase_atoms.set_calculator(dftb)
+
     try:
-        configuration.energy.true = ase_atoms.get_potential_energy()
+        configuration.energy = ase_atoms.get_potential_energy()
+
+        if max_force is not None:
+            minimisation = BFGS(ase_atoms)
+            minimisation.run(fmax=float(max_force))
+            configuration.n_opt_steps = minimisation.get_number_of_steps()
+
     except ValueError:
         raise MethodFailed('DFTB+ failed to generate an energy')
 
-    configuration.forces.set_true(forces=ase_atoms.get_forces())
+    configuration.forces = ase_atoms.get_forces()
 
     # Return self to allow for multiprocessing
     return configuration

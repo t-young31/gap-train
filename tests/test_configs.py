@@ -24,23 +24,39 @@ def test_print_exyz():
     for _ in range(5):
         configs += system.random()
 
-    # Should not be able to save ground truth without calculating
-    # energies or forces
-    with pytest.raises(NoEnergy):
-        configs.save_true()
-
+    configs.save()
+    assert os.path.exists('test.xyz')
     os.remove('test.xyz')
 
     # If the energy and forces are set for all the configurations an exyz
     # should be able to be printed
     for config in configs:
-        config.energy.true = 1.0
-        for i in range(9):
-            config.forces[i].true = np.zeros(3)
+        config.energy = 1.0
+        config.forces = np.zeros(shape=(9, 3))
 
-    configs.save_true()
+    configs.save()
 
     assert os.path.exists('test.xyz')
+    for line in open('test.xyz', 'r'):
+
+        items = line.split()
+        # Number of atoms in the configuration
+        if len(items) == 1:
+            assert int(items[0]) == 9
+
+        if len(items) == 7:
+            atomic_symbol, x, y, z, fx, fy, fz = items
+
+            # Atomic symbols should be letters
+            assert all(letter.isalpha() for letter in atomic_symbol)
+
+            # Positions should be float-able and inside the box
+            for component in (x, y, z):
+                assert 0.0 < float(component) < side_length
+
+            # Forces should be ~0, as they were set above
+            assert all(-1E-6 < float(fk) < 1E-6 for fk in (fx, fy, fz))
+
     os.remove('test.xyz')
 
 
@@ -56,6 +72,19 @@ def test_wrap():
     # Wrapping should put all the atoms back into the box
     config.wrap()
     assert np.max(config.coordinates()) < 7.0
+
+    # An atom several box lengths outside the box should still be able to be
+    # wrapped into the box
+    for atom in config.atoms[:3]:
+        atom.translate(vec=np.array([30.0, 0, 0]))
+
+    config.wrap()
+    assert np.max(config.coordinates()) < 7.0
+
+    # With a coordinate at infinity then the function should not overflow
+    config.atoms[0].translate(vec=np.array([np.inf, 0, 0]))
+    config.wrap()
+    assert config.atoms[0].coord[0] == np.inf
 
 
 def test_ase_atoms():
@@ -81,10 +110,9 @@ def test_dftb_plus():
         return
 
     config.run_dftb()
-    assert config.energy.true is not None
-    assert config.energy.predicted is None
+    assert config.energy is not None
 
-    forces = config.forces.true()
+    forces = config.forces
     assert type(forces) is np.ndarray
     assert forces.shape == (30, 3)
 
@@ -103,3 +131,22 @@ def test_print_gro_file():
     config.print_gro_file(system=water_box)
     assert os.path.exists('input.gro')
 
+
+
+def test_remove():
+
+    configs = ConfigurationSet()
+    for _ in range(10):
+        configs += Configuration()
+
+    configs[0].energy = 1
+
+    # Removing the
+    configs.remove_first(n=1)
+    assert configs[0].energy is None
+
+    configs.remove_random(n=2)
+    assert len(configs) == 7
+
+    configs.remove_random(remainder=2)
+    assert len(configs) == 2
