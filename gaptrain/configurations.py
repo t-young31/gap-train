@@ -445,7 +445,7 @@ class ConfigurationSet:
         else:
             raise ValueError('No configurations to remove')
 
-        self._list = np.random.choice(self._list, size=remainder)
+        self._list = list(np.random.choice(self._list, size=remainder))
         return None
 
     def truncate(self, n, method='random'):
