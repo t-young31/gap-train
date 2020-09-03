@@ -28,7 +28,7 @@ class DFTB(Dftb):
         return None
 
 
-@work_in_tmp_dir()
+@work_in_tmp_dir(kept_file_exts=['.traj'])
 def run_gpaw(configuration, max_force):
     """Run a periodic DFT calculation using GPAW. Will set configuration.energy
     and configuration.forces as their DFT calculated values at the 400eV/PBE
@@ -61,7 +61,7 @@ def run_gpaw(configuration, max_force):
     return configuration
 
 
-@work_in_tmp_dir()
+@work_in_tmp_dir(kept_file_exts=['.traj'])
 def run_gap(configuration, max_force, gap):
     """
     Run a GAP calculation using quippy as the driver which is a wrapper around
@@ -126,8 +126,8 @@ def run_gap(configuration, max_force, gap):
     return configuration
 
 
-@work_in_tmp_dir()
-def run_dftb(configuration, max_force):
+@work_in_tmp_dir(kept_file_exts=['.traj'])
+def run_dftb(configuration, max_force, traj_name=None):
     """Run periodic DFTB+ on this configuration. Will set configuration.energy
     and configuration.forces as their calculated values at the TB-DFT level
 
@@ -135,6 +135,8 @@ def run_dftb(configuration, max_force):
     :param configuration: (gaptrain.configurations.Configuration)
 
     :param max_force: (float) or None
+
+    :param traj_name: (str) or None
     """
 
     ase_atoms = configuration.ase_atoms()
@@ -148,7 +150,7 @@ def run_dftb(configuration, max_force):
         configuration.energy = ase_atoms.get_potential_energy()
 
         if max_force is not None:
-            minimisation = BFGS(ase_atoms)
+            minimisation = BFGS(ase_atoms, trajectory=traj_name)
             minimisation.run(fmax=float(max_force))
             configuration.n_opt_steps = minimisation.get_number_of_steps()
 

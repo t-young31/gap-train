@@ -246,6 +246,12 @@ class ConfigurationSet:
         elif isinstance(other, ConfigurationSet):
             self._list += other._list
 
+        elif isinstance(other, list):
+            for config in other:
+                assert isinstance(config, Configuration)
+
+                self._list.append(config)
+
         else:
             raise ex.CannotAdd('Can only add a Configuration or'
                                f' ConfigurationSet, not {type(other)}')

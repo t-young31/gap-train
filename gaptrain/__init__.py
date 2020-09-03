@@ -1,4 +1,5 @@
 from gaptrain.systems import System
+from gaptrain.configurations import Configuration
 from gaptrain.configurations import ConfigurationSet
 from gaptrain.molecules import Molecule
 from gaptrain.molecules import Ion
@@ -14,6 +15,7 @@ from gaptrain import cur
 
 
 __all__ = ['System',
+           'Configuration',
            'ConfigurationSet',
            'Molecule',
            'Ion',
