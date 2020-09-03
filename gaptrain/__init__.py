@@ -9,6 +9,8 @@ from gaptrain.gtconfig import GTConfig
 from gaptrain.trajectories import Trajectory
 from gaptrain.loss import RMSE
 from gaptrain import md
+from gaptrain import descriptors
+from gaptrain import cur
 
 
 __all__ = ['System',
@@ -21,4 +23,6 @@ __all__ = ['System',
            'Trajectory',
            'RMSE',
            'Box',
-           'md']
+           'md',
+           'descriptors',
+           'cur']
