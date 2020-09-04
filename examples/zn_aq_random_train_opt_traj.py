@@ -5,32 +5,31 @@ import os
 gt.GTConfig.n_cores = 8
 
 
-def train(n_configs=50):
+def train(n_configs=5):
 
-    training_data = gt.Data(name=f'Zn_random_train_{n_points}_{n_trained}')
-    gap = gt.GAP(name=f'Zn_random_train_{n_points}_{n_trained}',
+    training_data = gt.Data(name=f'Zn_random_train_{n_points}_{1}')
+    gap = gt.GAP(name=f'Zn_random_train_{n_points}_{1}',
                  system=zn_h2o)
 
     configs = gt.ConfigurationSet()
     for _ in range(n_configs):
         configs += zn_h2o.random(min_dist_threshold=1.4)
 
+    all_configs = gt.ConfigurationSet()
     for config in configs:
-        run_dftb(config, max_force=1, traj_name='tmp.traj')
+
+        run_dftb(config, max_force=10, traj_name='tmp.traj')
         traj = gt.Trajectory('tmp.traj', init_configuration=config)
         os.remove('tmp.traj')
 
         stride = int(len(traj)/n_points)
 
         # Take the final most points from the list using a stride at least 1
-        training_data += traj[::-max(stride, 1)]
+        all_configs += traj[::-max(stride, 1)]
 
     # Truncate back down to 500 configurations
-    training_data.remove_random(remainder=n_configs)
-
-    # Compute energies and forces and add to the training data
-    configs.parallel_dftb()
-    training_data += configs
+    all_configs.remove_random(remainder=n_configs)
+    training_data += all_configs
 
     try:
         gap.train(training_data)
@@ -61,7 +60,6 @@ if __name__ == '__main__':
     validation = gt.Data(name='Zn_DFTBMD_data')
     validation.load(system=zn_h2o)
 
-    e_thresh = 40
     n_points = 1
 
     with open('out.txt', 'w') as out_file:

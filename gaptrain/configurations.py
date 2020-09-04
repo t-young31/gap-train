@@ -233,6 +233,11 @@ class ConfigurationSet:
         """Get an indexed configuration from this set"""
         return self._list[item]
 
+    def __setitem__(self, key, value):
+        """Set a new indexed configuration"""
+        self._list[key] = value
+        return None
+
     def __iter__(self):
         """Iterate through these configurations"""
         return iter(self._list)
@@ -256,6 +261,7 @@ class ConfigurationSet:
             raise ex.CannotAdd('Can only add a Configuration or'
                                f' ConfigurationSet, not {type(other)}')
 
+        logger.info(f'Current number of configurations is {len(self)}')
         return self
 
     def add(self, other):
