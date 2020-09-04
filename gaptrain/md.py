@@ -32,12 +32,20 @@ def simulation_steps(dt, kwargs):
     return max(int(time_fs / dt), 1)
 
 
-def run_mmmd(mmsystem, *kwargs):
+def run_mmmd(*kwargs):
     """Run classical molecular mechanics MD on a system"""
-    os.popen('gmx grompp -f min.mdp -c input.gro -p topol.top -o em.tpr')
-    os.popen('gmx mdrun -deffnm em')
-    os.popen('gmx grompp -f nvt.mdp -c em.gro -p topol.top -o nvt.tpr')
-    os.popen('gmx mdrun -deffnm nvt')
+
+    grompp_em = Popen('gmx grompp -f min.mdp -c input.gro -p topol.top -o em.tpr', shell=True)
+    grompp_em.wait()
+
+    minimisation = Popen('gmx mdrun -deffnm em', shell=True)
+    minimisation.wait()
+
+    grompp_nvt = Popen('gmx grompp -f nvt.mdp -c em.gro -p topol.top -o nvt.tpr', shell=True)
+    grompp_nvt.wait()
+
+    nvt = Popen('gmx mdrun -deffnm nvt', shell=True)
+    nvt.wait()
 
 
 def run_dftbmd(configuration, temp, dt, interval, **kwargs):

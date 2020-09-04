@@ -128,7 +128,7 @@ class Molecule(Species):
         if xyz_filename is not None:
             atoms = xyz_file_to_atoms(xyz_filename)
 
-        super().__init__(name='mol', charge=charge, mult=spin_multiplicity,
+        super().__init__(name='mol', charge=charge,
                          atoms=atoms)
 
         self.itp_filename = gmx_itp_filename

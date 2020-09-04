@@ -36,6 +36,11 @@ class System:
     to generate a box of water at ~1 g cm-3 density.
     """
 
+    def __str__(self):
+        """Chemical formula for this species e.g. H2O"""
+        name = "SYSTEM"  # think about how to add generic name for system
+        return name
+
     def __len__(self):
         return len(self.molecules)
 

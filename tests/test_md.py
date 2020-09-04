@@ -4,8 +4,8 @@ from gaptrain.md import run_mmmd
 
 def test_run_mmmd():
 
-    water_box = MMSystem(box_size=[12, 12, 12])
-    water_box.add_solvent('h2o', n=1)
+    water_box = MMSystem(box_size=[20, 20, 20])
+    water_box.add_solvent('h2o', n=50)
 
     MMSystem.generate_topology(water_box)
 
@@ -15,4 +15,4 @@ def test_run_mmmd():
     config.wrap()
     config.print_gro_file(system=water_box)
 
-    #run_mmmd()
+    run_mmmd()

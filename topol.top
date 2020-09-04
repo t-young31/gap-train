@@ -1,0 +1,13 @@
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ 
+1               2               yes             0.5     0.8333  
+
+#include "/Users/tristanjohnston-wood/Documents/bit_bucket/gap-train/gaptrain/solvent_lib/h2o.itp"
+
+[ system ]
+; Name
+<gaptrain.systems.MMSystem object at 0x7fb09a20a350>
+
+[ molecules ]
+; Compound       #mols
+h2o            1
