@@ -165,19 +165,21 @@ class Configuration:
         """
         a, b, c = self.box.size
 
-        # Energy needs to be formattable
-        energy = self.energy if self.energy is not None else 0.0
+        energy_str = ''
+        if self.energy is not None:
+            energy_str += f'dft_energy={self.energy:.8f}'
 
-        if energy == 0.0:
-            logger.warning('Printing configuration with no energy')
+        prop_str = 'Properties=species:S:1:pos:R:3'
+        if self.forces is not None:
+            prop_str += ':dft_forces:R:3'
 
         with open(filename, 'a' if append else 'w') as exyz_file:
             print(f'{len(self.atoms)}\n'
                   f'Lattice="{a:.6f} 0.000000 0.000000 '
                   f'0.000000 {b:.6f} 0.000000 '
                   f'0.000000 0.000000 {c:.6f}" '
-                  f'Properties=species:S:1:pos:R:3:dft_forces:R:3 '
-                  f'dft_energy={energy:.8f}',
+                  f'{prop_str} '
+                  f'{energy_str}',
                   file=exyz_file)
 
             for i, atom in enumerate(self.atoms):

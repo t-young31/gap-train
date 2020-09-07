@@ -28,7 +28,7 @@ class DFTB(Dftb):
         return None
 
 
-@work_in_tmp_dir(kept_file_exts=['.traj'])
+@work_in_tmp_dir(kept_exts=['.traj'])
 def run_gpaw(configuration, max_force):
     """Run a periodic DFT calculation using GPAW. Will set configuration.energy
     and configuration.forces as their DFT calculated values at the 400eV/PBE
@@ -61,7 +61,7 @@ def run_gpaw(configuration, max_force):
     return configuration
 
 
-@work_in_tmp_dir(kept_file_exts=['.traj'])
+@work_in_tmp_dir(kept_exts=['.traj'], copied_exts=['.xml'])
 def run_gap(configuration, max_force, gap, traj_name=None):
     """
     Run a GAP calculation using quippy as the driver which is a wrapper around
@@ -134,7 +134,7 @@ def run_gap(configuration, max_force, gap, traj_name=None):
     return configuration
 
 
-@work_in_tmp_dir(kept_file_exts=['.traj'])
+@work_in_tmp_dir(kept_exts=['.traj'])
 def run_dftb(configuration, max_force, traj_name=None):
     """Run periodic DFTB+ on this configuration. Will set configuration.energy
     and configuration.forces as their calculated values at the TB-DFT level
