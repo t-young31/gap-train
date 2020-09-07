@@ -141,7 +141,6 @@ class Configuration:
 
     def print_gro_file(self, system):
         filename = 'input.gro'
-        print(filename)
         with open(filename, 'w') as f:
             print(f'{str(system)}', file=f)
             print(f'{len(self.atoms)}', file=f)
@@ -150,10 +149,7 @@ class Configuration:
             for i, molecule in enumerate(system.molecules):
                 atom_list = []
                 for atom in molecule.atoms:
-                    x, y, z = self.atoms[n].coord
-                    x = x / 10  # make this nicer
-                    y = y / 10
-                    z = z / 10
+                    x, y, z = self.atoms[n].coord / 10
                     atom_list.append(atom.label)
                     print(f'{i+1:>5}'
                           f'{molecule.name:<5}'
@@ -163,8 +159,10 @@ class Configuration:
                           f'{y:>8.3f}'
                           f'{z:>8.3f}', file=f)
                     n += 1
-            print(f'{"10 10 10"}', file=f)
-
+            a, b, c = system.box.size / 10
+            print(f'{a}',
+                  f'{b}',
+                  f'{c}', file=f, sep=' ')
 
     def run_gpaw(self, max_force=None):
         """Run a GPAW DFT calculation, either a minimisation or optimisation

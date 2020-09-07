@@ -192,6 +192,8 @@ class System:
 
         self.box = Box(box_size)
 
+        self.box_size = box_size
+
         logger.info(f'Initalised a system\n'
                     f'Number of molecules = {len(self.molecules)}\n'
                     f'Charge              = {self.charge()} e\n'
