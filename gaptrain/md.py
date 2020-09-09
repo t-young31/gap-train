@@ -151,9 +151,12 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
               sep='\n', file=quippy_script)
 
     # Run the process
-    subprocess = Popen(GTConfig.quippy_gap_command + ['gap.py'],
-                       shell=False, stdout=PIPE, stderr=PIPE)
-    subprocess.wait()
+    quip_md = Popen(GTConfig.quippy_gap_command + ['gap.py'],
+                    shell=False, stdout=PIPE, stderr=PIPE)
+    _, err = quip_md.communicate()
+
+    if len(err) > 0 and 'WARNING' not in err.decode():
+        logger.error(f'GAP MD: {err.decode()}')
 
     traj = Trajectory('tmp.traj', init_configuration=configuration)
 

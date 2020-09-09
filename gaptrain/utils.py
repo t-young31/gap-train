@@ -14,6 +14,7 @@ def work_in_tmp_dir(kept_exts=None, copied_exts=None):
             here = os.getcwd()
 
             tmpdir_path = mkdtemp()
+            # logger.info(f'Working in {tmpdir_path}')
 
             for item in os.listdir(os.getcwd()):
 
@@ -21,6 +22,7 @@ def work_in_tmp_dir(kept_exts=None, copied_exts=None):
                     continue
 
                 if any(item.endswith(ext) for ext in copied_exts):
+                    # logger.info(f'Copying {item}')
                     shutil.copy(item, tmpdir_path)
 
             # Move directories and execute
@@ -28,9 +30,9 @@ def work_in_tmp_dir(kept_exts=None, copied_exts=None):
             out = func(*args, **kwargs)
 
             if kept_exts is not None:
+                # logger.info(f'Copying back all files with {kept_exts} '
+                #            f'file extensions')
 
-                # Copy all the files back that have one of the file extensions
-                # in the list kept_exts
                 for filename in os.listdir(os.getcwd()):
                     if any(filename.endswith(ext) for ext in kept_exts):
                         shutil.copy(src=filename,

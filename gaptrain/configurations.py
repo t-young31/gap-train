@@ -487,4 +487,8 @@ class ConfigurationSet:
         """
 
         self.name = name
-        self._list = list(args)
+        self._list = []
+
+        for arg in args:
+            assert isinstance(arg, Configuration)
+            self._list.append(arg)
