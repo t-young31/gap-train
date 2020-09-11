@@ -456,6 +456,50 @@ class ConfigurationSet:
         self._list = list(np.random.choice(self._list, size=remainder))
         return None
 
+    def remove_above_e(self, threshold, min_energy=None):
+        """
+        Remove configurations above an energy threshold
+
+        :param threshold: (float) Energy threshold in eV
+        :param min_energy: (float or None) Minimum/reference energy to use to
+                           calculate the relative energy of a configuration. If
+                           None then the lowest energy in this set is used
+        """
+        if any(config.energy is None for config in self._list):
+            raise ValueError('Cannot truncate: a config had energy=None')
+
+        if min_energy is None:
+            min_energy = min(config.energy for config in self._list)
+
+        logger.info(f'Truncating {len(self._list)} configurations with an '
+                    f'energy threshold of {threshold:.3f} eV above a reference'
+                    f' energy of {min_energy:.3f} eV')
+
+        self._list = [config for config in self._list
+                      if (config.energy - min_energy) < threshold]
+
+        logger.info(f'Truncated on energies to {len(self._list)}')
+        return None
+
+    def remove_above_f(self, threshold):
+        """
+        Remove configurations with an atomic force component above a threshold
+        value
+
+        :param threshold: (float) Force threshold in eV Å-1
+        """
+        if any(config.forces is None for config in self._list):
+            raise ValueError('Cannot truncate: a config had forces=None')
+
+        logger.info(f'Truncating {len(self._list)} configurations with a '
+                    f'force threshold of {threshold:.3f} eV Å-1')
+
+        self._list = [config for config in self._list
+                      if np.max(config.forces) < threshold]
+
+        logger.info(f'Truncated on forces to {len(self._list)}')
+        return None
+
     def truncate(self, n, method='random'):
         """
         Truncate this set of configurations to a n configurations
