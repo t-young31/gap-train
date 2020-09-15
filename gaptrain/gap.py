@@ -2,9 +2,12 @@ from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
 from gaptrain.plotting import correlation
 from gaptrain.exceptions import GAPFailed
+from gaptrain.calculators import run_gap
 from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations
+from multiprocessing import Pool
+import numpy as np
 import pickle
 from time import time
 import os
@@ -199,3 +202,73 @@ class Parameters:
         if 'H' in self.soap:
             logger.warning('H found in SOAP descriptor  - removing')
             self.soap.pop('H')
+
+
+class GAPEnsemble:
+
+    def n_gaps(self):
+        return len(self.gaps)
+
+    def predict_energy_error(self, configuration):
+        """
+        Predict the standard deviation between predicted energies
+
+        :param configuration: (gaptrain.configurations.Configuration)
+        :return: (float) Error
+        """
+        start_time = time()
+        results, predictions = [], []
+
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MLK_NUM_THREADS'] = '1'
+        logger.info('Set OMP and MLK threads to 1')
+
+        with Pool(processes=GTConfig.n_cores) as pool:
+
+            # Apply the method to each configuration in this set
+            for i, gap in enumerate(self.gaps):
+                result = pool.apply_async(func=run_gap,
+                                          args=(configuration, None, gap))
+                results.append(result)
+
+            # Reset all the configurations in this set with updated energy
+            # and forces (each with .true)
+            for result in results:
+                predictions.append(result.get(timeout=None))
+
+        logger.info(f'Calculations done in {(time() - start_time):.1f} s')
+
+        return np.std([config.energy for config in predictions])
+
+    def train(self, data):
+        """
+        Train the ensemble of GAPS
+
+        :param data: (gaptrain.data.Data)
+        """
+        logger.info(f'Training an ensemble with a total of {len(data)} '
+                    'configurations')
+
+        for gap in self.gaps:
+
+            sub_sampled_data = data.copy()
+
+            # Remove points randomly from the training data to give an n-th
+            n_data = int(len(data))/self.n_gaps()
+            sub_sampled_data.remove_random(remainder=n_data)
+
+            gap.train(data=sub_sampled_data)
+
+        return None
+
+    def __init__(self, name, system, num=5):
+        """
+        Ensemble of Gaussian approximation potentials allowing for error
+        estimates by sub-sampling
+
+        :param name:
+        :param system:
+        """
+        logger.info(f'Initialising a GAP ensemble with {int(num)} GAPs')
+
+        self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(num))]

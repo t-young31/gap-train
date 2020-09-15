@@ -100,11 +100,11 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               'from ase.io import read, write',
               'from ase.optimize import BFGS',
               'from ase.io.trajectory import Trajectory',
-              f'system = read("config.xyz")',
+              'system = read("config.xyz")',
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              f'pot = quippy.Potential("IP GAP", \n'
+              'pot = quippy.Potential("IP GAP", \n'
               f'                      param_filename="{gap.name}.xml")',
               'system.set_calculator(pot)',
               f'{min_section}',

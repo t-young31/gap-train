@@ -136,15 +136,15 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
               'from ase.md.velocitydistribution import MaxwellBoltzmannDistribution',
               'from ase import units',
               'from ase.md.langevin import Langevin',
-              f'system = read("config.xyz")',
+              'system = read("config.xyz")',
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              f'pot = quippy.Potential("IP GAP", \n'
+              'pot = quippy.Potential("IP GAP", \n'
               f'                      param_filename="{gap.name}.xml")',
               'system.set_calculator(pot)',
               f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)',
-              f'traj = Trajectory("tmp.traj", \'w\', system)\n'
+              'traj = Trajectory("tmp.traj", \'w\', system)\n'
               f'dyn = Langevin(system, {dt:.1f} * units.fs, {temp} * units.kB, 0.02)',
               f'dyn.attach(traj.write, interval={interval})',
               f'dyn.run(steps={n_steps})',
