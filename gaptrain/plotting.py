@@ -16,57 +16,94 @@ mpl.rcParams['ytick.right'] = True
 mpl.rcParams['axes.linewidth'] = 1
 
 
-def histogram(energies=None, forces=None, name=None, relative_energies=True):
+def histogram(energies=None, forces=None, name=None, relative_energies=True,
+              ref_energy=None):
     """
     Plot a histogram of energies, forces or both
 
     :param energies: (list(float))
     :param forces: (list(float))
     :param name: (str) or None
-    ;:param relative_energies: (bool)
+    :param relative_energies: (bool)
+    :param ref_energy: (None | float) Energy reference for relative energies
     """
     assert energies is not None or forces is not None
     fig, ax = fig_ax(energies, forces)
 
     if energies is not None:
-
-        if len(energies) == 0:
-            raise PlottingFailed('No energies')
-
-        ax_e = ax if forces is None else ax[0]
-
-        if relative_energies:
-            energies = np.array(energies) - min(energies)
-
-        ax_e.hist(energies,
-                  bins=np.linspace(min(energies), max(energies), 30),
-                  alpha=0.5,
-                  edgecolor='darkblue',
-                  linewidth=0.2
-                  )
-
-        # Energy histogram formatting
-        ax_e.set_xlabel('Energy / eV')
-        ax_e.set_ylabel('Frequency')
+        plot_energy_hist(ax=ax if forces is None else ax[0],
+                         energies=energies,
+                         relative_energies=relative_energies,
+                         ref_energy=ref_energy)
 
     if forces is not None:
-        if len(forces) == 0:
-            raise PlottingFailed('No energies')
-
-        ax_f = ax if energies is None else ax[1]
-
-        ax_f.hist(forces,
-                  bins=np.linspace(min(forces), max(forces), 50),
-                  color='orange',
-                  alpha=0.5,
-                  edgecolor='darkorange',
-                  linewidth=0.2)
-
-        # Force histogram formatting
-        ax_f.set_xlabel('|$F$| / ev Å$^{-1}$')
-        ax_f.set_ylabel('Frequency')
+        plot_forces_hist(ax=ax if energies is None else ax[1],
+                         forces=forces)
 
     return show_or_save(name)
+
+
+def plot_energy_hist(ax, energies, relative_energies=True,
+                     ref_energy=None, color=None, label=None):
+    """
+    Plot an energy histogram on a matplotlib set of axes
+
+    :param ax: (matplotlib.axes)
+    :param energies: (list(float))
+    :param relative_energies: (bool)
+    :param ref_energy: (None | float) Energy reference for relative energies if
+                       none and relative_energies=True the use the minimum in
+                       list of energies
+    :param color: (str | None)
+    :param label: (str | None)
+    """
+    if len(energies) == 0:
+        raise PlottingFailed('No energies')
+
+    if relative_energies:
+        ref_energy = min(energies) if ref_energy is None else ref_energy
+        energies = np.array(energies) - ref_energy
+
+    ax.hist(energies,
+            bins=np.linspace(min(energies), max(energies), 30),
+            alpha=0.5,
+            edgecolor='darkblue' if color is None else color,
+            linewidth=0.2,
+            label=label)
+
+    # Energy histogram formatting
+    ax.set_xlabel('Energy / eV')
+    ax.set_ylabel('Frequency')
+
+    return None
+
+
+def plot_forces_hist(ax, forces, color=None, label=None):
+    """
+    Plot an energy histogram on a matplotlib set of axes
+
+    :param ax: (matplotlib.axes)
+    :param forces: (list(float))
+    :param color: (str | None)
+    :param label: (str | None)
+    """
+
+    if len(forces) == 0:
+        raise PlottingFailed('No energies')
+
+    ax.hist(forces,
+            bins=np.linspace(min(forces), max(forces), 50),
+            color='orange' if color is None else color,
+            alpha=0.5,
+            edgecolor='darkorange' if color is None else color,
+            linewidth=0.2,
+            label=label)
+
+    # Force histogram formatting
+    ax.set_xlabel('|$F$| / ev Å$^{-1}$')
+    ax.set_ylabel('Frequency')
+
+    return None
 
 
 def correlation(true_energies=None,
