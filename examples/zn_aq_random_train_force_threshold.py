@@ -12,45 +12,34 @@ validation.load(system=zn_h2o)
 
 # Minimum energy from DFTB+ MD run
 ref_energy = -5877.02169783
-e_thresh = 70
+f_thresh = 20
 
-out_file = open(f'out_{e_thresh}.txt', 'w')
+out_file = open(f'out_{f_thresh =}.txt', 'w')
 
 
-print(f'Energy threshold = {e_thresh}\n RMSE(E_train), RMSE(|F|_train),'
+print(f'Energy threshold = {f_thresh =}\n RMSE(E_train), RMSE(|F|_train),'
       f' RMSE(E_val), RMSE(|F|_val), # calculations',
       file=out_file)
 
 for i in range(5):
 
-    training_data = gt.Data(name=f'Zn_random_train_{e_thresh}_{i}')
-    gap = gt.GAP(name=f'Zn_random_train_{e_thresh}_{i}',
+    training_data = gt.Data(name=f'Zn_random_train_{f_thresh}_{i}')
+    gap = gt.GAP(name=f'Zn_random_train_{f_thresh}_{i}',
                  system=zn_h2o)
-    n_calcs = 0
 
-    while len(training_data) < 500:
-        configs = gt.ConfigurationSet()
-        for _ in range(gt.GTConfig.n_cores):
-            configs += zn_h2o.random(min_dist_threshold=1.4)
+    configs = gt.ConfigurationSet()
 
-        # Compute energies and forces and add to the training data
-        configs.parallel_dftb()
-        n_calcs += gt.GTConfig.n_cores
+    for _ in range(500):
+        configs += zn_h2o.random(min_dist_threshold=1.4)
 
-        # Add configurations that are below the threshold maximum energy
-        # and also there are no more than 500 configurations in the training
-        for config in configs:
-            if (config.energy - ref_energy < e_thresh
-                    and len(training_data) < 500):
-
-                training_data += config
-
-        print(len(training_data), n_calcs)
+    # Compute energies and forces and add to the training data
+    configs.parallel_dftb()
+    training_data += configs
 
     try:
         gap.train(training_data)
     except GAPFailed:
-        pass
+        continue
 
     # Predict on the validation data
     predictions = gap.predict(validation)
@@ -59,6 +48,8 @@ for i in range(5):
     # and the training data
     predictions = gap.predict(training_data)
     train = gt.RMSE(training_data, predictions)
+
+    n_calcs = sum(config.n_opt_steps for config in configs)
 
     print(f'{train.energy},{train.force},{val.energy},{val.force},{n_calcs}',
           file=out_file)

@@ -1,4 +1,4 @@
-from gaptrain.gtconfig import GTConfig
+import gaptrain as gt
 from gaptrain.log import logger
 import gaptrain.exceptions as ex
 from autode.input_output import xyz_file_to_atoms
@@ -65,6 +65,9 @@ class Configuration:
         """
         return np.array([atom.coord for atom in self.atoms])
 
+    def copy(self):
+        return deepcopy(self)
+
     def wrap(self, max_wraps=100):
         """
         Wrap all the atoms into the box
@@ -126,13 +129,13 @@ class Configuration:
         """
         from gaptrain.calculators import run_dftb
 
-        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
         return run_dftb(self, max_force)
 
     def run_gap(self, gap, max_force=None):
         """Run GAP to predict energy and forces"""
         from gaptrain.calculators import run_gap
-        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
 
         return run_gap(self, max_force=max_force, gap=gap)
 
@@ -144,8 +147,8 @@ class Configuration:
         """
         from gaptrain.calculators import run_gpaw
 
-        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
-        os.environ['MLK_NUM_THREADS'] = str(GTConfig.n_cores)
+        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
+        os.environ['MLK_NUM_THREADS'] = str(gt.GTConfig.n_cores)
         return run_gpaw(self, max_force)
 
     def save(self, filename, append=False):
@@ -162,19 +165,21 @@ class Configuration:
         """
         a, b, c = self.box.size
 
-        # Energy needs to be formattable
-        energy = self.energy if self.energy is not None else 0.0
+        energy_str = ''
+        if self.energy is not None:
+            energy_str += f'dft_energy={self.energy:.8f}'
 
-        if energy == 0.0:
-            logger.warning('Printing configuration with no energy')
+        prop_str = 'Properties=species:S:1:pos:R:3'
+        if self.forces is not None:
+            prop_str += ':dft_forces:R:3'
 
         with open(filename, 'a' if append else 'w') as exyz_file:
             print(f'{len(self.atoms)}\n'
                   f'Lattice="{a:.6f} 0.000000 0.000000 '
                   f'0.000000 {b:.6f} 0.000000 '
                   f'0.000000 0.000000 {c:.6f}" '
-                  f'Properties=species:S:1:pos:R:3:dft_forces:R:3 '
-                  f'dft_energy={energy:.8f}',
+                  f'{prop_str} '
+                  f'{energy_str}',
                   file=exyz_file)
 
             for i, atom in enumerate(self.atoms):
@@ -230,6 +235,11 @@ class ConfigurationSet:
         """Get an indexed configuration from this set"""
         return self._list[item]
 
+    def __setitem__(self, key, value):
+        """Set a new indexed configuration"""
+        self._list[key] = value
+        return None
+
     def __iter__(self):
         """Iterate through these configurations"""
         return iter(self._list)
@@ -243,11 +253,25 @@ class ConfigurationSet:
         elif isinstance(other, ConfigurationSet):
             self._list += other._list
 
+        elif isinstance(other, list):
+            for config in other:
+                assert isinstance(config, Configuration)
+
+                self._list.append(config)
+
         else:
             raise ex.CannotAdd('Can only add a Configuration or'
                                f' ConfigurationSet, not {type(other)}')
 
+        logger.info(f'Current number of configurations is {len(self)}')
         return self
+
+    def add(self, other):
+        """Add another configuration to this set of configurations"""
+        assert isinstance(other, Configuration)
+        self._list.append(other)
+
+        return None
 
     def copy(self):
         return deepcopy(self)
@@ -364,14 +388,14 @@ class ConfigurationSet:
                           energy evaluation is performed
         """
         logger.info(f'Running calculations over {len(self)} configurations\n'
-                    f'Using {GTConfig.n_cores} total cores')
+                    f'Using {gt.GTConfig.n_cores} total cores')
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MLK_NUM_THREADS'] = '1'
 
         start_time = time()
         results = []
 
-        with Pool(processes=GTConfig.n_cores) as pool:
+        with Pool(processes=gt.GTConfig.n_cores) as pool:
 
             # Apply the method to each configuration in this set
             for i, config in enumerate(self._list):
@@ -427,10 +451,76 @@ class ConfigurationSet:
             remainder = int(remainder)
 
         else:
-            logger.warning('No configurations to remove')
-            return None
+            raise ValueError('No configurations to remove')
 
-        self._list = np.random.choice(self._list, size=remainder)
+        self._list = list(np.random.choice(self._list, size=remainder))
+        return None
+
+    def remove_above_e(self, threshold, min_energy=None):
+        """
+        Remove configurations above an energy threshold
+
+        :param threshold: (float) Energy threshold in eV
+        :param min_energy: (float or None) Minimum/reference energy to use to
+                           calculate the relative energy of a configuration. If
+                           None then the lowest energy in this set is used
+        """
+        if any(config.energy is None for config in self._list):
+            raise ValueError('Cannot truncate: a config had energy=None')
+
+        if min_energy is None:
+            min_energy = min(config.energy for config in self._list)
+
+        logger.info(f'Truncating {len(self._list)} configurations with an '
+                    f'energy threshold of {threshold:.3f} eV above a reference'
+                    f' energy of {min_energy:.3f} eV')
+
+        self._list = [config for config in self._list
+                      if (config.energy - min_energy) < threshold]
+
+        logger.info(f'Truncated on energies to {len(self._list)}')
+        return None
+
+    def remove_above_f(self, threshold):
+        """
+        Remove configurations with an atomic force component above a threshold
+        value
+
+        :param threshold: (float) Force threshold in eV Å-1
+        """
+        if any(config.forces is None for config in self._list):
+            raise ValueError('Cannot truncate: a config had forces=None')
+
+        logger.info(f'Truncating {len(self._list)} configurations with a '
+                    f'force threshold of {threshold:.3f} eV Å-1')
+
+        self._list = [config for config in self._list
+                      if np.max(config.forces) < threshold]
+
+        logger.info(f'Truncated on forces to {len(self._list)}')
+        return None
+
+    def truncate(self, n, method='random'):
+        """
+        Truncate this set of configurations to a n configurations
+
+        :param n: (int) Number of configurations to truncate to
+        :param method: (str)
+        """
+        implemented_methods = ['random', 'cur']
+
+        if method.lower() not in implemented_methods:
+            raise NotImplementedError(f'Methods are {implemented_methods}')
+
+        if method.lower() == 'random':
+            return self.remove_random(remainder=n)
+
+        if method.lower() == 'cur':
+            soap_matrix = gt.descriptors.soap(self)
+            cur_idxs = gt.cur.rows(soap_matrix, k=n, return_indexes=True)
+
+            self._list = [self._list[idx] for idx in cur_idxs]
+
         return None
 
     def __init__(self, *args, name='data'):
@@ -441,4 +531,8 @@ class ConfigurationSet:
         """
 
         self.name = name
-        self._list = list(args)
+        self._list = []
+
+        for arg in args:
+            assert isinstance(arg, Configuration)
+            self._list.append(arg)

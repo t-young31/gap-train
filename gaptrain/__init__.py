@@ -1,4 +1,5 @@
 from gaptrain.systems import System
+from gaptrain.configurations import Configuration
 from gaptrain.configurations import ConfigurationSet
 from gaptrain.molecules import Molecule
 from gaptrain.molecules import Ion
@@ -9,9 +10,12 @@ from gaptrain.gtconfig import GTConfig
 from gaptrain.trajectories import Trajectory
 from gaptrain.loss import RMSE
 from gaptrain import md
+from gaptrain import descriptors
+from gaptrain import cur
 
 
 __all__ = ['System',
+           'Configuration',
            'ConfigurationSet',
            'Molecule',
            'Ion',
@@ -21,4 +25,6 @@ __all__ = ['System',
            'Trajectory',
            'RMSE',
            'Box',
-           'md']
+           'md',
+           'descriptors',
+           'cur']

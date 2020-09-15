@@ -127,6 +127,8 @@ class GAP:
 
         :param data: (gaptrain.data.Data)
         """
+        assert all(config.energy is not None for config in data)
+
         logger.info('Training a Gaussian Approximation potential on '
                     f'*{len(data)}* training data points')
 
