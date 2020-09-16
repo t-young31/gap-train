@@ -192,8 +192,6 @@ class System:
 
         self.box = Box(box_size)
 
-        self.box_size = box_size
-
         logger.info(f'Initalised a system\n'
                     f'Number of molecules = {len(self.molecules)}\n'
                     f'Charge              = {self.charge()} e\n'
@@ -207,27 +205,47 @@ class MMSystem(System):
         for molecule in self.molecules:
             molecule.set_mm_atom_types()
 
-        assert all(m.itp_filename is not None for m in solvents)
+        assert all(m.itp_filename is not None for m in self.molecules)
 
-        with open('topol.top', 'w') as f:
+        def print_types(file, atoms=False, molecules=False):
+
+            itp_names = [mol.itp_filename for mol in self.molecules]
+            for itp in sorted(set(itp_names), key=itp_names.index):
+
+                itp_file = open(itp, 'r')
+                print_flag = False
+
+                for line in itp_file:
+                    if atoms:
+                        if 'moleculetype' not in line:
+                            print(f'{line}', file=file)
+                        else:
+                            break
+
+                    elif molecules:
+                        if print_flag or 'moleculetype' in line:
+                            print(f'{line}', file=file)
+                            print_flag = True
+
+        with open('topol.top', 'w') as topol_file:
             print(f'[ defaults ]',
                   f'{"; nbfunc":<16}{"comb-rule":<16}'
                   f'{"gen-pairs":<16}{"fudgeLJ":<8}{"fudgeQQ":<8}',
                   f'{"1":<16}{"2":<16}{"yes":<16}{"0.5":<8}{"0.8333":<8}\n'
-                  , file=f, sep='\n')
+                  , file=topol_file, sep='\n')
 
-            set_itp = set([mol.itp_filename for mol in solvents])
-            for itp in set_itp:
-                print(f'#include "{itp}"', file=f)
+            print_types(topol_file, atoms=True)
+            print_types(topol_file, molecules=True)
+
             print(f'\n[ system ]',
                   f'; Name',
                   f'{str(self)}\n',
                   f'[ molecules ]',
-                  f'; Compound{"":<7s}#mols', file=f, sep='\n')
+                  f'; Compound{"":<7s}#mols', file=topol_file, sep='\n')
 
             mol_names = [m.name for m in self.molecules]
-            for mol_name in set(mol_names):
-                print(f'{mol_name:<15s}{mol_names.count(mol_name)}', file=f)
+            for mol_name in sorted(set(mol_names), key=mol_names.index):
+                print(f'{mol_name:<15s}{mol_names.count(mol_name)}', file=topol_file)
 
     def __init__(self, *args, box_size):
         """System that can be simulated with molecular mechanics"""

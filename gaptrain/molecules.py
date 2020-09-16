@@ -80,6 +80,7 @@ class Species(ade.species.Species):
         return max_distance / 2.0 + get_vdw_radius('H')
 
     def set_mm_atom_types(self):
+
         atom_types = []
         f = open(self.itp_filename, 'r')
         lines = f.readlines()

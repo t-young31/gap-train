@@ -160,9 +160,7 @@ class Configuration:
                           f'{z:>8.3f}', file=f)
                     n += 1
             a, b, c = system.box.size / 10
-            print(f'{a}',
-                  f'{b}',
-                  f'{c}', file=f, sep=' ')
+            print(f'{a} {b} {c}', file=f)
 
     def run_gpaw(self, max_force=None):
         """Run a GPAW DFT calculation, either a minimisation or optimisation

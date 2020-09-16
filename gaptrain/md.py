@@ -1,8 +1,9 @@
 from gaptrain.trajectories import Trajectory
 from gaptrain.calculators import DFTB
 from gaptrain.log import logger
-from gaptrain.systems import MMSystem, System
 from subprocess import Popen, PIPE
+import subprocess
+import numpy as np
 import os
 
 
@@ -52,8 +53,16 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
     :param kwargs: {fs, ps, ns} Simulation time in some units
     """
     # Create topol.top and input.gro files
-    MMSystem.generate_topology(system)
+    system.generate_topology()
     config.print_gro_file(system=system)
+
+    a, b, c = system.box.size
+
+    if a <= 20 or b <= 20 or c <= 20:
+        # GROMACS requires cutoff to be less than hal the smallest box length
+        cutoff = (np.min(system.box.size) * 0.05 - 0.001)
+    else:
+        cutoff = 1.0
 
     # Create min.mdp parameters file
     with open('min.mdp', 'w') as min_file:
@@ -66,8 +75,8 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
               f'{"cutoff-scheme":<20}{"= Verlet"}',
               f'{"ns_type":<20}{"= grid"}',
               f'{"coulombtype":<20}{"= PME"}',
-              f'{"rcoulomb":<20s}{"= 1.0"}',
-              f'{"rvdw":>20s}{"= 1.0"}',
+              f'{"rcoulomb":<20s}{"= "}{cutoff:.3f}',
+              f'{"rvdw":<20s}{"= "}{cutoff:.3f}',
               f'{"pbc":<20s}{"= xyz"}', file=min_file, sep='\n')
 
     # Create nvt.mdp parameters file
@@ -93,9 +102,9 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
               f'{"cutoff-scheme":<25}{"= Verlet"}',
               f'{"ns_type":<25}{"= grid"}',
               f'{"nstlist":<25}{"= 10"}',
-              f'{"rcoulomb":<25}{"= 1.0"}',
+              f'{"rcoulomb":<25}{"= "}{cutoff:.3f}',
               f'{"vdw-type":<25}{"= Cut-off"}',
-              f'{"rvdw":<25}{"= 1.0"}',
+              f'{"rvdw":<25}{"= "}{cutoff:.3f}',
               f'{"coulombtype":<25}{"= PME"}',
               f'{"pme_order":<25}{"= 4"}',
               f'{"fourierspacing":<25}{"= 0.12"}',
@@ -112,15 +121,25 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
 
     # Run gmx minimisation and nvt simulations
     grompp_em = Popen(['gmx', 'grompp', '-f', 'min.mdp', '-c', 'input.gro',
-                       '-p', 'topol.top', '-o', 'em.tpr'], shell=False)
+                       '-p', 'topol.top', '-o', 'em.tpr',
+                       '-maxwarn', '5'], shell=False)
     grompp_em.wait()
+
     minimisation = Popen(['gmx', 'mdrun', '-deffnm', 'em'], shell=False)
     minimisation.wait()
+
     grompp_nvt = Popen(['gmx', 'grompp', '-f', 'nvt.mdp', '-c', 'em.gro',
-                        '-p', 'topol.top', '-o', 'nvt.tpr'], shell=False)
+                        '-p', 'topol.top', '-o', 'nvt.tpr',
+                        '-maxwarn', '5'], shell=False)
     grompp_nvt.wait()
+
     nvt = Popen(['gmx', 'mdrun', '-deffnm', 'nvt'], shell=False)
     nvt.wait()
+
+    echo = Popen(('echo', "System"), stdout=PIPE)
+    trjconv = subprocess.check_output(['gmx', 'trjconv', '-f', 'nvt.xtc'
+                , '-s', 'nvt.tpr', '-o', 'nvt_traj.gro'], stdin=echo.stdout)
+    echo.wait()
 
 
 def run_dftbmd(configuration, temp, dt, interval, **kwargs):
