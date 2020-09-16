@@ -37,9 +37,19 @@ class System:
     """
 
     def __str__(self):
-        """Chemical formula for this species e.g. H2O"""
-        name = "SYSTEM"  # think about how to add generic name for system
-        return name
+        """Name of this system using the number of molecules contained in it"""
+        if len(self.molecules) == 0:
+            return 'system'
+
+        system_str = ''
+        mol_names = [mol.name for mol in self.molecules]
+
+        for name in set(mol_names):
+            num = mol_names.count(name)
+            system_str += f'{name}_{num if num > 0 else ""}_'
+
+        # Remove the final underscore
+        return system_str.rstrip('_')
 
     def __len__(self):
         return len(self.molecules)

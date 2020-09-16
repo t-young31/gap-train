@@ -9,7 +9,6 @@ import numpy as np
 import os
 
 
-
 class Species(ade.species.Species):
 
     def __str__(self):
@@ -129,10 +128,12 @@ class Molecule(Species):
         if xyz_filename is not None:
             atoms = xyz_file_to_atoms(xyz_filename)
 
-        super().__init__(name='mol', charge=charge,
+        super().__init__(charge=charge,
+                         spin_multiplicity=spin_multiplicity,
                          atoms=atoms)
 
         self.itp_filename = gmx_itp_filename
+        self.name = str(self)
 
         logger.info(f'Initialised {xyz_filename.rstrip(".xyz")}\n'
                     f'Number of atoms      = {self.n_atoms}\n'

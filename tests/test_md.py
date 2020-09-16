@@ -1,4 +1,4 @@
-from gaptrain.systems import MMSystem, System
+from gaptrain.systems import MMSystem
 from gaptrain.md import run_mmmd
 import os
 

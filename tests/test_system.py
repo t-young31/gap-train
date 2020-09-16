@@ -41,6 +41,8 @@ def test_system():
     system += two_waters
     assert len(system) == 13
 
+    assert str(system) == 'H2O_13' or str(system) == 'OH2_13'
+
     # Should be able to print an xyz file of the configuration
     system.configuration().save(filename='test.xyz')
     assert os.path.exists('test.xyz')
@@ -116,3 +118,4 @@ def test_generate_topology():
     system = MMSystem(water_solvent, box_size=[5, 5, 5])
     MMSystem.generate_topology(system)
     assert os.stat("topol.top").st_size != 0
+    os.remove('topol.top')

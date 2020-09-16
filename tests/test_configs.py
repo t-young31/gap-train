@@ -130,7 +130,7 @@ def test_print_gro_file():
     config.wrap()
     config.print_gro_file(system=water_box)
     assert os.path.exists('input.gro')
-
+    os.remove('input.gro')
 
 
 def test_remove():
