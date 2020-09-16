@@ -1,10 +1,9 @@
 from gaptrain.configurations import ConfigurationSet, Configuration
 from gaptrain.systems import System
 from gaptrain.molecules import Molecule
-from gaptrain.exceptions import NoEnergy
+import gaptrain as gt
 import numpy as np
 import ase
-import pytest
 import os
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -173,3 +172,54 @@ def test_remove_force_threshold():
 
     configs.remove_above_f(threshold=0.5)
     assert len(configs) == 0
+
+
+# TODO this function
+def FIXME_gap_ensemble_truncate():
+
+    return 
+    os.chdir(os.path.join(here, 'data', 'gap_ensemble'))
+
+    water_box = System(box_size=[7, 7, 7])
+    water_box.add_molecules(h2o, n=5)
+
+    # Add data to the box
+    configs = ConfigurationSet(name='water_configs')
+    for _ in range(30):
+        configs += water_box.random()
+
+    configs.parallel_dftb()
+
+    # Don't attempt without the GAP flag
+    if 'GT_GAP' not in os.environ or not os.environ['GT_GAP'] == 'True':
+        return
+
+    gt.GTConfig.gap_default_soap_params['n_sparse'] = 10
+    gt.GTConfig.gap_default_2b_params['n_sparse'] = 10
+
+    ensemble = gt.GAPEnsemble(name='water_ensemble',
+                              system=water_box,
+                              n=3)
+    ensemble.train(configs)
+
+    # Add a third configuration and predict the error
+    new_config = water_box.random()
+
+    configs += new_config
+    gt.GTConfig.n_cores = 8
+
+    errors = ensemble.predict_energy_error(configs)
+    print(errors)
+
+    # Error on the newly added configuration should be the largest
+    assert all(errors[-1] > error for error in errors[:-1])
+
+    # Truncate the configurations by removing the largest predicted error
+    configs.truncate(n=1, method='ensemble', ensemble=ensemble)
+
+    # Truncation should leave only the configuration that is most disimillar
+    # to the training data, i.e. the newly added one
+    dist = np.linalg.norm(new_config.coordinates() - configs[0].coordinates())
+    assert dist < 1E-6
+
+    os.chdir(here)

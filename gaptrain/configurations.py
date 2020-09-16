@@ -173,6 +173,10 @@ class Configuration:
         if self.forces is not None:
             prop_str += ':dft_forces:R:3'
 
+        if not filename.endswith('.xyz'):
+            logger.warning('Filename had no .xyz extension - adding')
+            filename += '.xyz'
+
         with open(filename, 'a' if append else 'w') as exyz_file:
             print(f'{len(self.atoms)}\n'
                   f'Lattice="{a:.6f} 0.000000 0.000000 '
@@ -500,14 +504,15 @@ class ConfigurationSet:
         logger.info(f'Truncated on forces to {len(self._list)}')
         return None
 
-    def truncate(self, n, method='random'):
+    def truncate(self, n, method='random', **kwargs):
         """
         Truncate this set of configurations to a n configurations
 
         :param n: (int) Number of configurations to truncate to
         :param method: (str)
+        :param kwargs: ensemble (gaptrain.gap.GAPEnsemble)
         """
-        implemented_methods = ['random', 'cur']
+        implemented_methods = ['random', 'cur', 'ensemble']
 
         if method.lower() not in implemented_methods:
             raise NotImplementedError(f'Methods are {implemented_methods}')
@@ -520,6 +525,21 @@ class ConfigurationSet:
             cur_idxs = gt.cur.rows(soap_matrix, k=n, return_indexes=True)
 
             self._list = [self._list[idx] for idx in cur_idxs]
+
+        if method.lower() == 'ensemble':
+            logger.info(f'Truncating {len(self)} configurations based on the'
+                        f' largest errors using a ensemble of GAP models')
+
+            if 'ensemble' not in kwargs:
+                raise KeyError('A GAPEnsemble must be provided to use'
+                               'ensemble truncation i.e.: '
+                               'truncate(.., ensemble=ensemble_instance)')
+
+            errors = kwargs['ensemble'].predict_energy_error(self._list)
+
+            # Use the n configurations with the largest error, where numpy
+            # argsort sorts from smallest->largest so take the last n values
+            self._list = [self._list[i] for i in np.argsort(errors)[-n:]]
 
         return None
 

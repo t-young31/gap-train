@@ -150,7 +150,7 @@ class GAP:
         delta_time = time() - start_time
         print(f'GAP training ran in {delta_time/60:.1f} m')
 
-        if delta_time < 0.5 or b'SYSTEM ABORT' in err:
+        if delta_time < 0.05 or b'SYSTEM ABORT' in err:
             raise GAPFailed(f'GAP train errored with:\n '
                             f'{err.decode()}\n'
                             f'{" ".join(self.train_command())}')
@@ -175,6 +175,24 @@ class GAP:
 
 
 class Parameters:
+
+    def n_sparses(self, inc_soap=True, inc_two_body=True):
+        """
+        Return a list of all the n_sparse parameters used to generate a GAP
+
+        :param inc_soap: (bool)
+        :param inc_two_body: (bool)
+        :return: (list(int))
+        """
+        ns = []
+
+        if inc_soap:
+            ns += [at_soap['n_sparse'] for at_soap in self.soap.values()]
+
+        if inc_two_body:
+            ns += [params['n_sparse'] for params in self.pairwise.values()]
+
+        return ns
 
     def __init__(self, atom_symbols):
         """
@@ -209,15 +227,33 @@ class GAPEnsemble:
     def n_gaps(self):
         return len(self.gaps)
 
-    def predict_energy_error(self, configuration):
+    def predict_energy_error(self, *args):
         """
         Predict the standard deviation between predicted energies
 
-        :param configuration: (gaptrain.configurations.Configuration)
-        :return: (float) Error
+        -----------------------------------------------------------------------
+        :param args: (gaptrain.configurations.Configuration |
+                      gaptrain.configurations.ConfigurationSet)
+
+        :return: (float | list(float)) Error on each of the configurations
         """
+        configs = []
+
+        # Populate a list of all the configurations that need to be
+        for arg in args:
+            try:
+                for config in arg:
+                    configs.append(config)
+
+            except TypeError:
+                assert arg.__class__.__name__ == 'Configuration'
+                configs.append(arg)
+
+        assert len(configs) != 0
+
         start_time = time()
-        results, predictions = [], []
+        results = np.empty(shape=(len(configs), self.n_gaps()), dtype=object)
+        predictions = np.empty(shape=results.shape)
 
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MLK_NUM_THREADS'] = '1'
@@ -226,19 +262,26 @@ class GAPEnsemble:
         with Pool(processes=GTConfig.n_cores) as pool:
 
             # Apply the method to each configuration in this set
-            for i, gap in enumerate(self.gaps):
-                result = pool.apply_async(func=run_gap,
-                                          args=(configuration, None, gap))
-                results.append(result)
+            for i, config in enumerate(configs):
+                for j, gap in enumerate(self.gaps):
+                    result = pool.apply_async(func=run_gap,
+                                              args=(config, None, gap))
+                    results[i, j] = result
 
             # Reset all the configurations in this set with updated energy
             # and forces (each with .true)
-            for result in results:
-                predictions.append(result.get(timeout=None))
+            for i in range(len(configs)):
+                for j in range(self.n_gaps()):
+                    predictions[i, j] = results[i, j].get(timeout=None).energy
 
         logger.info(f'Calculations done in {(time() - start_time):.1f} s')
 
-        return np.std([config.energy for config in predictions])
+        if len(configs) == 1:
+            return np.std(predictions[0])
+
+        print(predictions)
+
+        return [np.std(predictions[i, :]) for i in range(len(configs))]
 
     def train(self, data):
         """
@@ -249,19 +292,29 @@ class GAPEnsemble:
         logger.info(f'Training an ensemble with a total of {len(data)} '
                     'configurations')
 
-        for gap in self.gaps:
+        for i, gap in enumerate(self.gaps):
 
             sub_sampled_data = data.copy()
 
             # Remove points randomly from the training data to give an n-th
-            n_data = int(len(data))/self.n_gaps()
+            n_data = int(len(data)/self.n_gaps())
+
+            if n_data == 0:
+                raise RuntimeError('Insufficient configurations to sub-sample')
+
+            if any(n_sparse > n_data for n_sparse in gap.params.n_sparses()):
+                raise RuntimeError('Number of sub-sampled data must be greater'
+                                   ' than or equal to the number of sparse '
+                                   'points')
+
             sub_sampled_data.remove_random(remainder=n_data)
+            sub_sampled_data.name += f'ss_{i}'
 
             gap.train(data=sub_sampled_data)
 
         return None
 
-    def __init__(self, name, system, num=5):
+    def __init__(self, name, system, n=5):
         """
         Ensemble of Gaussian approximation potentials allowing for error
         estimates by sub-sampling
@@ -269,6 +322,6 @@ class GAPEnsemble:
         :param name:
         :param system:
         """
-        logger.info(f'Initialising a GAP ensemble with {int(num)} GAPs')
+        logger.info(f'Initialising a GAP ensemble with {int(n)} GAPs')
 
-        self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(num))]
+        self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(n))]
