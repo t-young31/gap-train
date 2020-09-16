@@ -21,7 +21,7 @@ def rows(matrix, k=2, epsilon=1, return_indexes=False, n_iters=100):
     :param k: (int) Rank of the SVD decomposition
 
     :param epsilon: (float) Error parameter, smaller values will generate
-                    better approximations but
+                    better approximations
 
     :param return_indexes: (bool) Only return the indexes of the rows in the
                            matrix

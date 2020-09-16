@@ -1,6 +1,8 @@
 from gaptrain.trajectories import Trajectory
 from gaptrain.calculators import DFTB
+from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
+from gaptrain.gtconfig import GTConfig
 from subprocess import Popen, PIPE
 import subprocess
 import numpy as np
@@ -145,7 +147,7 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
 def run_dftbmd(configuration, temp, dt, interval, **kwargs):
     """
     Run ab-initio molecular dynamics on a system. To run a 10 ps simulation
-    with a timestep of 0.5 ps saving every 10th step at 300K
+    with a timestep of 0.5 fs saving every 10th step at 300K
 
     run_dftbmd(config, temp=300, dt=0.5, interval=10, ps=10)
 
@@ -156,10 +158,11 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
 
     :param dt: (float) Timestep in fs
 
-    :param interval: (int) Interval between prrining the geometry
+    :param interval: (int) Interval between printing the geometry
 
     :param kwargs: {fs, ps, ns} Simulation time in some units
     """
+    logger.info('Running DFTB+ MD')
     ase_atoms = configuration.ase_atoms()
 
     dftb = DFTB(atoms=ase_atoms,
@@ -200,7 +203,66 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
     return Trajectory('geo_end.xyz', init_configuration=configuration)
 
 
-def run_gapmd(system, gap, *kwargs):
-    """Run molecular dynamics on a system using a GAP potential"""
-    raise NotImplementedError
+@work_in_tmp_dir(copied_exts=['.xml'])
+def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
+    """
+    Run molecular dynamics on a system using a GAP to predict energies and
+    forces
 
+    ---------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param temp: (float) Temperature in K to use
+
+    :param dt: (float) Timestep in fs
+
+    :param interval: (int) Interval between printing the geometry
+
+    :param kwargs: {fs, ps, ns} Simulation time in some units
+    """
+    logger.info('Running GAP MD')
+    configuration.save(filename='config.xyz')
+
+    a, b, c = configuration.box.size
+    n_steps = simulation_steps(dt, kwargs)
+
+    n_cores = min(GTConfig.n_cores, 8)
+    os.environ['OMP_NUM_THREADS'] = str(n_cores)
+    logger.info(f'Using {n_cores} cores for GAP MD')
+
+    assert os.path.exists(f'{gap.name}.xml')
+
+    # Print a Python script to execute quippy and use ASE to drive the dynamics
+    with open(f'gap.py', 'w') as quippy_script:
+        print('import quippy',
+              'import numpy as np',
+              'from ase.io import read, write',
+              'from ase.io.trajectory import Trajectory',
+              'from ase.md.velocitydistribution import MaxwellBoltzmannDistribution',
+              'from ase import units',
+              'from ase.md.langevin import Langevin',
+              'system = read("config.xyz")',
+              f'system.cell = [{a}, {b}, {c}]',
+              'system.pbc = True',
+              'system.center()',
+              'pot = quippy.Potential("IP GAP", \n'
+              f'                      param_filename="{gap.name}.xml")',
+              'system.set_calculator(pot)',
+              f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)',
+              'traj = Trajectory("tmp.traj", \'w\', system)\n'
+              f'dyn = Langevin(system, {dt:.1f} * units.fs, {temp} * units.kB, 0.02)',
+              f'dyn.attach(traj.write, interval={interval})',
+              f'dyn.run(steps={n_steps})',
+              sep='\n', file=quippy_script)
+
+    # Run the process
+    quip_md = Popen(GTConfig.quippy_gap_command + ['gap.py'],
+                    shell=False, stdout=PIPE, stderr=PIPE)
+    _, err = quip_md.communicate()
+
+    if len(err) > 0 and 'WARNING' not in err.decode():
+        logger.error(f'GAP MD: {err.decode()}')
+
+    traj = Trajectory('tmp.traj', init_configuration=configuration)
+
+    return traj

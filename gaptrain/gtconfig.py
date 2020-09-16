@@ -1,3 +1,17 @@
+"""
+gap-train makes use of the following environment variables
+
+1. GPAW_SETUP_PATH
+2. DFTB_PATH or. DFTB_PREFIX/DFTB_COMMAND
+3. QUIP_CONT
+
+if they're not set some defaults are given but it's probably useful to set them
+for development with e.g.
+
+export QUIP_CONT = $HOME/QUIP.sif
+
+in a bash shell
+"""
 import os
 
 
@@ -10,8 +24,12 @@ if 'GPAW_SETUP_PATH' not in os.environ:
 # set before calling any gaptrain python script
 
 # ----------------------- DFTB+ -------------------------------
-# dftb_path = '/u/fd/ball4935/opt/dftbplus-20.1.x86_64-linux'
-dftb_path = '/u/fd/ball4935/.local/dftbplus-20.1.x86_64-linux'
+if 'DFTB_PATH' in os.environ:
+    dftb_path = os.environ['DFTB_PATH']
+
+else:
+    dftb_path = '/u/fd/ball4935/opt/dftbplus-20.1.x86_64-linux'
+    # dftb_path = '/u/fd/ball4935/.local/dftbplus-20.1.x86_64-linux'
 
 if 'DFTB_PREFIX' not in os.environ:
     os.environ['DFTB_PREFIX'] = f'{dftb_path}/recipes/slakos/download/3ob-3-1'
@@ -33,18 +51,13 @@ class GTConfig:
                       'band.out')
 
     # ----------------------- GAP -------------------------------
-    #gap_fit_command = ['singularity', 'exec',
-    #                   '/u/fd/ball4935/opt/QUIP.sif', 'teach_sparse']
-#
-    #quippy_gap_command = ['singularity', 'exec',
-    #                      '/u/fd/ball4935/opt/QUIP.sif',
-    #                      '/usr/local/bin/python']
+    if 'QUIP_CONT' not in os.environ:
+        os.environ['QUIP_CONT'] = '/u/fd/ball4935/opt/QUIP.sif'
 
-    gap_fit_command = ['singularity', 'exec',
-                       '/u/fd/ball4935/.local/QUIP.sif', 'teach_sparse']
+    gap_fit_command = ['singularity', 'exec', os.environ['QUIP_CONT'],
+                       'teach_sparse']
 
-    quippy_gap_command = ['singularity', 'exec',
-                          '/u/fd/ball4935/.local/QUIP.sif',
+    quippy_gap_command = ['singularity', 'exec',  os.environ['QUIP_CONT'],
                           '/usr/local/bin/python']
 
     # Default parameters for a GAP potential

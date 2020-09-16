@@ -150,3 +150,41 @@ def test_remove():
 
     configs.remove_random(remainder=2)
     assert len(configs) == 2
+
+
+def test_remove_energy_threshold():
+
+    configs = ConfigurationSet(system.random(),
+                               system.random())
+
+    assert len(configs) == 2
+    configs[0].energy = -1000
+    configs[1].energy = -1000 + 10
+
+    # Should keep both configurations
+    configs.remove_above_e(threshold=20)
+    assert len(configs) == 2
+
+    configs.remove_above_e(threshold=5)
+    assert len(configs) == 1
+    assert configs[0].energy == -1000
+
+    configs.remove_above_e(threshold=10, min_energy=-1020)
+    assert len(configs) == 0
+
+
+def test_remove_force_threshold():
+
+    configs = ConfigurationSet(system.random(),
+                               system.random())
+
+    configs[0].forces = np.ones(shape=(9, 3))
+    configs[1].forces = 3 * np.ones(shape=(9, 3))
+
+    assert len(configs) == 2
+
+    configs.remove_above_f(threshold=2)
+    assert len(configs) == 1
+
+    configs.remove_above_f(threshold=0.5)
+    assert len(configs) == 0
