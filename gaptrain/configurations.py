@@ -162,6 +162,8 @@ class Configuration:
             a, b, c = system.box.size / 10
             print(f'{a} {b} {c}', file=f)
 
+        return None
+
     def run_gpaw(self, max_force=None):
         """Run a GPAW DFT calculation, either a minimisation or optimisation
 
@@ -307,7 +309,8 @@ class ConfigurationSet:
         Will set the *true* values
 
         ----------------------------------------------------------------------
-        :param system: (gaptrain.systems.System)
+        :param system: (gaptrain.systems.System |
+                        gaptrain.configuration.Configuration)
 
         :param filename: (str) Filename to load configurations from if
                          None defaults to "name.xyz"
@@ -324,9 +327,10 @@ class ConfigurationSet:
             raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
 
         if system is None and any(prm is None for prm in (box, charge, mult)):
-            print(box, charge, mult)
             raise ex.LoadingFailed('Configurations must be loaded with either '
                                    'a system or box, charge & multiplicity')
+        else:
+            box, charge, mult = system.box, system.charge, system.mult
 
         lines = open(filename, 'r').readlines()
 
@@ -364,7 +368,7 @@ class ConfigurationSet:
                     forces.append(np.array([float(fx), float(fy), float(fz)]))
 
             # Add the configuration
-            configuration = Configuration(system, box, charge, mult)
+            configuration = Configuration(box=box, charge=charge, mult=mult)
             configuration.set_atoms(atoms=atoms)
 
             configuration.energy = energy

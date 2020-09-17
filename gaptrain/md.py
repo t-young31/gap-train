@@ -8,6 +8,8 @@ import subprocess
 import numpy as np
 import os
 
+os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+
 
 def simulation_steps(dt, kwargs):
     """Calculate the number of simulation steps
@@ -139,9 +141,11 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
     nvt.wait()
 
     echo = Popen(('echo', "System"), stdout=PIPE)
-    trjconv = subprocess.check_output(['gmx', 'trjconv', '-f', 'nvt.xtc'
-                , '-s', 'nvt.tpr', '-o', 'nvt_traj.gro'], stdin=echo.stdout)
+    subprocess.check_output(['gmx', 'trjconv', '-f', 'nvt.xtc', '-s', 'nvt.tpr'
+                                , '-o', 'nvt_traj.gro'], stdin=echo.stdout)
     echo.wait()
+
+    return Trajectory(filename='nvt_traj.gro', init_configuration=config)
 
 
 def run_dftbmd(configuration, temp, dt, interval, **kwargs):
