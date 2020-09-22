@@ -8,8 +8,6 @@ import subprocess
 import numpy as np
 import os
 
-os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
-
 
 def simulation_steps(dt, kwargs):
     """Calculate the number of simulation steps
@@ -56,6 +54,9 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
 
     :param kwargs: {fs, ps, ns} Simulation time in some units
     """
+
+    os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+
     # Create topol.top and input.gro files
     system.generate_topology()
     config.print_gro_file(system=system)
