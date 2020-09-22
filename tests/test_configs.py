@@ -136,6 +136,19 @@ def test_remove():
     assert len(configs) == 2
 
 
+def test_load_no_box():
+
+    data = gt.Data()
+    data.load(filename=os.path.join(here, 'data', 'rnd_training.xyz'))
+    assert len(data) > 0
+
+    for config in data:
+
+        assert config.energy is not None
+        assert config.charge == 0
+        assert config.mult == 1
+
+
 def test_remove_energy_threshold():
 
     configs = ConfigurationSet(system.random(),
@@ -177,7 +190,7 @@ def test_remove_force_threshold():
 # TODO this function
 def FIXME_gap_ensemble_truncate():
 
-    return 
+    return
     os.chdir(os.path.join(here, 'data', 'gap_ensemble'))
 
     water_box = System(box_size=[7, 7, 7])

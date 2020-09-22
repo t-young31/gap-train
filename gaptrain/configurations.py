@@ -304,11 +304,6 @@ class ConfigurationSet:
         if not os.path.exists(filename):
             raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
 
-        if system is None and any(prm is None for prm in (box, charge, mult)):
-            print(box, charge, mult)
-            raise ex.LoadingFailed('Configurations must be loaded with either '
-                                   'a system or box, charge & multiplicity')
-
         lines = open(filename, 'r').readlines()
 
         # Number of atoms should be the first item in the file
@@ -333,6 +328,23 @@ class ConfigurationSet:
                     if 'dft_energy' in line:
                         energy = float(line.split()[-1].lstrip('dft_energy='))
 
+                    # Try and load the box
+                    if 'Lattice="' in line and box is None:
+                        try:
+                            # Remove anything before or after the quotes
+                            vec_string = line.split('"')[1].split('"')[0]
+                            components = [float(val) for val in vec_string.split()]
+
+                            # Expecting all the components of the lattice
+                            # vectors, so for an orthorhombic box take the
+                            # diagonal elements of the a, b, c vectors
+                            box = gt.Box(size=[components[0],
+                                               components[4],
+                                               components[8]])
+
+                        except (TypeError, ValueError, IndexError):
+                            raise ex.LoadingFailed('Failed to load the box')
+
                 else:
                     atom_label, x, y, z = line.split()[:4]
                     atoms.append(Atom(atom_label, x=x, y=y, z=z))
@@ -343,6 +355,16 @@ class ConfigurationSet:
                     # System has forces
                     fx, fy, fz = line.split()[4:]
                     forces.append(np.array([float(fx), float(fy), float(fz)]))
+
+            # Default charge and multiplicity if there is a box but no charge
+            if box is not None:
+                if charge is None:
+                    logger.warning('Found a box but no charge, defaulting to 0')
+                    charge = 0
+                if mult is None:
+                    logger.warning('Found a box but no multiplicity, '
+                                   'defaulting to 1')
+                    mult = 1
 
             # Add the configuration
             configuration = Configuration(system, box, charge, mult)
