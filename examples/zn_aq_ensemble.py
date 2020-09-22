@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     ensemble = gt.GAPEnsemble(name='zn_test',
                               system=zn_aq,
-                              num=5)
+                              n=5)
     ensemble.train(vd1)
 
     errors = []
