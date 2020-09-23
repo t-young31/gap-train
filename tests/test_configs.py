@@ -148,7 +148,7 @@ def test_load_no_box():
         assert config.charge == 0
         assert config.mult == 1
 
-
+        
 def test_remove_energy_threshold():
 
     configs = ConfigurationSet(system.random(),
@@ -260,3 +260,4 @@ def FIXME_gap_ensemble_truncate():
     assert dist < 1E-6
 
     os.chdir(here)
+
