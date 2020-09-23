@@ -187,6 +187,30 @@ def test_remove_force_threshold():
     assert len(configs) == 0
 
 
+def test_remove_higher():
+
+    configs = ConfigurationSet(system.random(),
+                               system.random())
+
+    assert len(configs) == 2
+    configs[0].energy = -1000
+    configs[1].energy = -1000 + 10
+
+    configs.truncate(n=1, method='higher')
+    assert len(configs) == 1
+    assert configs[0].energy == -1000
+
+    for i in range(1, 10):
+        config = system.random()
+        config.energy = -1000 + i
+        configs += config
+
+    configs.truncate(n=5, method='higher')
+    assert len(configs) == 5
+    for i in range(5):
+        assert configs[i].energy == -1000 + i
+
+
 # TODO this function
 def FIXME_gap_ensemble_truncate():
 
