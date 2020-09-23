@@ -559,9 +559,6 @@ class ConfigurationSet:
         :param kwargs: ensemble (gaptrain.gap.GAPEnsemble)
         """
         implemented_methods = ['random', 'cur', 'ensemble', 'higher']
-        :param method: (str)
-        """
-        implemented_methods = ['random', 'cur']
 
         if method.lower() not in implemented_methods:
             raise NotImplementedError(f'Methods are {implemented_methods}')
