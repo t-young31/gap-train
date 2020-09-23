@@ -2,9 +2,12 @@ from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
 from gaptrain.plotting import correlation
 from gaptrain.exceptions import GAPFailed
+from gaptrain.calculators import run_gap
 from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations
+from multiprocessing import Pool
+import numpy as np
 import pickle
 from time import time
 import os
@@ -99,7 +102,7 @@ class GAP:
                     pred_energies,
                     true_data.force_components(),
                     predicted_data.force_components(),
-                    name=self.name)
+                    name=f'corr_{self.name}_on_{predicted_data.name}')
 
         return None
 
@@ -128,6 +131,7 @@ class GAP:
         :param data: (gaptrain.data.Data)
         """
         assert all(config.energy is not None for config in data)
+        assert self.params is not None
 
         logger.info('Training a Gaussian Approximation potential on '
                     f'*{len(data)}* training data points')
@@ -147,7 +151,7 @@ class GAP:
         delta_time = time() - start_time
         print(f'GAP training ran in {delta_time/60:.1f} m')
 
-        if delta_time < 0.5 or b'SYSTEM ABORT' in err:
+        if delta_time < 0.05 or b'SYSTEM ABORT' in err:
             raise GAPFailed(f'GAP train errored with:\n '
                             f'{err.decode()}\n'
                             f'{" ".join(self.train_command())}')
@@ -163,15 +167,45 @@ class GAP:
         self.params = pickle.load(open(f'{self.name}.gap', 'rb'))
         return None
 
-    def __init__(self, name, system):
-        """A Gaussian Approximation Potential"""
+    def __init__(self, name, system=None):
+        """
+        A Gaussian Approximation Potential
+
+        :param name: (str)
+        :param system: (gaptrain.systems.System | None)
+        """
 
         self.name = name
-        self.params = Parameters(atom_symbols=set(system.atom_symbols()))
+        self.params = None
+
+        if system is not None:
+            self.params = Parameters(atom_symbols=set(system.atom_symbols()))
+        else:
+            logger.warning('Initialised a GAP with no parameters. '
+                           'gap.train not available')
+
         self.training_data = None
 
 
 class Parameters:
+
+    def n_sparses(self, inc_soap=True, inc_two_body=True):
+        """
+        Return a list of all the n_sparse parameters used to generate a GAP
+
+        :param inc_soap: (bool)
+        :param inc_two_body: (bool)
+        :return: (list(int))
+        """
+        ns = []
+
+        if inc_soap:
+            ns += [at_soap['n_sparse'] for at_soap in self.soap.values()]
+
+        if inc_two_body:
+            ns += [params['n_sparse'] for params in self.pairwise.values()]
+
+        return ns
 
     def __init__(self, atom_symbols):
         """
@@ -199,3 +233,137 @@ class Parameters:
         if 'H' in self.soap:
             logger.warning('H found in SOAP descriptor  - removing')
             self.soap.pop('H')
+
+
+class GAPEnsemble:
+
+    def n_gaps(self):
+        return len(self.gaps)
+
+    def predict_energy_error(self, *args):
+        """
+        Predict the standard deviation between predicted energies
+
+        -----------------------------------------------------------------------
+        :param args: (gaptrain.configurations.Configuration |
+                      gaptrain.configurations.ConfigurationSet)
+
+        :return: (float | list(float)) Error on each of the configurations
+        """
+        configs = []
+
+        # Populate a list of all the configurations that need to be
+        for arg in args:
+            try:
+                for config in arg:
+                    configs.append(config)
+
+            except TypeError:
+                assert arg.__class__.__name__ == 'Configuration'
+                configs.append(arg)
+
+        assert len(configs) != 0
+
+        start_time = time()
+        results = np.empty(shape=(len(configs), self.n_gaps()), dtype=object)
+        predictions = np.empty(shape=results.shape)
+
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MLK_NUM_THREADS'] = '1'
+        logger.info('Set OMP and MLK threads to 1')
+
+        with Pool(processes=GTConfig.n_cores) as pool:
+
+            # Apply the method to each configuration in this set
+            for i, config in enumerate(configs):
+                for j, gap in enumerate(self.gaps):
+                    result = pool.apply_async(func=run_gap,
+                                              args=(config, None, gap))
+                    results[i, j] = result
+
+            # Reset all the configurations in this set with updated energy
+            # and forces (each with .true)
+            for i in range(len(configs)):
+                for j in range(self.n_gaps()):
+                    predictions[i, j] = results[i, j].get(timeout=None).energy
+
+        logger.info(f'Calculations done in {(time() - start_time):.1f} s')
+
+        if len(configs) == 1:
+            return np.std(predictions[0])
+
+        print(predictions)
+
+        return [np.std(predictions[i, :]) for i in range(len(configs))]
+
+    def sub_sampled_data(self, data, gap=None, random=True):
+        """
+        Select a portion of the data to train a GAP on as an nth of the full
+        training data where n is the number of GAPs in this ensemble
+
+        :param data: (gaptrain.data.Data)
+        :param gap: (gaptrain.gap.GAP | None)
+        :param random: (bool) Whether to take a random sample
+        :return:
+        """
+        sub_sampled_data = data.copy()
+
+        # Remove points randomly from the training data to give an n-th
+        n_data = int(len(data) / self.n_gaps())
+
+        if n_data == 0:
+            raise RuntimeError('Insufficient configurations to sub-sample')
+
+        if gap is not None:
+            if any(n_sparse > n_data for n_sparse in gap.params.n_sparses()):
+                raise RuntimeError('Number of sub-sampled data must be greater'
+                                   ' than or equal to the number of sparse '
+                                   'points')
+        else:
+            logger.warning('Cannot check that the number of data is larger'
+                           'than the number of sparse points')
+
+        if random:
+            sub_sampled_data.remove_random(remainder=n_data)
+        else:
+            raise NotImplementedError
+
+        return sub_sampled_data
+
+    def train(self, data, sub_sample=True):
+        """
+        Train the ensemble of GAPS
+
+        :param data: (gaptrain.data.Data)
+        :param sub_sample: (bool) Should the data be sub sampled or the full
+                           set used?
+        """
+        logger.info(f'Training an ensemble with a total of {len(data)} '
+                    'configurations')
+
+        for i, gap in enumerate(self.gaps):
+
+            if sub_sample:
+                training_data = self.sub_sampled_data(data, gap, random=True)
+            else:
+                training_data = data.copy()
+
+            # Ensure that the data's name is unique, for saving etc.
+            training_data.name += f's{i}'
+
+            # Train the GAP
+            gap.train(data=training_data)
+
+        return None
+
+    def __init__(self, name, system, n=5):
+        """
+        Ensemble of Gaussian approximation potentials allowing for error
+        estimates by sub-sampling
+
+        :param name:
+        :param system:
+        """
+        logger.info(f'Initialising a GAP ensemble with {int(n)} GAPs')
+
+        self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(n))]

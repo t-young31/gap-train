@@ -173,6 +173,10 @@ class Configuration:
         if self.forces is not None:
             prop_str += ':dft_forces:R:3'
 
+        if not filename.endswith('.xyz'):
+            logger.warning('Filename had no .xyz extension - adding')
+            filename += '.xyz'
+
         with open(filename, 'a' if append else 'w') as exyz_file:
             print(f'{len(self.atoms)}\n'
                   f'Lattice="{a:.6f} 0.000000 0.000000 '
@@ -300,11 +304,6 @@ class ConfigurationSet:
         if not os.path.exists(filename):
             raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
 
-        if system is None and any(prm is None for prm in (box, charge, mult)):
-            print(box, charge, mult)
-            raise ex.LoadingFailed('Configurations must be loaded with either '
-                                   'a system or box, charge & multiplicity')
-
         lines = open(filename, 'r').readlines()
 
         # Number of atoms should be the first item in the file
@@ -329,6 +328,23 @@ class ConfigurationSet:
                     if 'dft_energy' in line:
                         energy = float(line.split()[-1].lstrip('dft_energy='))
 
+                    # Try and load the box
+                    if 'Lattice="' in line and box is None:
+                        try:
+                            # Remove anything before or after the quotes
+                            vec_string = line.split('"')[1].split('"')[0]
+                            components = [float(val) for val in vec_string.split()]
+
+                            # Expecting all the components of the lattice
+                            # vectors, so for an orthorhombic box take the
+                            # diagonal elements of the a, b, c vectors
+                            box = gt.Box(size=[components[0],
+                                               components[4],
+                                               components[8]])
+
+                        except (TypeError, ValueError, IndexError):
+                            raise ex.LoadingFailed('Failed to load the box')
+
                 else:
                     atom_label, x, y, z = line.split()[:4]
                     atoms.append(Atom(atom_label, x=x, y=y, z=z))
@@ -339,6 +355,16 @@ class ConfigurationSet:
                     # System has forces
                     fx, fy, fz = line.split()[4:]
                     forces.append(np.array([float(fx), float(fy), float(fz)]))
+
+            # Default charge and multiplicity if there is a box but no charge
+            if box is not None:
+                if charge is None:
+                    logger.warning('Found a box but no charge, defaulting to 0')
+                    charge = 0
+                if mult is None:
+                    logger.warning('Found a box but no multiplicity, '
+                                   'defaulting to 1')
+                    mult = 1
 
             # Add the configuration
             configuration = Configuration(system, box, charge, mult)
@@ -500,17 +526,49 @@ class ConfigurationSet:
         logger.info(f'Truncated on forces to {len(self._list)}')
         return None
 
-    def truncate(self, n, method='random'):
+    def remove_highest_e(self, n):
+        """
+        Remove the highest energy n configurations from this set
+
+        :param n: (int) Number of configurations to remove
+        """
+        energies = [config.energy for config in self._list]
+
+        if any(energy is None for energy in energies):
+            raise ValueError('Cannot remove highest energy from a set '
+                             'with some undefined energies')
+
+        if n > len(self._list):
+            raise ValueError('The number of configurations needs to be larger '
+                             'than the number removed')
+
+        logger.info(f'Removing the least stable {n} configurations')
+
+        idxs = np.argsort(energies)
+        print(idxs)
+        print(idxs[-1])
+        self._list = [self._list[i] for i in idxs[:-n]]
+        return None
+
+    def truncate(self, n, method='random', **kwargs):
         """
         Truncate this set of configurations to a n configurations
 
         :param n: (int) Number of configurations to truncate to
+        :param method: (str) Name of the method to use
+        :param kwargs: ensemble (gaptrain.gap.GAPEnsemble)
+        """
+        implemented_methods = ['random', 'cur', 'ensemble', 'higher']
         :param method: (str)
         """
         implemented_methods = ['random', 'cur']
 
         if method.lower() not in implemented_methods:
             raise NotImplementedError(f'Methods are {implemented_methods}')
+
+        if n > len(self._list):
+            raise ValueError(f'Cannot truncate a set of {len(self)} '
+                             f'configurations to {n}')
 
         if method.lower() == 'random':
             return self.remove_random(remainder=n)
@@ -520,6 +578,24 @@ class ConfigurationSet:
             cur_idxs = gt.cur.rows(soap_matrix, k=n, return_indexes=True)
 
             self._list = [self._list[idx] for idx in cur_idxs]
+
+        if method.lower() == 'ensemble':
+            logger.info(f'Truncating {len(self)} configurations based on the'
+                        f' largest errors using a ensemble of GAP models')
+
+            if 'ensemble' not in kwargs:
+                raise KeyError('A GAPEnsemble must be provided to use'
+                               'ensemble truncation i.e.: '
+                               'truncate(.., ensemble=ensemble_instance)')
+
+            errors = kwargs['ensemble'].predict_energy_error(self._list)
+
+            # Use the n configurations with the largest error, where numpy
+            # argsort sorts from smallest->largest so take the last n values
+            self._list = [self._list[i] for i in np.argsort(errors)[-n:]]
+
+        if method.lower() == 'higher':
+            return self.remove_highest_e(n=len(self) - n)
 
         return None
 
