@@ -235,7 +235,8 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
     os.environ['OMP_NUM_THREADS'] = str(n_cores)
     logger.info(f'Using {n_cores} cores for GAP MD')
 
-    assert os.path.exists(f'{gap.name}.xml')
+    if not os.path.exists(f'{gap.name}.xml'):
+        raise IOError('GAP parameter file (.xml) did not exist')
 
     # Print a Python script to execute quippy and use ASE to drive the dynamics
     with open(f'gap.py', 'w') as quippy_script:

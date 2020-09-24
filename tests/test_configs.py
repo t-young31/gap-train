@@ -1,8 +1,6 @@
 from gaptrain.configurations import ConfigurationSet, Configuration
 from gaptrain.systems import System
 from gaptrain.molecules import Molecule
-from gaptrain.exceptions import NoEnergy
-from gaptrain.solvents import get_solvent
 import gaptrain as gt
 import numpy as np
 import ase
@@ -152,6 +150,19 @@ def test_remove():
     assert len(configs) == 2
 
 
+def test_load_no_box():
+
+    data = gt.Data()
+    data.load(filename=os.path.join(here, 'data', 'rnd_training.xyz'))
+    assert len(data) > 0
+
+    for config in data:
+
+        assert config.energy is not None
+        assert config.charge == 0
+        assert config.mult == 1
+
+        
 def test_remove_energy_threshold():
 
     configs = ConfigurationSet(system.random(),
@@ -190,10 +201,34 @@ def test_remove_force_threshold():
     assert len(configs) == 0
 
 
+def test_remove_higher():
+
+    configs = ConfigurationSet(system.random(),
+                               system.random())
+
+    assert len(configs) == 2
+    configs[0].energy = -1000
+    configs[1].energy = -1000 + 10
+
+    configs.truncate(n=1, method='higher')
+    assert len(configs) == 1
+    assert configs[0].energy == -1000
+
+    for i in range(1, 10):
+        config = system.random()
+        config.energy = -1000 + i
+        configs += config
+
+    configs.truncate(n=5, method='higher')
+    assert len(configs) == 5
+    for i in range(5):
+        assert configs[i].energy == -1000 + i
+
+
 # TODO this function
 def FIXME_gap_ensemble_truncate():
 
-    return 
+    return
     os.chdir(os.path.join(here, 'data', 'gap_ensemble'))
 
     water_box = System(box_size=[7, 7, 7])
@@ -239,3 +274,4 @@ def FIXME_gap_ensemble_truncate():
     assert dist < 1E-6
 
     os.chdir(here)
+
