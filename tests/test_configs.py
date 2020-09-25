@@ -9,6 +9,7 @@ import os
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 
+
 side_length = 7.0
 system = System(box_size=[side_length, side_length, side_length])
 system.add_molecules(h2o, n=3)
@@ -115,6 +116,19 @@ def test_dftb_plus():
 
     # Should all be non-zero length force vectors in ev Å^-1
     assert all(0 < np.linalg.norm(force) < 70 for force in forces)
+
+
+def test_print_gro_file():
+
+    water_box = System(box_size=[10, 10, 10])
+    water_box.add_molecules(molecule=get_solvent('h2o'), n=10)
+    for molecule in water_box.molecules:
+        molecule.set_mm_atom_types()
+    config = Configuration(water_box)
+    config.wrap()
+    config.print_gro_file(system=water_box)
+    assert os.path.exists('input.gro')
+    os.remove('input.gro')
 
 
 def test_remove():

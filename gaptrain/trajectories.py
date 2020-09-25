@@ -1,6 +1,41 @@
 from gaptrain.log import logger
 import gaptrain as gt
 import ase.io.trajectory as ase_traj
+import os
+
+
+def gro2xyz(gro_traj, config):
+    """Convert a GROMACS .gro trajectory to a .xyz trajectory"""
+    with open('nvt_traj.xyz', 'w') as output_xyz:
+
+        lines = open(gro_traj, 'r').readlines()
+
+        # Number of atoms is second line of gro file
+        num_of_atoms = int(lines[1])
+        stride = (num_of_atoms + 3)
+
+        # Create an ordered list of atoms from system.molecules
+        atom_list = [atom.label for atom in config.atoms]
+
+        # Iterate through the entire gro file
+        for i, _ in enumerate(lines[::stride]):
+
+            print(f'{num_of_atoms}\n'
+                  f'Comment line', file=output_xyz)
+
+            # Iterate through the coordinate lines of each frame only
+            for j, line in enumerate(
+                    lines[i * stride + 2:(i + 1) * stride - 1]):
+
+                # Extract the x, y, z coordinates and atom names
+                x_nm, y_nm, z_nm = line.split()[3:6]
+                x, y, z = 10 * float(x_nm), \
+                          10 * float(y_nm), 10 * float(z_nm)
+
+                print(f'{atom_list[j]:<4} {x:<7.3f} {y:<7.3f} {z:<7.3f}'
+                      , file=output_xyz)
+
+        return None
 
 
 class Trajectory(gt.ConfigurationSet):
@@ -35,6 +70,19 @@ class Trajectory(gt.ConfigurationSet):
 
         return None
 
+    def extract_from_gmx(self, filename, init_config):
+        """Load a GAP train trajectory from .gro file"""
+        assert init_config is not None
+
+        gro2xyz(filename, init_config)
+        self.load(filename='nvt_traj.xyz',
+                  box=init_config.box,
+                  charge=init_config.charge,
+                  mult=init_config.mult)
+        os.remove(filename)
+
+        return None
+
     def __init__(self, filename, init_configuration=None, charge=None,
                  mult=None, box=None):
         super().__init__()
@@ -47,6 +95,9 @@ class Trajectory(gt.ConfigurationSet):
 
         elif all(prm is not None for prm in (charge, mult, box)):
             self.load(filename, box=box, charge=charge, mult=mult)
+
+        elif filename.endswith('.gro'):
+            self.extract_from_gmx(filename, init_configuration)
 
         if len(self) == 0:
             logger.warning('Loaded an empty trajectory')
