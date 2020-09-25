@@ -75,7 +75,10 @@ class Trajectory(gt.ConfigurationSet):
         assert init_config is not None
 
         gro2xyz(filename, init_config)
-        self.load(filename='nvt_traj.xyz', system=init_config)
+        self.load(filename='nvt_traj.xyz',
+                  box=init_config.box,
+                  charge=init_config.charge,
+                  mult=init_config.mult)
         os.remove(filename)
 
         return None

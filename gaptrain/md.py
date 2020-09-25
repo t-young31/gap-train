@@ -64,7 +64,7 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
     a, b, c = system.box.size
 
     if a <= 20 or b <= 20 or c <= 20:
-        # GROMACS requires cutoff to be less than hal the smallest box length
+        # GROMACS requires cutoff to be less than half the smallest box length
         cutoff = (np.min(system.box.size) * 0.05 - 0.001)
     else:
         cutoff = 1.0
@@ -108,6 +108,8 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
               f'{"ns_type":<25}{"= grid"}',
               f'{"nstlist":<25}{"= 10"}',
               f'{"rcoulomb":<25}{"= "}{cutoff:.3f}',
+              f'{"verlet-buffer-tolerance":<25}{"= -1"}',
+              f'{"rlist":<25}{"= "}{cutoff:.3f}',
               f'{"vdw-type":<25}{"= Cut-off"}',
               f'{"rvdw":<25}{"= "}{cutoff:.3f}',
               f'{"coulombtype":<25}{"= PME"}',
