@@ -1,9 +1,0 @@
-[ atomtypes ]
-Zn          30      65.4     0.0000  A   1.95998e-01  5.23000e-02
-
-[ moleculetype ]
-; molname       nrexcl
-ZN              1
-
-[ atoms ]
-1       Zn              1       ZN              ZN       1      2.00000

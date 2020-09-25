@@ -4,8 +4,6 @@ from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
 from gaptrain.gtconfig import GTConfig
 from subprocess import Popen, PIPE
-import subprocess
-import numpy as np
 import os
 
 
@@ -36,119 +34,9 @@ def simulation_steps(dt, kwargs):
     return max(int(time_fs / dt), 1)
 
 
-def run_mmmd(system, config, temp, dt, interval, **kwargs):
-    """
-    Generate topology and input gro files.
-    Run classical molecular mechanics MD on a system
-
-    ---------------------------------------------------------------------------
-    :param system: (gaptrain.MMSystem)
-
-    :param config: (gaptrain.MMSystem.random)
-
-    :param temp: (float) Temperature in K to use
-
-    :param dt: (float) Timestep in fs
-
-    :param interval: (int) Interval between printing the geometry
-
-    :param kwargs: {fs, ps, ns} Simulation time in some units
-    """
-
-    os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
-
-    # Create topol.top and input.gro files
-    system.generate_topology()
-    config.print_gro_file(system=system)
-
-    a, b, c = system.box.size
-
-    if a <= 20 or b <= 20 or c <= 20:
-        # GROMACS requires cutoff to be less than half the smallest box length
-        cutoff = (np.min(system.box.size) * 0.05 - 0.001)
-    else:
-        cutoff = 1.0
-
-    # Create min.mdp parameters file
-    with open('min.mdp', 'w') as min_file:
-
-        print(f'{"integrator":<20}{"= steep"}',
-              f'{"emtol":<20}{"= 1000.0"}',
-              f'{"emstep":<20}{"= 0.01"}',
-              f'{"nsteps":<20}{"= 50000"}',
-              f'{"nstlist":<20}{"= 1"}',
-              f'{"cutoff-scheme":<20}{"= Verlet"}',
-              f'{"ns_type":<20}{"= grid"}',
-              f'{"coulombtype":<20}{"= PME"}',
-              f'{"rcoulomb":<20s}{"= "}{cutoff:.3f}',
-              f'{"rvdw":<20s}{"= "}{cutoff:.3f}',
-              f'{"pbc":<20s}{"= xyz"}', file=min_file, sep='\n')
-
-    # Create nvt.mdp parameters file
-    with open('nvt.mdp', 'w') as nvt_file:
-
-        print(f'{"title":<25}{"= GAP-Train NVT parameter file"}',
-              f'{"define":<25}{"= -DPOSRES"}',
-              f'{"integrator":<25}{"= md"}',
-              f'{"nsteps":<25}{"= "}{simulation_steps(dt, kwargs)}',
-              f'{"dt":<25}{"= "}{dt / 1E3}',   # converts to picoseconds (ps)
-              f'{"init_step":<25}{"= 0"}',
-              f'{"comm-mode":<25}{"= Linear"}',
-              f'{"nstxout":<25}{"= "}{interval}',
-              f'{"nstvout":<25}{"= "}{interval}',
-              f'{"nstenergy":<25}{"= "}{interval}',
-              f'{"nstlog":<25}{"= "}{interval}',
-              f'{"nstxout-compressed":<25}{"= "}{interval}',
-              f'{"continuation":<25}{"= no"}',
-              f'{"constraint_algorithm":<25}{"= lincs"}',
-              f'{"constraints":<25}{"= h-bonds"}',
-              f'{"lincs_iter":<25}{"= 1"}',
-              f'{"lincs_order":<25}{"= 4"}',
-              f'{"cutoff-scheme":<25}{"= Verlet"}',
-              f'{"ns_type":<25}{"= grid"}',
-              f'{"nstlist":<25}{"= 10"}',
-              f'{"rcoulomb":<25}{"= "}{cutoff:.3f}',
-              f'{"verlet-buffer-tolerance":<25}{"= -1"}',
-              f'{"rlist":<25}{"= "}{cutoff:.3f}',
-              f'{"vdw-type":<25}{"= Cut-off"}',
-              f'{"rvdw":<25}{"= "}{cutoff:.3f}',
-              f'{"coulombtype":<25}{"= PME"}',
-              f'{"pme_order":<25}{"= 4"}',
-              f'{"fourierspacing":<25}{"= 0.12"}',
-              f'{"tcoupl":<25}{"= V-rescale"}',
-              f'{"tc-grps":<25}{"= system"}',
-              f'{"tau_t":<25}{"= 0.1"}',
-              f'{"ref_t":<25}{"= "}{temp}',
-              f'{"pcoupl":<25}{"= no"}',
-              f'{"pbc":<25}{"= xyz"}',
-              f'{"DispCorr":<25}{"= EnerPres"}',
-              f'{"gen_vel":<25}{"= yes"}',
-              f'{"gen-temp":<25}{"= "}{temp}',
-              f'{"gen-seed":<25}{"= -1"}', file=nvt_file, sep='\n')
-
-    # Run gmx minimisation and nvt simulations
-    grompp_em = Popen(['gmx', 'grompp', '-f', 'min.mdp', '-c', 'input.gro',
-                       '-p', 'topol.top', '-o', 'em.tpr',
-                       '-maxwarn', '5'], shell=False)
-    grompp_em.wait()
-
-    minimisation = Popen(['gmx', 'mdrun', '-deffnm', 'em'], shell=False)
-    minimisation.wait()
-
-    grompp_nvt = Popen(['gmx', 'grompp', '-f', 'nvt.mdp', '-c', 'em.gro',
-                        '-p', 'topol.top', '-o', 'nvt.tpr',
-                        '-maxwarn', '5'], shell=False)
-    grompp_nvt.wait()
-
-    nvt = Popen(['gmx', 'mdrun', '-deffnm', 'nvt'], shell=False)
-    nvt.wait()
-
-    echo = Popen(('echo', "System"), stdout=PIPE)
-    subprocess.check_output(['gmx', 'trjconv', '-f', 'nvt.xtc', '-s', 'nvt.tpr'
-                                , '-o', 'nvt_traj.gro'], stdin=echo.stdout)
-    echo.wait()
-
-    return Trajectory(filename='nvt_traj.gro', init_configuration=config)
+def run_mmmd(mmsystem, *kwargs):
+    """Run classical molecular mechanics MD on a system"""
+    raise NotImplementedError
 
 
 def run_dftbmd(configuration, temp, dt, interval, **kwargs):
