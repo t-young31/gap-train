@@ -22,6 +22,7 @@ class Loss:
 
         :return: (gaptrain.loss.RMSE)
         """
+
         assert len(cfs_a) == len(cfs_b)
 
         deltas = []
