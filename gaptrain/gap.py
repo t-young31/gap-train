@@ -102,7 +102,7 @@ class GAP:
                     pred_energies,
                     true_data.force_components(),
                     predicted_data.force_components(),
-                    name=self.name)
+                    name=f'corr_{self.name}_on_{predicted_data.name}')
 
         return None
 
@@ -131,6 +131,7 @@ class GAP:
         :param data: (gaptrain.data.Data)
         """
         assert all(config.energy is not None for config in data)
+        assert self.params is not None
 
         logger.info('Training a Gaussian Approximation potential on '
                     f'*{len(data)}* training data points')
@@ -166,11 +167,23 @@ class GAP:
         self.params = pickle.load(open(f'{self.name}.gap', 'rb'))
         return None
 
-    def __init__(self, name, system):
-        """A Gaussian Approximation Potential"""
+    def __init__(self, name, system=None):
+        """
+        A Gaussian Approximation Potential
+
+        :param name: (str)
+        :param system: (gaptrain.systems.System | None)
+        """
 
         self.name = name
-        self.params = Parameters(atom_symbols=set(system.atom_symbols()))
+        self.params = None
+
+        if system is not None:
+            self.params = Parameters(atom_symbols=set(system.atom_symbols()))
+        else:
+            logger.warning('Initialised a GAP with no parameters. '
+                           'gap.train not available')
+
         self.training_data = None
 
 
@@ -283,34 +296,63 @@ class GAPEnsemble:
 
         return [np.std(predictions[i, :]) for i in range(len(configs))]
 
-    def train(self, data):
+    def sub_sampled_data(self, data, gap=None, random=True):
+        """
+        Select a portion of the data to train a GAP on as an nth of the full
+        training data where n is the number of GAPs in this ensemble
+
+        :param data: (gaptrain.data.Data)
+        :param gap: (gaptrain.gap.GAP | None)
+        :param random: (bool) Whether to take a random sample
+        :return:
+        """
+        sub_sampled_data = data.copy()
+
+        # Remove points randomly from the training data to give an n-th
+        n_data = int(len(data) / self.n_gaps())
+
+        if n_data == 0:
+            raise RuntimeError('Insufficient configurations to sub-sample')
+
+        if gap is not None:
+            if any(n_sparse > n_data for n_sparse in gap.params.n_sparses()):
+                raise RuntimeError('Number of sub-sampled data must be greater'
+                                   ' than or equal to the number of sparse '
+                                   'points')
+        else:
+            logger.warning('Cannot check that the number of data is larger'
+                           'than the number of sparse points')
+
+        if random:
+            sub_sampled_data.remove_random(remainder=n_data)
+        else:
+            raise NotImplementedError
+
+        return sub_sampled_data
+
+    def train(self, data, sub_sample=True):
         """
         Train the ensemble of GAPS
 
         :param data: (gaptrain.data.Data)
+        :param sub_sample: (bool) Should the data be sub sampled or the full
+                           set used?
         """
         logger.info(f'Training an ensemble with a total of {len(data)} '
                     'configurations')
 
         for i, gap in enumerate(self.gaps):
 
-            sub_sampled_data = data.copy()
+            if sub_sample:
+                training_data = self.sub_sampled_data(data, gap, random=True)
+            else:
+                training_data = data.copy()
 
-            # Remove points randomly from the training data to give an n-th
-            n_data = int(len(data)/self.n_gaps())
+            # Ensure that the data's name is unique, for saving etc.
+            training_data.name += f's{i}'
 
-            if n_data == 0:
-                raise RuntimeError('Insufficient configurations to sub-sample')
-
-            if any(n_sparse > n_data for n_sparse in gap.params.n_sparses()):
-                raise RuntimeError('Number of sub-sampled data must be greater'
-                                   ' than or equal to the number of sparse '
-                                   'points')
-
-            sub_sampled_data.remove_random(remainder=n_data)
-            sub_sampled_data.name += f'ss_{i}'
-
-            gap.train(data=sub_sampled_data)
+            # Train the GAP
+            gap.train(data=training_data)
 
         return None
 
