@@ -139,6 +139,31 @@ class Configuration:
 
         return run_gap(self, max_force=max_force, gap=gap)
 
+    def print_gro_file(self, system):
+        filename = 'input.gro'
+        with open(filename, 'w') as f:
+            print(f'{str(system)}', file=f)
+            print(f'{len(self.atoms)}', file=f)
+
+            n = 0
+            for i, molecule in enumerate(system.molecules):
+                atom_list = []
+                for atom in molecule.atoms:
+                    x, y, z = self.atoms[n].coord / 10
+                    atom_list.append(atom.label)
+                    print(f'{i+1:>5}'
+                          f'{molecule.name:<5}'
+                          f'{atom.mm_type.strip():>5}'
+                          f'{n+1:>5}'
+                          f'{x:>8.3f}'
+                          f'{y:>8.3f}'
+                          f'{z:>8.3f}', file=f)
+                    n += 1
+            a, b, c = system.box.size / 10
+            print(f'{a} {b} {c}', file=f)
+
+        return None
+
     def run_gpaw(self, max_force=None):
         """Run a GPAW DFT calculation, either a minimisation or optimisation
 
@@ -288,7 +313,8 @@ class ConfigurationSet:
         Will set the *true* values
 
         ----------------------------------------------------------------------
-        :param system: (gaptrain.systems.System)
+        :param system: (gaptrain.systems.System |
+                        gaptrain.configuration.Configuration)
 
         :param filename: (str) Filename to load configurations from if
                          None defaults to "name.xyz"
@@ -367,7 +393,7 @@ class ConfigurationSet:
                     mult = 1
 
             # Add the configuration
-            configuration = Configuration(system, box, charge, mult)
+            configuration = Configuration(box=box, charge=charge, mult=mult)
             configuration.set_atoms(atoms=atoms)
 
             configuration.energy = energy
@@ -559,9 +585,6 @@ class ConfigurationSet:
         :param kwargs: ensemble (gaptrain.gap.GAPEnsemble)
         """
         implemented_methods = ['random', 'cur', 'ensemble', 'higher']
-        :param method: (str)
-        """
-        implemented_methods = ['random', 'cur']
 
         if method.lower() not in implemented_methods:
             raise NotImplementedError(f'Methods are {implemented_methods}')

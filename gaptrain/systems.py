@@ -1,3 +1,6 @@
+from gaptrain.molecules import Molecule
+from gaptrain.molecules import Species
+from gaptrain.solvents import solvents, get_solvent
 from gaptrain.box import Box
 from gaptrain.log import logger
 from gaptrain.configurations import Configuration
@@ -32,6 +35,21 @@ class System:
 
     to generate a box of water at ~1 g cm-3 density.
     """
+
+    def __str__(self):
+        """Name of this system using the number of molecules contained in it"""
+        if len(self.molecules) == 0:
+            return 'system'
+
+        system_str = ''
+        mol_names = [mol.name for mol in self.molecules]
+
+        for name in set(mol_names):
+            num = mol_names.count(name)
+            system_str += f'{name}_{num if num > 0 else ""}_'
+
+        # Remove the final underscore
+        return system_str.rstrip('_')
 
     def __len__(self):
         return len(self.molecules)
@@ -130,10 +148,15 @@ class System:
 
         return config
 
-    def add_solvent(self, solvent_name):
-        """Add water to the system to generate a ~1 g cm-3 density"""
-        # assert solvent in solvent library
-        raise NotImplementedError
+    def add_solvent(self, solvent_name, n):
+        """Add water to the system to generate a ~1 g cm-3 density
+
+        :param solvent_name: (str) e.g. 'h2o'
+        :param n: (int) number of solvent molecules e.g. 10
+        """
+        solvent = get_solvent(solvent_name)
+
+        return self.add_molecules(molecule=solvent, n=n)
 
     def add_molecules(self, molecule, n=1):
         """Add a number of the same molecule to the system"""
@@ -189,9 +212,50 @@ class MMSystem(System):
 
     def generate_topology(self):
         """Generate a GROMACS topology for this system"""
+        for molecule in self.molecules:
+            molecule.set_mm_atom_types()
+
         assert all(m.itp_filename is not None for m in self.molecules)
 
-        raise NotImplementedError
+        def print_types(file, atoms=False, molecules=False):
+
+            itp_names = [mol.itp_filename for mol in self.molecules]
+            for itp in sorted(set(itp_names), key=itp_names.index):
+
+                itp_file = open(itp, 'r')
+                print_flag = False
+
+                for line in itp_file:
+                    if atoms:
+                        if 'moleculetype' not in line:
+                            print(f'{line}', file=file)
+                        else:
+                            break
+
+                    elif molecules:
+                        if print_flag or 'moleculetype' in line:
+                            print(f'{line}', file=file)
+                            print_flag = True
+
+        with open('topol.top', 'w') as topol_file:
+            print(f'[ defaults ]',
+                  f'{"; nbfunc":<16}{"comb-rule":<16}'
+                  f'{"gen-pairs":<16}{"fudgeLJ":<8}{"fudgeQQ":<8}',
+                  f'{"1":<16}{"2":<16}{"yes":<16}{"0.5":<8}{"0.8333":<8}\n'
+                  , file=topol_file, sep='\n')
+
+            print_types(topol_file, atoms=True)
+            print_types(topol_file, molecules=True)
+
+            print(f'\n[ system ]',
+                  f'; Name',
+                  f'{str(self)}\n',
+                  f'[ molecules ]',
+                  f'; Compound{"":<7s}#mols', file=topol_file, sep='\n')
+
+            mol_names = [m.name for m in self.molecules]
+            for mol_name in sorted(set(mol_names), key=mol_names.index):
+                print(f'{mol_name:<15s}{mol_names.count(mol_name)}', file=topol_file)
 
     def __init__(self, *args, box_size):
         """System that can be simulated with molecular mechanics"""
