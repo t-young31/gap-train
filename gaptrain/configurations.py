@@ -330,6 +330,11 @@ class ConfigurationSet:
         if not os.path.exists(filename):
             raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
 
+        if system is not None:
+            if all(prm for prm in (system.box, system.charge, system.mult)):
+                logger.info('Setting box, charge and multiplicity from a conf')
+                box, charge, mult = system.box, system.charge, system.mult
+
         lines = open(filename, 'r').readlines()
 
         # Number of atoms should be the first item in the file
@@ -403,6 +408,9 @@ class ConfigurationSet:
                 configuration.forces = np.array(forces)
 
             self._list.append(configuration)
+
+        if self.name is None or self.name == 'data':
+            self.name = filename.rstrip('.xyz')
 
         return None
 

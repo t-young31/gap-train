@@ -50,5 +50,5 @@ class Data(ConfigurationSet):
 
         return histogram(energies, self.force_magnitudes(), name=name)
 
-    def __init__(self, *args, name=None):
+    def __init__(self, *args, name='data'):
         super().__init__(*args, name=name)
