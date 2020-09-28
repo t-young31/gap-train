@@ -178,7 +178,8 @@ class System:
 
     def mult(self):
         """Get the total spin multiplicity on the system"""
-        return sum(molecule.mult for molecule in self.molecules)
+        n_unpaired = sum((mol.mult - 1) / 2 for mol in self.molecules)
+        return 2 * n_unpaired + 1
 
     def configuration(self):
         return Configuration(self)

@@ -1,6 +1,7 @@
 from gaptrain.configurations import ConfigurationSet, Configuration
 from gaptrain.systems import System
 from gaptrain.molecules import Molecule
+from gaptrain.solvents import get_solvent
 import gaptrain as gt
 import numpy as np
 import ase
@@ -224,6 +225,38 @@ def test_remove_higher():
     for i in range(5):
         assert configs[i].energy == -1000 + i
 
+
+def test_load():
+
+    xyz_path = os.path.join(here, 'data', 'configs.xyz')
+
+    configs = ConfigurationSet()
+    configs.load(xyz_path)
+
+    assert len(configs) == 2
+
+    # Should default to uncharged singlet
+    for config in configs:
+        assert config.box is not None
+        assert config.charge == 0
+        assert config.mult == 1
+
+    zn_aq = System(gt.Ion('Zn', charge=2), box_size=[12, 12, 12])
+    zn_aq.add_solvent('h2o', n=52)
+
+    configs = ConfigurationSet()
+    configs.load(xyz_path, system=zn_aq)
+    for config in configs:
+        assert config.box is not None
+        assert config.charge == 2
+        assert config.mult == 1
+
+    configs = ConfigurationSet()
+    configs.load(xyz_path, charge=2)
+    for config in configs:
+        assert config.box is not None
+        assert config.charge == 2
+        assert config.mult == 1
 
 # TODO this function
 def FIXME_gap_ensemble_truncate():

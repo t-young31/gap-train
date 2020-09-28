@@ -433,7 +433,7 @@ class ConfigurationSet:
         if system is not None:
             if all(prm for prm in (system.box, system.charge, system.mult)):
                 logger.info('Setting box, charge and multiplicity from a conf')
-                box, charge, mult = system.box, system.charge, system.mult
+                box, charge, mult = system.box, system.charge(), system.mult()
 
         logger.info(f'Loading configuration set from {filename}')
         lines = open(filename, 'r').readlines()
