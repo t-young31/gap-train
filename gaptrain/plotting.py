@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from gaptrain.exceptions import PlottingFailed
+from gaptrain.log import logger
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
 import numpy as np
@@ -62,10 +63,13 @@ def plot_energy_hist(ax, energies, relative_energies=True,
 
     if relative_energies:
         ref_energy = min(energies) if ref_energy is None else ref_energy
+        logger.info(f'Referencing energy to {ref_energy} eV')
         energies = np.array(energies) - ref_energy
 
     ax.hist(energies,
-            bins=np.linspace(min(energies), max(energies), 30),
+            bins=np.linspace(0.0 if relative_energies else min(energies),
+                             max(energies),
+                             30),
             alpha=0.5,
             edgecolor='darkblue' if color is None else color,
             linewidth=0.2,
