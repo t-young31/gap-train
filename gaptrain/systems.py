@@ -111,7 +111,7 @@ class System:
             else:
                 molecule.translate(vec=sub_box.random_point())
 
-        for molecule in np.random.permutation(system.molecules):
+        for molecule in system.molecules:
 
             # Randomly rotate the molecule around the molecules centroid
             molecule.translate(vec=-molecule.centroid())
