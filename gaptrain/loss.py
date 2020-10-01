@@ -1,3 +1,4 @@
+from gaptrain.log import logger
 import numpy as np
 
 
@@ -20,17 +21,27 @@ class Loss:
 
         :param cfs_b: (gaptrain.configurations.ConfigurationSet)
 
+        :param attr: (str) Attribute of a configuration to calculate use in
+                           the loss function e.g. energy or froca
+
         :return: (gaptrain.loss.RMSE)
         """
-
         assert len(cfs_a) == len(cfs_b)
 
         deltas = []
 
         for (ca, cb) in zip(cfs_a, cfs_b):
-            deltas.append(getattr(ca, attr) - getattr(cb, attr))
+            val_a, val_b = getattr(ca, attr), getattr(cb, attr)
 
-        return self.function(deltas)
+            if val_a is None or val_b is None:
+                logger.warning(f'Cannot calculate loss for {attr} at least '
+                               f'one value was None')
+                return None
+
+            # Append the difference between the floats
+            deltas.append(val_a - val_b)
+
+        return self.function(np.array(deltas))
 
     def __init__(self, cfs_a, cfs_b):
         """
@@ -40,6 +51,8 @@ class Loss:
         :param cfs_a: (gaptrain.configurations.ConfigurationSet)
         :param cfs_b: (gaptrain.configurations.ConfigurationSet)
         """
+        logger.info(f'Calculating loss between {len(cfs_a)} configurations')
+
         self.energy = self.loss(cfs_a, cfs_b, attr='energy')
         self.force = self.loss(cfs_a, cfs_b, attr='forces')
 
