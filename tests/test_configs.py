@@ -1,8 +1,11 @@
 from gaptrain.configurations import ConfigurationSet, Configuration
+from gaptrain.exceptions import LoadingFailed
 from gaptrain.systems import System
 from gaptrain.molecules import Molecule
+from gaptrain.solvents import get_solvent
 import gaptrain as gt
 import numpy as np
+import pytest
 import ase
 import os
 
@@ -59,6 +62,15 @@ def test_print_exyz():
 
 
 def test_wrap():
+
+    config_all_in_box = system.random()
+    coords = config_all_in_box.coordinates()
+
+    config_all_in_box.wrap()
+    wrapped_corods = config_all_in_box.coordinates()
+
+    # Wrapping should do nothing if all the atoms are already in the box
+    assert np.linalg.norm(coords - wrapped_corods) < 1E-6
 
     config = system.random(on_grid=True)
     for atom in config.atoms[:3]:
@@ -122,13 +134,42 @@ def test_print_gro_file():
 
     water_box = System(box_size=[10, 10, 10])
     water_box.add_molecules(molecule=get_solvent('h2o'), n=10)
+
     for molecule in water_box.molecules:
         molecule.set_mm_atom_types()
+
     config = Configuration(water_box)
     config.wrap()
     config.print_gro_file(system=water_box)
+
     assert os.path.exists('input.gro')
     os.remove('input.gro')
+
+
+def test_save():
+
+    config = system.random()
+
+    config.save()
+    assert os.path.exists('config.xyz')
+    os.remove('config.xyz')
+
+    # Should add the .xyz file extension if none is given
+    config.save(filename='tmp_no_ext')
+    assert os.path.exists('tmp_no_ext.xyz')
+    os.remove('tmp_no_ext.xyz')
+
+    configs = ConfigurationSet(name='tmp')
+    configs += system.random()
+
+    # Saving a configuration without overwriting the previous file should
+    # leave the first unchanged
+    open('tmp.xyz', 'w').close()
+    configs.save(override=False)
+
+    assert os.path.exists('tmp0.xyz')
+    os.remove('tmp.xyz')
+    os.remove('tmp0.xyz')
 
 
 def test_remove():
@@ -150,6 +191,38 @@ def test_remove():
     assert len(configs) == 2
 
 
+def test_adding_indexing():
+
+    configs1 = ConfigurationSet()
+    configs1.add(system.random())
+
+    configs2 = ConfigurationSet()
+    configs2.add(system.random())
+
+    configs1 += configs2
+    assert len(configs1) == 2
+
+    # Can't add a system to a configuration set
+    with pytest.raises(TypeError):
+        configs1 += system
+
+    configs1[0].energy = 1
+    configs1[1].energy = 2
+
+    # Should be able to set items e.g. switch the two configurations
+    configs1[1], configs1[0] = configs1[0], configs1[1]
+    assert configs1[0].energy == 2
+
+
+def test_copy():
+
+    configs = ConfigurationSet(name='tmp')
+    configs_copy = configs.copy()
+    configs_copy.name = 'tmp2'
+
+    assert configs_copy.name != configs.name
+
+
 def test_load_no_box():
 
     data = gt.Data()
@@ -161,6 +234,15 @@ def test_load_no_box():
         assert config.energy is not None
         assert config.charge == 0
         assert config.mult == 1
+
+    with open('tmp.xyz', 'w') as test_xyz:
+        print('1\nLattice=""', file=test_xyz)
+
+    with pytest.raises(LoadingFailed):
+        configs = ConfigurationSet()
+        configs.load(filename='tmp.xyz')
+
+    os.remove('tmp.xyz')
 
         
 def test_remove_energy_threshold():
@@ -223,6 +305,84 @@ def test_remove_higher():
     assert len(configs) == 5
     for i in range(5):
         assert configs[i].energy == -1000 + i
+
+
+def test_load():
+
+    xyz_path = os.path.join(here, 'data', 'configs.xyz')
+
+    configs = ConfigurationSet()
+    configs.load(xyz_path)
+
+    assert len(configs) == 2
+
+    # Should default to uncharged singlet
+    for config in configs:
+        assert config.box is not None
+        assert config.charge == 0
+        assert config.mult == 1
+
+    zn_aq = System(gt.Ion('Zn', charge=2), box_size=[12, 12, 12])
+    zn_aq.add_solvent('h2o', n=52)
+
+    configs = ConfigurationSet()
+    configs.load(xyz_path, system=zn_aq)
+    for config in configs:
+        assert config.box is not None
+        assert config.charge == 2
+        assert config.mult == 1
+
+    configs = ConfigurationSet()
+    configs.load(xyz_path, charge=2)
+    for config in configs:
+        assert config.box is not None
+        assert config.charge == 2
+        assert config.mult == 1
+
+    with open('tmp.xyz', 'w') as test_xyz:
+        print('1\n', file=test_xyz)
+
+    # Should fail to load with no atoms in the xyz file
+    configs = ConfigurationSet()
+    with pytest.raises(LoadingFailed):
+        configs.load(filename='tmp.xyz')
+
+    os.remove('tmp.xyz')
+
+
+def test_load_wrong_n_atoms():
+
+    with open('tmp.xyz', 'w') as test_xyz:
+        print('2\n\nH 0.0 0.0 0.0', file=test_xyz)
+
+    config = Configuration()
+    with pytest.raises(LoadingFailed):
+        config.load(filename='tmp.xyz')
+
+    os.remove('tmp.xyz')
+
+
+def test_load_no_args():
+
+    configs, config = ConfigurationSet(name='test'), Configuration(name='test')
+
+    for item in (configs, config):
+
+        # Can't load this configuration set if test.xyz doesn't exist
+        with pytest.raises(LoadingFailed):
+            item.load()
+
+        with open('test.xyz', 'w') as test_xyz:
+            print('\n', file=test_xyz)
+
+        # Now does exist but doesn't have the correct format
+        with pytest.raises(LoadingFailed):
+            item.load()
+            item.load(filename='test.xyz')
+
+        os.remove('test.xyz')
+        if hasattr(configs, '_list'):
+            assert len(configs) == 0
 
 
 # TODO this function

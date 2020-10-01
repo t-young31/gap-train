@@ -111,7 +111,7 @@ class System:
             else:
                 molecule.translate(vec=sub_box.random_point())
 
-        for molecule in np.random.permutation(system.molecules):
+        for molecule in system.molecules:
 
             # Randomly rotate the molecule around the molecules centroid
             molecule.translate(vec=-molecule.centroid())
@@ -178,7 +178,8 @@ class System:
 
     def mult(self):
         """Get the total spin multiplicity on the system"""
-        return sum(molecule.mult for molecule in self.molecules)
+        n_unpaired = sum((mol.mult - 1) / 2 for mol in self.molecules)
+        return 2 * n_unpaired + 1
 
     def configuration(self):
         return Configuration(self)

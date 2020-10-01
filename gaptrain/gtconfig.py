@@ -67,10 +67,10 @@ class GTConfig:
     # Default two-body parameters
     gap_default_2b_params = {'cutoff': 5.5,             # Å
                              'n_sparse': 30,
-                             'delta': 2.0}
+                             'delta': 1.0}
 
     # Default SOAP parameters
     gap_default_soap_params = {'cutoff': 3.0,           # Å
                                'n_sparse': 100,
                                'order': 6,
-                               'delta': 0.01}
+                               'delta': 0.1}

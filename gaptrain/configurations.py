@@ -176,7 +176,108 @@ class Configuration:
         os.environ['MLK_NUM_THREADS'] = str(gt.GTConfig.n_cores)
         return run_gpaw(self, max_force)
 
-    def save(self, filename, append=False):
+    def load(self, filename=None, file_lines=None, box=None, charge=None,
+             mult=None):
+        """
+        Load a configuration from a file or a list of file lines
+
+        ----------------------------------------------------------------------
+        :param filename: (str) Filename to load configurations from if
+                         None defaults to "name.xyz"
+
+        :param file_lines: (list(str)) List of extended xyz file lines to read
+                           from
+
+        :param box: (gaptrain.box.Box)
+
+        :param charge: (int)
+
+        :param mult: (int)
+        """
+        if filename is None and file_lines is None:
+            try:
+                file_lines = open(f'{self.name}.xyz', 'r').readlines()
+            except IOError:
+                raise ex.LoadingFailed('Could not load no file or file lines')
+
+        if filename is not None and file_lines is None:
+            file_lines = open(filename, 'r').readlines()
+
+        self.charge = charge if charge is not None else self.charge
+        self.mult = mult if mult is not None else self.mult
+        self.box = box if box is not None else self.box
+
+        # Atoms, true forces and energy
+        n_atoms, atoms, forces = None, [], []
+
+        # Grab the coordinates, energy and forces 0->n_atoms + 2 inclusive
+        for j, line in enumerate(file_lines):
+
+            if j == 0:
+                # First thing should be the number of atoms
+                try:
+                    n_atoms = int(line.split()[0])
+                except (IndexError, TypeError):
+                    raise ex.LoadingFailed('Line 1 of the xyz file '
+                                           'malformatted')
+
+            elif j == 1:
+                if 'dft_energy' in line:
+                    self.energy = float(line.split()[-1].lstrip('dft_energy='))
+
+                # Try and load the box
+                if 'Lattice="' in line and box is None:
+                    try:
+                        # Remove anything before or after the quotes
+                        vec_string = line.split('"')[1].split('"')[0]
+                        components = [float(val) for val in vec_string.split()]
+                        # Expecting all the components of the lattice
+                        # vectors, so for an orthorhombic box take the
+                        # diagonal elements of the a, b, c vectors
+                        self.box = gt.Box(size=[components[0],
+                                                components[4],
+                                                components[8]])
+
+                    except (TypeError, ValueError, IndexError):
+                        raise ex.LoadingFailed('Failed to load the box')
+
+            else:
+                atom_label, x, y, z = line.split()[:4]
+                atoms.append(Atom(atom_label, x=x, y=y, z=z))
+
+                if len(line.split()) != 7:
+                    continue
+
+                # System has forces
+                fx, fy, fz = line.split()[4:]
+                forces.append(np.array([float(fx), float(fy), float(fz)]))
+
+        # Default charge and multiplicity if there is a box but no charge
+        if self.box is not None:
+            if charge is None and self.charge is None:
+                logger.warning('Found a box but no charge, defaulting to 0')
+                self.charge = 0
+            if mult is None and self.mult is None:
+                logger.warning('Found a box but no multiplicity, '
+                               'defaulting to 1')
+                self.mult = 1
+
+        if len(atoms) == 0 or n_atoms is None:
+            raise ex.LoadingFailed('Found no atoms in the file')
+
+        if len(atoms) != n_atoms:
+            raise ex.LoadingFailed(f'Number of atoms declared {n_atoms} not '
+                                   f'equal to the number found {len(atoms)}')
+
+        self.set_atoms(atoms=atoms)
+
+        # Set the  forces if there are some
+        if len(forces) > 0:
+            self.forces = np.array(forces)
+
+        return None
+
+    def save(self, filename=None, append=False):
         """
         Print this configuration as an extended xyz file where the first 4
         columns are the atom symbol, x, y, z and, if this configuration
@@ -188,6 +289,10 @@ class Configuration:
 
         :param append: (bool) Append to the end of this exyz file?
         """
+        if filename is None:
+            filename = f'{self.name}.xyz'
+            logger.info(f'Saving configuration as {filename}')
+
         a, b, c = self.box.size
 
         energy_str = ''
@@ -223,7 +328,8 @@ class Configuration:
 
         return None
 
-    def __init__(self, system=None, box=None, charge=None, mult=None):
+    def __init__(self, system=None, box=None, charge=None, mult=None,
+                 name='config'):
         """
         A configuration consisting of a set of atoms suitable to run DFT
         or GAP on to set self.energy and self.forces
@@ -238,6 +344,7 @@ class Configuration:
         :param mult: (int)
         """
 
+        self.name = name
         self.atoms = []
 
         if system is not None:
@@ -282,25 +389,16 @@ class ConfigurationSet:
         elif isinstance(other, ConfigurationSet):
             self._list += other._list
 
-        elif isinstance(other, list):
-            for config in other:
-                assert isinstance(config, Configuration)
-
-                self._list.append(config)
-
         else:
-            raise ex.CannotAdd('Can only add a Configuration or'
-                               f' ConfigurationSet, not {type(other)}')
+            raise TypeError('Can only add a Configuration or'
+                            f' ConfigurationSet, not {type(other)}')
 
         logger.info(f'Current number of configurations is {len(self)}')
         return self
 
     def add(self, other):
         """Add another configuration to this set of configurations"""
-        assert isinstance(other, Configuration)
-        self._list.append(other)
-
-        return None
+        return self.__add__(other)
 
     def copy(self):
         return deepcopy(self)
@@ -330,79 +428,34 @@ class ConfigurationSet:
         if not os.path.exists(filename):
             raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
 
+        if system is not None:
+            if all(prm for prm in (system.box, system.charge, system.mult)):
+                logger.info('Setting box, charge and multiplicity from a conf')
+                box, charge, mult = system.box, system.charge(), system.mult()
+
+        logger.info(f'Loading configuration set from {filename}')
         lines = open(filename, 'r').readlines()
 
         # Number of atoms should be the first item in the file
-        n_atoms = int(lines[0].split()[0])
+        try:
+            n_atoms = int(lines[0].split()[0])
+        except (TypeError, IndexError):
+            raise ex.LoadingFailed('Line 1 of the xyz file malformatted')
+
         stride = int(n_atoms + 2)
 
         # Stride through the file and add configuration for each
         for i, _ in enumerate(lines[::stride]):
 
-            # Atoms, true forces and energy
-            atoms, forces = [], []
-            energy = None
-
-            # Grab the coordinates, energy and forces 0->n_atoms + 2 inclusive
-            for j, line in enumerate(lines[i*stride:(i+1)*stride]):
-
-                if j == 0:
-                    # First thing should be the number of atoms
-                    assert len(line.split()) == 1
-
-                elif j == 1:
-                    if 'dft_energy' in line:
-                        energy = float(line.split()[-1].lstrip('dft_energy='))
-
-                    # Try and load the box
-                    if 'Lattice="' in line and box is None:
-                        try:
-                            # Remove anything before or after the quotes
-                            vec_string = line.split('"')[1].split('"')[0]
-                            components = [float(val) for val in vec_string.split()]
-
-                            # Expecting all the components of the lattice
-                            # vectors, so for an orthorhombic box take the
-                            # diagonal elements of the a, b, c vectors
-                            box = gt.Box(size=[components[0],
-                                               components[4],
-                                               components[8]])
-
-                        except (TypeError, ValueError, IndexError):
-                            raise ex.LoadingFailed('Failed to load the box')
-
-                else:
-                    atom_label, x, y, z = line.split()[:4]
-                    atoms.append(Atom(atom_label, x=x, y=y, z=z))
-
-                    if len(line.split()) != 7:
-                        continue
-
-                    # System has forces
-                    fx, fy, fz = line.split()[4:]
-                    forces.append(np.array([float(fx), float(fy), float(fz)]))
-
-            # Default charge and multiplicity if there is a box but no charge
-            if box is not None:
-                if charge is None:
-                    logger.warning('Found a box but no charge, defaulting to 0')
-                    charge = 0
-                if mult is None:
-                    logger.warning('Found a box but no multiplicity, '
-                                   'defaulting to 1')
-                    mult = 1
-
-            # Add the configuration
-            configuration = Configuration(box=box, charge=charge, mult=mult)
-            configuration.set_atoms(atoms=atoms)
-
-            configuration.energy = energy
-
-            # Set the  forces if there are some
-            if len(forces) > 0:
-                configuration.forces = np.array(forces)
+            configuration = Configuration()
+            configuration.load(file_lines=lines[i * stride:(i + 1) * stride],
+                               box=box, charge=charge, mult=mult)
 
             self._list.append(configuration)
+
+        if self.name is None or self.name == 'data':
+            self.name = filename.rstrip('.xyz')
+            logger.warning(f'Set self.name to {self.name}')
 
         return None
 
