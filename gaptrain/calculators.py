@@ -8,6 +8,16 @@ from subprocess import Popen, PIPE
 import os
 
 
+def set_threads(n_cores):
+    """Set the number of threads to use"""
+
+    n_cores = GTConfig.n_cores if n_cores is None else n_cores
+    os.environ['OMP_NUM_THREADS'] = str(n_cores)
+    os.environ['MLK_NUM_THREADS'] = str(n_cores)
+
+    return None
+
+
 class DFTB(Dftb):
     """
     DFTB+ installed from the binaries downloaded from:
