@@ -233,7 +233,11 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
     a, b, c = configuration.box.size
     n_steps = simulation_steps(dt, kwargs)
 
-    n_cores = min(GTConfig.n_cores, 8)
+    if 'n_cores' in kwargs:
+        n_cores = kwargs['n_cores']
+    else:
+        n_cores = min(GTConfig.n_cores, 8)
+
     os.environ['OMP_NUM_THREADS'] = str(n_cores)
     logger.info(f'Using {n_cores} cores for GAP MD')
 

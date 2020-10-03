@@ -1,6 +1,7 @@
 import numpy as np
 from ase.calculators.dftb import Dftb
 from gaptrain.utils import work_in_tmp_dir
+from gaptrain.log import logger
 from gaptrain.exceptions import MethodFailed, GAPFailed
 from gaptrain.gtconfig import GTConfig
 from ase.optimize import BFGS
@@ -12,6 +13,8 @@ def set_threads(n_cores):
     """Set the number of threads to use"""
 
     n_cores = GTConfig.n_cores if n_cores is None else n_cores
+    logger.info(f'Using {n_cores} cores')
+
     os.environ['OMP_NUM_THREADS'] = str(n_cores)
     os.environ['MLK_NUM_THREADS'] = str(n_cores)
 
