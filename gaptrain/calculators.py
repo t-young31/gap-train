@@ -54,6 +54,7 @@ def run_gpaw(configuration, max_force):
     if max_force is not None:
         minimisation = BFGS(ase_atoms)
         minimisation.run(fmax=float(max_force))
+        set_configuration_atoms_from_ase(configuration, ase_atoms)
 
     configuration.energy = ase_atoms.get_potential_energy()
     configuration.forces = ase_atoms.get_forces()
@@ -108,6 +109,7 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               f'                      param_filename="{gap.name}.xml")',
               'system.set_calculator(pot)',
               f'{min_section}',
+              f'write("config.xyz", system)',
               'np.savetxt("energy.txt",\n'
               '           np.array([system.get_potential_energy()]))',
               'np.savetxt("forces.txt", system.get_forces())',
@@ -120,16 +122,14 @@ def run_gap(configuration, max_force, gap, traj_name=None):
 
     # Grab the energy from the output after unsetting it
     try:
+        configuration.load(filename='config.xyz')
         configuration.energy = np.loadtxt('energy.txt')
 
     except IOError:
         raise GAPFailed('Failed to calculate energy with the GAP')
 
-    os.remove('energy.txt')
-
     # Grab the final forces from the numpy array
     configuration.forces = np.loadtxt('forces.txt')
-    os.remove('forces.txt')
 
     return configuration
 
@@ -161,6 +161,7 @@ def run_dftb(configuration, max_force, traj_name=None):
             minimisation = BFGS(ase_atoms, trajectory=traj_name)
             minimisation.run(fmax=float(max_force))
             configuration.n_opt_steps = minimisation.get_number_of_steps()
+            set_configuration_atoms_from_ase(configuration, ase_atoms)
 
     except ValueError:
         raise MethodFailed('DFTB+ failed to generate an energy')
@@ -169,3 +170,17 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     # Return self to allow for multiprocessing
     return configuration
+
+
+def set_configuration_atoms_from_ase(config, ase_atoms):
+    """
+    Set the atom positions of a configuration given a set of ASE atoms
+
+    :param config: (gaptrain.configurations.Configuration)
+    :param ase_atoms: (ase.Atoms)
+    """
+
+    for i, coord in enumerate(ase_atoms.get_positions()):
+        config.atoms[i].coord = coord
+
+    return None

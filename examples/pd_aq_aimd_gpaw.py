@@ -25,4 +25,4 @@ data.remove_random(remainder=100)
 data.parallel_gpaw()
 
 # Save the ground truth DFTB+ coordinates, energy and forces
-data.save_true()
+data.save()

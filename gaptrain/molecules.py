@@ -11,6 +11,9 @@ import os
 
 class Species(ade.species.Species):
 
+    def __repr__(self):
+        return f'Species(name={self.name}, n_atoms={len(self.atoms)})'
+
     def __str__(self):
         """Chemical formula for this species e.g. H2O"""
         name = ""
@@ -79,22 +82,27 @@ class Species(ade.species.Species):
         return max_distance / 2.0 + get_vdw_radius('H')
 
     def set_mm_atom_types(self):
+        """Set the molecular mechanics (MM) atoms types for this molecule"""
+        assert self.itp_filename is not None
+        logger.info(f'Setting MM atom types from {self.itp_filename}')
 
         atom_types = []
-        f = open(self.itp_filename, 'r')
-        lines = f.readlines()
+        lines = open(self.itp_filename, 'r').readlines()
+
         for i, line in enumerate(lines):
             if "atoms" in line:
                 n = 0
                 while n < len(self.atoms):
                     n += 1
                     split_atoms = lines[i + n].split()
-                    atom_types.append(split_atoms[4])  # this assumes atomtype is 5th entry
+
+                    # Assumes atomtype is 5th entry
+                    atom_types.append(split_atoms[4])
                 break
 
         for j, atom in enumerate(self.atoms):
             atom.mm_type = atom_types[j]
-            print(atom.mm_type)
+
         return None
 
     def __init__(self, name="mol", atoms=None, charge=0, spin_multiplicity=1,
