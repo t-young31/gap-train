@@ -106,6 +106,21 @@ def run_gap(configuration, max_force, gap, traj_name=None):
             min_section = ('dyn = BFGS(system)\n'
                            f'dyn.run(fmax={float(max_force)})')
 
+    # Add the potential section from either a normal or additive GAP
+    from gaptrain.gap import GAP, AdditiveGAP
+    pot_section = ''
+
+    if isinstance(gap, GAP):
+        pot_section += ('pot = quippy.Potential("IP GAP", \n'
+                        f'              param_filename="{gap.name}.xml")')
+
+    if isinstance(gap, AdditiveGAP):
+        for i in range(2):
+            pot_section += (f'pot{i+1} = quippy.Potential("IP GAP", \n'
+                            f'          param_filename="{gap[0].name}.xml")\n')
+
+        pot_section += f'pot = quippy.Potential("Sum", pot1=pot1, pot2=pot2)'
+
     # Print a Python script to execute quippy - likely not installed in the
     # current interpreter..
     with open(f'gap.py', 'w') as quippy_script:
@@ -118,8 +133,7 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              'pot = quippy.Potential("IP GAP", \n'
-              f'                      param_filename="{gap.name}.xml")',
+              f'{pot_section}',
               'system.set_calculator(pot)',
               f'{min_section}',
               f'write("config.xyz", system)',
@@ -159,7 +173,6 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     :param traj_name: (str) or None
     """
-
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
                 kpts=(1, 1, 1),

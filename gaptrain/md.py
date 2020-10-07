@@ -172,6 +172,11 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
     logger.info('Running DFTB+ MD')
     ase_atoms = configuration.ase_atoms()
 
+    if 'n_cores' in kwargs:
+        os.environ['OMP_NUM_THREADS'] = str(kwargs['n_cores'])
+    else:
+        os.environ['OMP_NUM_THREADS'] = str(GTConfig.n_cores)
+
     dftb = DFTB(atoms=ase_atoms,
                 kpts=(1, 1, 1),
                 Hamiltonian_Charge=configuration.charge)

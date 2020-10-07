@@ -1,11 +1,8 @@
 from gaptrain.systems import System
-from gaptrain.configurations import Configuration
-from gaptrain.configurations import ConfigurationSet
-from gaptrain.molecules import Molecule
-from gaptrain.molecules import Ion
+from gaptrain.configurations import Configuration, ConfigurationSet
+from gaptrain.molecules import Molecule, Ion
 from gaptrain.box import Box
-from gaptrain.gap import GAP
-from gaptrain.gap import GAPEnsemble
+from gaptrain.gap import GAP, GAPEnsemble, AdditiveGAP
 from gaptrain.data import Data
 from gaptrain.gtconfig import GTConfig
 from gaptrain.trajectories import Trajectory
@@ -22,6 +19,7 @@ __all__ = ['System',
            'Ion',
            'GAP',
            'GAPEnsemble',
+           'AdditiveGAP',
            'Data',
            'GTConfig',
            'Trajectory',
