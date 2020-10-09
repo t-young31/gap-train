@@ -90,7 +90,7 @@ class GAP:
                        f'n_sparse={soap["n_sparse"]} '
                        f'covariance_type=dot_product '
                        f'zeta=4 '
-                       f'atom_sigma=0.5 '
+                       f'atom_sigma={soap["sigma_at"]} '
                        f'cutoff={soap["cutoff"]} '
                        f'delta={soap["delta"]} '
                        f'n_Z=1 '
