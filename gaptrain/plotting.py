@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from gaptrain.exceptions import PlottingFailed
+from gaptrain.log import logger
 from matplotlib.colors import LogNorm
 import matplotlib as mpl
 import numpy as np
@@ -14,6 +15,34 @@ mpl.rcParams['ytick.direction'] = 'in'
 mpl.rcParams['xtick.top'] = True
 mpl.rcParams['ytick.right'] = True
 mpl.rcParams['axes.linewidth'] = 1
+
+
+def plot_ef_correlation(name, true_data, predicted_data, rel_energies=True):
+    """
+    Plot predicted vs. true for a GAP predicted values
+
+    :param name: (str) Name of the method used to predict the energies
+    :param true_data: (gaptrain.data.Data)
+    :param predicted_data: (gaptrain.data.Data)
+    :param rel_energies: (bool)
+    """
+    true_energies = true_data.energies()
+    pred_energies = predicted_data.energies()
+
+    # If required calculate the energies relative to the lowest true value
+    if rel_energies:
+        min_energy = min(true_energies)
+        true_energies -= min_energy
+        pred_energies -= min_energy
+
+    # Plot the correlation for energies and forces
+    correlation(true_energies,
+                pred_energies,
+                true_data.force_components(),
+                predicted_data.force_components(),
+                name=f'corr_{name}_on_{predicted_data.name}')
+
+    return None
 
 
 def histogram(energies=None, forces=None, name=None, relative_energies=True,
@@ -62,10 +91,13 @@ def plot_energy_hist(ax, energies, relative_energies=True,
 
     if relative_energies:
         ref_energy = min(energies) if ref_energy is None else ref_energy
+        logger.info(f'Referencing energy to {ref_energy} eV')
         energies = np.array(energies) - ref_energy
 
     ax.hist(energies,
-            bins=np.linspace(min(energies), max(energies), 30),
+            bins=np.linspace(0.0 if relative_energies else min(energies),
+                             max(energies),
+                             30),
             alpha=0.5,
             edgecolor='darkblue' if color is None else color,
             linewidth=0.2,

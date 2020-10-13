@@ -1,11 +1,11 @@
 from gaptrain.gtconfig import GTConfig
 from gaptrain.log import logger
-from gaptrain.plotting import correlation
+from gaptrain.plotting import plot_ef_correlation
 from gaptrain.exceptions import GAPFailed
 from gaptrain.calculators import run_gap
 from autode.atoms import elements
 from subprocess import Popen, PIPE
-from itertools import combinations
+from itertools import combinations_with_replacement
 from multiprocessing import Pool
 import numpy as np
 import pickle
@@ -16,6 +16,26 @@ import os
 def atomic_number(symbol):
     """Elements in order indexed from 0 so the atomic number is the index+1"""
     return elements.index(symbol) + 1
+
+
+def predict(gap, data):
+    """
+    Predict energies and forces for a set of data
+
+    :param gap: (gaptrain.gap.GAP | gaptrain.gap.AdditiveGAP)
+    :param data: (gaptrain.data.Data)
+    """
+
+    # Run GAP in parallel to predict energies and forces
+    predictions = data.copy()
+    predictions.name += '_pred'
+
+    predictions.parallel_gap(gap)
+
+    gap.plot_correlation(data, predictions, rel_energies=True)
+    predictions.save(override=True)
+
+    return predictions
 
 
 class GAP:
@@ -40,11 +60,26 @@ class GAP:
                        'theta_uniform=1.0 '
                        'sparse_method=uniform '
                        'n_Z=1 '
-                       'n_species=1 '
                        'species_Z={{'
                        f'{atomic_number(symbol_a)}'
                        '}} '
                        f'Z={atomic_number(symbol_b)}: ')
+
+        for (symbol_a, symbol_b, symbol_c), angle in self.params.angle.items():
+            logger.info(f'Adding angle (3b): {symbol_a}-{symbol_b}-{symbol_c}')
+
+            params += ('angle_3b '
+                       f'delta={angle["delta"]} '
+                       'covariance_type=ard_se '
+                       f'n_sparse={angle["n_sparse"]} '
+                       f'cutoff={angle["cutoff"]} '
+                       'theta_fac=1.0 '
+                       'sparse_method=uniform '
+                       'n_Z=1 '
+                       'species_Z={{'
+                       f'{atomic_number(symbol_b)}, {atomic_number(symbol_c)}' 
+                       '}} '
+                       f'Z={atomic_number(symbol_a)}: ')
 
         # Likewise with all the SOAPs to be added
         for symbol, soap in self.params.soap.items():
@@ -55,7 +90,7 @@ class GAP:
                        f'n_sparse={soap["n_sparse"]} '
                        f'covariance_type=dot_product '
                        f'zeta=4 '
-                       f'atom_sigma=0.5 '
+                       f'atom_sigma={soap["sigma_at"]} '
                        f'cutoff={soap["cutoff"]} '
                        f'delta={soap["delta"]} '
                        f'n_Z=1 '
@@ -81,48 +116,11 @@ class GAP:
                 f'gp_file={self.name}.xml']
 
     def plot_correlation(self, true_data, predicted_data, rel_energies=True):
-        """
-        Plot predicted vs. true for a GAP predicted values
-
-        :param true_data: (gaptrain.data.Data)
-        :param predicted_data: (gaptrain.data.Data)
-        :param rel_energies: (bool)
-        """
-        true_energies = true_data.energies()
-        pred_energies = predicted_data.energies()
-
-        # If required calculate the energies relative to the lowest true value
-        if rel_energies:
-            min_energy = min(true_energies)
-            true_energies -= min_energy
-            pred_energies -= min_energy
-
-        # Plot the correlation for energies and forces
-        correlation(true_energies,
-                    pred_energies,
-                    true_data.force_components(),
-                    predicted_data.force_components(),
-                    name=f'corr_{self.name}_on_{predicted_data.name}')
-
-        return None
+        return plot_ef_correlation(self.name, true_data, predicted_data,
+                                   rel_energies=rel_energies)
 
     def predict(self, data):
-        """
-        Predict energies and forces for a set of data
-
-        :param data: (gaptrain.data.Data)
-        """
-
-        # Run GAP in parallel to predict energies and forces
-        predictions = data.copy()
-        predictions.name += '_pred'
-
-        predictions.parallel_gap(self)
-
-        self.plot_correlation(data, predictions, rel_energies=True)
-        predictions.save(override=True)
-
-        return predictions
+        return predict(self, data)
 
     def train(self, data):
         """
@@ -179,7 +177,7 @@ class GAP:
         self.params = None
 
         if system is not None:
-            self.params = Parameters(atom_symbols=set(system.atom_symbols()))
+            self.params = Parameters(atom_symbols=system.atom_symbols())
         else:
             logger.warning('Initialised a GAP with no parameters. '
                            'gap.train not available')
@@ -207,32 +205,54 @@ class Parameters:
 
         return ns
 
-    def __init__(self, atom_symbols):
-        """
-        Parameters for a GAP potential
+    def _set_pairs(self, atom_symbols):
+        """Set the two-body pair parameters"""
 
-        :param atom_symbols: (set(str)) Unique atomic symbols used to
-                             to generate parameters for a GAP potential
-        """
+        for pair in combinations_with_replacement(set(atom_symbols), r=2):
 
-        self.general = GTConfig.gap_default_params
+            s_a, s_b = pair         # Atomic symbols of the pair
+            if s_a == s_b and atom_symbols.count(s_a) == 1:
+                logger.info(f'Only a single {s_b} atom not adding pairwise')
+                continue
 
-        self.pairwise = {pair: GTConfig.gap_default_2b_params
-                         for pair in combinations(atom_symbols, r=2)}
+            self.pairwise[pair] = GTConfig.gap_default_2b_params
 
-        self.soap = {}
+        return None
 
-        for symbol in atom_symbols:
+    def _set_soap(self, atom_symbols):
+        """Set the SOAP parameters"""
+
+        for symbol in set(atom_symbols):
             params = GTConfig.gap_default_soap_params.copy()
 
             # Add all the atomic symbols that aren't this one
-            params["other"] = [s for s in atom_symbols if s != symbol]
+            params["other"] = [s for s in set(atom_symbols) if s != symbol]
 
             self.soap[symbol] = params
 
         if 'H' in self.soap:
             logger.warning('H found in SOAP descriptor  - removing')
             self.soap.pop('H')
+
+        return None
+
+    def __init__(self, atom_symbols):
+        """
+        Parameters for a GAP potential
+
+        :param atom_symbols: (list(str)) Atomic symbols used to to generate
+        parameters for a GAP potential
+        """
+
+        self.general = GTConfig.gap_default_params
+
+        self.pairwise = {}
+        self._set_pairs(atom_symbols)
+
+        self.angle = {}
+
+        self.soap = {}
+        self._set_soap(atom_symbols)
 
 
 class GAPEnsemble:
@@ -291,8 +311,6 @@ class GAPEnsemble:
 
         if len(configs) == 1:
             return np.std(predictions[0])
-
-        print(predictions)
 
         return [np.std(predictions[i, :]) for i in range(len(configs))]
 
@@ -367,3 +385,30 @@ class GAPEnsemble:
         logger.info(f'Initialising a GAP ensemble with {int(n)} GAPs')
 
         self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(n))]
+
+
+class AdditiveGAP:
+    """GAP where the energy is a sum of terms"""
+
+    def predict(self, data):
+        return predict(self, data)
+
+    def plot_correlation(self, true_data, predicted_data, rel_energies=True):
+        return plot_ef_correlation(f'{self._list[0].name}+{self._list[1].name}',
+                                   true_data,
+                                   predicted_data,
+                                   rel_energies=rel_energies)
+
+    def __getitem__(self, item):
+        return self._list[item]
+
+    def __init__(self, gap1, gap2):
+        """
+        Additive GAP
+
+        :param gap1:
+        :param gap2:
+        """
+
+        self.name = f'{gap1.name}_{gap2.name}'
+        self._list = [gap1, gap2]

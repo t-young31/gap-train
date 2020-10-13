@@ -120,24 +120,35 @@ class Configuration:
         self.forces = None
         return None
 
-    def run_dftb(self, max_force=None):
+    def run_dftb(self, max_force=None, n_cores=None):
         """
         Run a DFTB+ calculation, either a minimisation or optimisation
 
         :param max_force: (float) Maximum force in eV Å-1. If None then a
                           single point energy and force evaluation is performed
         """
-        from gaptrain.calculators import run_dftb
+        from gaptrain.calculators import run_dftb, set_threads
+        set_threads(n_cores)
 
-        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
         return run_dftb(self, max_force)
 
-    def run_gap(self, gap, max_force=None):
+    def run_gap(self, gap, max_force=None, n_cores=None):
         """Run GAP to predict energy and forces"""
-        from gaptrain.calculators import run_gap
-        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
+        from gaptrain.calculators import run_gap, set_threads
+        set_threads(n_cores)
 
         return run_gap(self, max_force=max_force, gap=gap)
+
+    def run_gpaw(self, max_force=None, n_cores=None):
+        """Run a GPAW DFT calculation, either a minimisation or optimisation
+
+        :param max_force: (float) Maximum force in eV Å-1. If None then a
+                          single point energy and force evaluation is performed
+        """
+        from gaptrain.calculators import run_gpaw, set_threads
+        set_threads(n_cores)
+
+        return run_gpaw(self, max_force)
 
     def print_gro_file(self, system):
         filename = 'input.gro'
@@ -164,18 +175,6 @@ class Configuration:
 
         return None
 
-    def run_gpaw(self, max_force=None):
-        """Run a GPAW DFT calculation, either a minimisation or optimisation
-
-        :param max_force: (float) Maximum force in eV Å-1. If None then a
-                          single point energy and force evaluation is performed
-        """
-        from gaptrain.calculators import run_gpaw
-
-        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
-        os.environ['MLK_NUM_THREADS'] = str(gt.GTConfig.n_cores)
-        return run_gpaw(self, max_force)
-
     def load(self, filename=None, file_lines=None, box=None, charge=None,
              mult=None):
         """
@@ -196,29 +195,30 @@ class Configuration:
         """
         if filename is None and file_lines is None:
             try:
-                file_lines = open(f'{self.name}.xyz', 'r')
+                file_lines = open(f'{self.name}.xyz', 'r').readlines()
             except IOError:
                 raise ex.LoadingFailed('Could not load no file or file lines')
 
         if filename is not None and file_lines is None:
-            file_lines = open(filename, 'r')
-
-        if file_lines is None:
-            raise ex.LoadingFailed
+            file_lines = open(filename, 'r').readlines()
 
         self.charge = charge if charge is not None else self.charge
         self.mult = mult if mult is not None else self.mult
         self.box = box if box is not None else self.box
 
         # Atoms, true forces and energy
-        atoms, forces = [], []
+        n_atoms, atoms, forces = None, [], []
 
         # Grab the coordinates, energy and forces 0->n_atoms + 2 inclusive
         for j, line in enumerate(file_lines):
 
             if j == 0:
                 # First thing should be the number of atoms
-                assert len(line.split()) == 1
+                try:
+                    n_atoms = int(line.split()[0])
+                except (IndexError, TypeError):
+                    raise ex.LoadingFailed('Line 1 of the xyz file '
+                                           'malformatted')
 
             elif j == 1:
                 if 'dft_energy' in line:
@@ -230,7 +230,6 @@ class Configuration:
                         # Remove anything before or after the quotes
                         vec_string = line.split('"')[1].split('"')[0]
                         components = [float(val) for val in vec_string.split()]
-
                         # Expecting all the components of the lattice
                         # vectors, so for an orthorhombic box take the
                         # diagonal elements of the a, b, c vectors
@@ -261,6 +260,13 @@ class Configuration:
                 logger.warning('Found a box but no multiplicity, '
                                'defaulting to 1')
                 self.mult = 1
+
+        if len(atoms) == 0 or n_atoms is None:
+            raise ex.LoadingFailed('Found no atoms in the file')
+
+        if len(atoms) != n_atoms:
+            raise ex.LoadingFailed(f'Number of atoms declared {n_atoms} not '
+                                   f'equal to the number found {len(atoms)}')
 
         self.set_atoms(atoms=atoms)
 
@@ -382,25 +388,16 @@ class ConfigurationSet:
         elif isinstance(other, ConfigurationSet):
             self._list += other._list
 
-        elif isinstance(other, list):
-            for config in other:
-                assert isinstance(config, Configuration)
-
-                self._list.append(config)
-
         else:
-            raise ex.CannotAdd('Can only add a Configuration or'
-                               f' ConfigurationSet, not {type(other)}')
+            raise TypeError('Can only add a Configuration or'
+                            f' ConfigurationSet, not {type(other)}')
 
         logger.info(f'Current number of configurations is {len(self)}')
         return self
 
     def add(self, other):
         """Add another configuration to this set of configurations"""
-        assert isinstance(other, Configuration)
-        self._list.append(other)
-
-        return None
+        return self.__add__(other)
 
     def copy(self):
         return deepcopy(self)
@@ -439,7 +436,11 @@ class ConfigurationSet:
         lines = open(filename, 'r').readlines()
 
         # Number of atoms should be the first item in the file
-        n_atoms = int(lines[0].split()[0])
+        try:
+            n_atoms = int(lines[0].split()[0])
+        except (TypeError, IndexError):
+            raise ex.LoadingFailed('Line 1 of the xyz file malformatted')
+
         stride = int(n_atoms + 2)
 
         # Stride through the file and add configuration for each

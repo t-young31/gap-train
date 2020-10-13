@@ -41,14 +41,8 @@ class Data(ConfigurationSet):
         logger.info('Plotting histogram of energies and forces')
         # Histogram |F_ij| rather than the components F_ijk for a force F in on
         # an atom j in a configuration i
-        if ref_energy is not None:
-            logger.info(f'Referencing energy to {ref_energy} eV')
-            energies = self.energies() - ref_energy
-
-        else:
-            energies = self.energies()
-
-        return histogram(energies, self.force_magnitudes(), name=name)
+        return histogram(self.energies(), self.force_magnitudes(),
+                         name=name, ref_energy=ref_energy)
 
     def __init__(self, *args, name='data'):
         super().__init__(*args, name=name)

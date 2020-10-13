@@ -1,11 +1,24 @@
 import numpy as np
 from ase.calculators.dftb import Dftb
 from gaptrain.utils import work_in_tmp_dir
+from gaptrain.log import logger
 from gaptrain.exceptions import MethodFailed, GAPFailed
 from gaptrain.gtconfig import GTConfig
 from ase.optimize import BFGS
 from subprocess import Popen, PIPE
 import os
+
+
+def set_threads(n_cores):
+    """Set the number of threads to use"""
+
+    n_cores = GTConfig.n_cores if n_cores is None else n_cores
+    logger.info(f'Using {n_cores} cores')
+
+    os.environ['OMP_NUM_THREADS'] = str(n_cores)
+    os.environ['MLK_NUM_THREADS'] = str(n_cores)
+
+    return None
 
 
 class DFTB(Dftb):
@@ -62,6 +75,40 @@ def run_gpaw(configuration, max_force):
     return configuration
 
 
+def ase_gap_potential_str(gap):
+    """
+    Return a string appropriate for a GAP or an additive GAP used in an ASE
+    script
+
+    :param gap: (gaptrain.gap.GAP | gaptrain.gap.AdditiveGAP)
+    :return: (str)
+    """
+
+    # Add the potential section from either a normal or additive GAP
+    from gaptrain.gap import GAP, AdditiveGAP
+    pt_section = ''
+
+    if isinstance(gap, GAP):
+        if not os.path.exists(f'{gap.name}.xml'):
+            raise IOError(f'GAP parameter file ({gap.name}.xml) did not exist')
+
+        pt_section += ('pot = quippy.Potential("IP GAP", \n'
+                       f'              param_filename="{gap.name}.xml")')
+
+    if isinstance(gap, AdditiveGAP):
+        for i in range(2):
+            pt_section += (f'pot{i+1} = quippy.Potential("IP GAP", \n'
+                           f'          param_filename="{gap[i].name}.xml")\n')
+
+            if not os.path.exists(f'{gap[i].name}.xml'):
+                raise IOError(f'GAP parameter file ({gap[i].name}.xml) in '
+                              f'additiive GAP did not exist')
+
+        pt_section += f'pot = quippy.Potential("Sum", pot1=pot1, pot2=pot2)'
+
+    return pt_section
+
+
 @work_in_tmp_dir(kept_exts=['.traj'], copied_exts=['.xml'])
 def run_gap(configuration, max_force, gap, traj_name=None):
     """
@@ -105,8 +152,7 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              'pot = quippy.Potential("IP GAP", \n'
-              f'                      param_filename="{gap.name}.xml")',
+              f'{ase_gap_potential_str(gap)}',
               'system.set_calculator(pot)',
               f'{min_section}',
               f'write("config.xyz", system)',
@@ -146,7 +192,6 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     :param traj_name: (str) or None
     """
-
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
                 kpts=(1, 1, 1),
