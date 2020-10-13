@@ -1,5 +1,5 @@
 from gaptrain.trajectories import Trajectory
-from gaptrain.calculators import DFTB
+from gaptrain.calculators import DFTB, ase_gap_potential_str
 from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
 from gaptrain.gtconfig import GTConfig
@@ -224,6 +224,8 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
     ---------------------------------------------------------------------------
     :param configuration: (gaptrain.configurations.Configuration)
 
+    :param gap: (gaptrain.gap.GAP | gaptrain.gap.AdditiveGAP)
+
     :param temp: (float) Temperature in K to use
 
     :param dt: (float) Timestep in fs
@@ -246,9 +248,6 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
     os.environ['OMP_NUM_THREADS'] = str(n_cores)
     logger.info(f'Using {n_cores} cores for GAP MD')
 
-    if not os.path.exists(f'{gap.name}.xml'):
-        raise IOError('GAP parameter file (.xml) did not exist')
-
     # Print a Python script to execute quippy and use ASE to drive the dynamics
     with open(f'gap.py', 'w') as quippy_script:
         print('import quippy',
@@ -262,8 +261,7 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              'pot = quippy.Potential("IP GAP", \n'
-              f'                      param_filename="{gap.name}.xml")',
+              f'{ase_gap_potential_str(gap)}',
               'system.set_calculator(pot)',
               f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)',
               'traj = Trajectory("tmp.traj", \'w\', system)\n'
