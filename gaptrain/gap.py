@@ -410,4 +410,5 @@ class AdditiveGAP:
         :param gap2:
         """
 
+        self.name = f'{gap1.name}_{gap2.name}'
         self._list = [gap1, gap2]
