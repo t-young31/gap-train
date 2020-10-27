@@ -182,7 +182,7 @@ class System:
         return 2 * n_unpaired + 1
 
     def configuration(self):
-        return Configuration(self)
+        return Configuration(system=self)
 
     def __init__(self, *args, box_size):
         """

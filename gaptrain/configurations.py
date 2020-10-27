@@ -327,8 +327,8 @@ class Configuration:
 
         return None
 
-    def __init__(self, system=None, box=None, charge=None, mult=None,
-                 name='config'):
+    def __init__(self, filename=None, system=None, box=None, charge=None,
+                 mult=None, name='config'):
         """
         A configuration consisting of a set of atoms suitable to run DFT
         or GAP on to set self.energy and self.forces
@@ -358,6 +358,10 @@ class Configuration:
         self.mult = system.mult() if system is not None else mult
 
         self.n_wraps = 0
+
+        if filename is not None:
+
+            self.load(filename)
 
 
 class ConfigurationSet:

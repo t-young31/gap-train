@@ -121,10 +121,10 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               f'{gap.ase_gap_potential_str()}',
               'system.set_calculator(pot)',
               f'{min_section}',
-              f'write("config.xyz", system)',
               'np.savetxt("energy.txt",\n'
               '           np.array([system.get_potential_energy()]))',
               'np.savetxt("forces.txt", system.get_forces())',
+              f'write("config.xyz", system)',
               sep='\n', file=quippy_script)
 
     # Run the process

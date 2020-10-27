@@ -62,7 +62,7 @@ class Trajectory(gt.ConfigurationSet):
         for atoms in traj:
             config = init_config.copy()
 
-            # Set the coordinate of evert atom in the configuration
+            # Set the coordinate of every atom in the configuration
             for i, position in enumerate(atoms.get_positions()):
                 config.atoms[i].coord = position
 
