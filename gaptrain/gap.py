@@ -478,90 +478,18 @@ class IIGAP:
             raise IOError(f'GAP parameter files did not exist')
 
         # Custom calculator to calculate the intra component of the energy in
-        # a larger box
-        pt = (
-        'import ase',
-        '\n',
-        'class IICalculator(ase.calculators.calculator.Calculator):',
-        '    ',
-        '    implemented_properties = ["energy", "forces"]',
-        '    ',
-        '    def expanded_atoms(self, atoms):',
-        '        """Generate atoms expanded by a factor intermolecularly"""',
-        '        ex_atoms = atoms.copy()',
-        '    ',
-        '        # Expand the box',
-        '        ex_atoms.set_cell(self.expansion_factor * atoms.cell)',
-        '    ',
-        '        # Get the current coordinates and indexes of the atoms to shift',
-        '        coords = ex_atoms.get_positions()',
-        '        mol_idxs = np.array(self.intra.mol_idxs, dtype=int)',
-        '    ',
-        '        for atom_idxs in mol_idxs:',
-        '            vec = np.average(coords[atom_idxs], axis=0)',
-        '            frac_com = vec / np.diagonal(atoms.cell)',
-        '    ',
-        '            # Shift from the current position to the new approximate',
-        '            # fractional center of mass',
-        '            coords[atom_idxs] += (frac_com * np.diagonal(ex_atoms.cell) - vec)',
-        '    ',
-        '        ex_atoms.set_positions(coords)',
-        '        ex_atoms.wrap()',
-        '    ',
-        '        return ex_atoms',
-        '    ',
-        '    def calculate(self, atoms=None, properties=None,',
-        '                  system_changes=None,',
-        '                  **kwargs):',
-        '        """New calculate function used to get energies and forces"""',
-        '        properties = ["energy", "forces"]',
-        '    ',
-        '        self.inter.calculate(atoms, properties, system_changes, **kwargs)',
-        '    ',
-        '        self.intra.calculate(self.expanded_atoms(atoms),',
-        '                             properties,',
-        '                             system_changes,',
-        '                             **kwargs)',
-        '    ',
-        '        # Add the energies and forces',
-        '        self.results["energy"] = (#self.inter.results["energy"]',
-        '                                  self.intra.results["energy"])',
-        '        self.results["free_energy"] = self.results["energy"]',
-        '    ',
-        '        self.results["forces"] = (#self.inter.results["forces"]',
-        '                                  self.intra.results["forces"])',
-        '    ',
-        '        return None',
-                '',
-        '    def __init__(self, intra, inter, expansion_factor=10, '
-        'calculation_always_required=False, calc_args=None, add_arrays=None, '
-        'add_info=None, **kwargs):',
-        '        """',
-        '        Combination of two ASE calculators used to evaluate intramolecular and',
-        '        intermolecular contributions separately. The intramolecular term is',
-        '        evaluated by expanding all the intermolecular distances uniformly by',
-        '        :param intra: (ase.Calculator)',
-        '        :param inter: (ase.Calculator)',
-        '        """',
-        '        ase.calculators.calculator.Calculator.__init__(self, '
-        'restart=None, ignore_bad_restart_file=False, label=None, atoms=None, '
-        '**kwargs)',
-        '    ',
-        '        self.intra = intra',
-        '        assert hasattr(intra, "mol_idxs")',
-        '        self.inter = inter',
-        '        self.atoms = None',
-        '        self.name = "inter_intra"',
-        '        self.parameters = {}',
-        '    ',
-        '        self.expansion_factor = expansion_factor')
+        # a larger box; in a file for neatness; first line is numpy import
+        here = os.path.abspath(os.path.dirname(__file__))
+        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
 
-        pt += (f'inter_gap = quippy.Potential("IP GAP", param_filename="{self.inter.name}.xml")',
-               f'intra_gap = quippy.Potential("IP GAP", param_filename="{self.intra.name}.xml")',
-               f'intra_gap.mol_idxs = {self.intra.mol_idxs}',
-               'pot = IICalculator(intra_gap, inter_gap)',)
+        pt += [f'\n\ninter_gap = quippy.Potential("IP GAP", '
+               f'param_filename="{self.inter.name}.xml")\n',
+               f'intra_gap = quippy.Potential("IP GAP", '
+               f'param_filename="{self.intra.name}.xml")\n',
+               f'intra_gap.mol_idxs = {self.intra.mol_idxs}\n',
+               'pot = IICalculator(intra_gap, inter_gap)\n']
 
-        return '\n'.join(pt)
+        return ''.join(pt)
 
     def __init__(self, *args):
         """

@@ -250,7 +250,8 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
 
     # Print a Python script to execute quippy and use ASE to drive the dynamics
     with open(f'gap.py', 'w') as quippy_script:
-        print('import quippy',
+        print('from __future__ import print_function',
+              'import quippy',
               'import numpy as np',
               'from ase.io import read, write',
               'from ase.io.trajectory import Trajectory',
