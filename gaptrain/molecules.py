@@ -143,7 +143,7 @@ class Molecule(Species):
         self.itp_filename = gmx_itp_filename
         self.name = str(self)
 
-        logger.info(f'Initialised {xyz_filename.rstrip(".xyz")}\n'
+        logger.info(f'Initialised {self.name}\n'
                     f'Number of atoms      = {self.n_atoms}\n'
                     f'GROMACS itp filename = {self.itp_filename}')
 

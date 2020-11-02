@@ -1,20 +1,22 @@
 from gaptrain.log import logger
 import gaptrain as gt
 import ase.io.trajectory as ase_traj
+import numpy as np
 import os
 
 
-def gro2xyz(gro_traj, config):
+def gro2xyz(filename, config, out_filename='nvt_traj.xyz'):
     """Convert a GROMACS .gro trajectory to a .xyz trajectory"""
-    with open('nvt_traj.xyz', 'w') as output_xyz:
 
-        lines = open(gro_traj, 'r').readlines()
+    with open(out_filename, 'w') as output_xyz:
+
+        lines = open(filename, 'r').readlines()
 
         # Number of atoms is second line of gro file
         num_of_atoms = int(lines[1])
         stride = (num_of_atoms + 3)
 
-        # Create an ordered list of atoms from system.molecules
+        # Create an ordered list of atom symbols from a configuration's atoms
         atom_list = [atom.label for atom in config.atoms]
 
         # Iterate through the entire gro file
@@ -24,18 +26,16 @@ def gro2xyz(gro_traj, config):
                   f'Comment line', file=output_xyz)
 
             # Iterate through the coordinate lines of each frame only
-            for j, line in enumerate(
-                    lines[i * stride + 2:(i + 1) * stride - 1]):
+            for j, line in enumerate(lines[i*stride + 2:(i+1)*stride - 1]):
 
-                # Extract the x, y, z coordinates and atom names
+                # Extract the x, y, z coordinates and atom names in Å
                 x_nm, y_nm, z_nm = line.split()[3:6]
-                x, y, z = 10 * float(x_nm), \
-                          10 * float(y_nm), 10 * float(z_nm)
+                x, y, z = 10 * np.array([x_nm, y_nm, z_nm], dtype=float)
 
-                print(f'{atom_list[j]:<4} {x:<7.3f} {y:<7.3f} {z:<7.3f}'
-                      , file=output_xyz)
+                print(f'{atom_list[j]:<4} {x:<7.3f} {y:<7.3f} {z:<7.3f}',
+                      file=output_xyz)
 
-        return None
+    return None
 
 
 class Trajectory(gt.ConfigurationSet):
@@ -79,7 +79,7 @@ class Trajectory(gt.ConfigurationSet):
                   box=init_config.box,
                   charge=init_config.charge,
                   mult=init_config.mult)
-        os.remove(filename)
+        os.remove('nvt_traj.xyz')
 
         return None
 
