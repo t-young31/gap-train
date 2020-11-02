@@ -1,11 +1,24 @@
 import numpy as np
 from ase.calculators.dftb import Dftb
 from gaptrain.utils import work_in_tmp_dir
+from gaptrain.log import logger
 from gaptrain.exceptions import MethodFailed, GAPFailed
 from gaptrain.gtconfig import GTConfig
 from ase.optimize import BFGS
 from subprocess import Popen, PIPE
 import os
+
+
+def set_threads(n_cores):
+    """Set the number of threads to use"""
+
+    n_cores = GTConfig.n_cores if n_cores is None else n_cores
+    logger.info(f'Using {n_cores} cores')
+
+    os.environ['OMP_NUM_THREADS'] = str(n_cores)
+    os.environ['MLK_NUM_THREADS'] = str(n_cores)
+
+    return None
 
 
 class DFTB(Dftb):
@@ -105,14 +118,13 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              'pot = quippy.Potential("IP GAP", \n'
-              f'                      param_filename="{gap.name}.xml")',
+              f'{gap.ase_gap_potential_str()}',
               'system.set_calculator(pot)',
               f'{min_section}',
-              f'write("config.xyz", system)',
               'np.savetxt("energy.txt",\n'
               '           np.array([system.get_potential_energy()]))',
               'np.savetxt("forces.txt", system.get_forces())',
+              f'write("config.xyz", system)',
               sep='\n', file=quippy_script)
 
     # Run the process
@@ -146,7 +158,6 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     :param traj_name: (str) or None
     """
-
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
                 kpts=(1, 1, 1),

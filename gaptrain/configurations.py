@@ -120,24 +120,35 @@ class Configuration:
         self.forces = None
         return None
 
-    def run_dftb(self, max_force=None):
+    def run_dftb(self, max_force=None, n_cores=None):
         """
         Run a DFTB+ calculation, either a minimisation or optimisation
 
         :param max_force: (float) Maximum force in eV Å-1. If None then a
                           single point energy and force evaluation is performed
         """
-        from gaptrain.calculators import run_dftb
+        from gaptrain.calculators import run_dftb, set_threads
+        set_threads(n_cores)
 
-        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
         return run_dftb(self, max_force)
 
-    def run_gap(self, gap, max_force=None):
+    def run_gap(self, gap, max_force=None, n_cores=None):
         """Run GAP to predict energy and forces"""
-        from gaptrain.calculators import run_gap
-        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
+        from gaptrain.calculators import run_gap, set_threads
+        set_threads(n_cores)
 
         return run_gap(self, max_force=max_force, gap=gap)
+
+    def run_gpaw(self, max_force=None, n_cores=None):
+        """Run a GPAW DFT calculation, either a minimisation or optimisation
+
+        :param max_force: (float) Maximum force in eV Å-1. If None then a
+                          single point energy and force evaluation is performed
+        """
+        from gaptrain.calculators import run_gpaw, set_threads
+        set_threads(n_cores)
+
+        return run_gpaw(self, max_force)
 
     def print_gro_file(self, system):
         filename = 'input.gro'
@@ -163,18 +174,6 @@ class Configuration:
             print(f'{a} {b} {c}', file=f)
 
         return None
-
-    def run_gpaw(self, max_force=None):
-        """Run a GPAW DFT calculation, either a minimisation or optimisation
-
-        :param max_force: (float) Maximum force in eV Å-1. If None then a
-                          single point energy and force evaluation is performed
-        """
-        from gaptrain.calculators import run_gpaw
-
-        os.environ['OMP_NUM_THREADS'] = str(gt.GTConfig.n_cores)
-        os.environ['MLK_NUM_THREADS'] = str(gt.GTConfig.n_cores)
-        return run_gpaw(self, max_force)
 
     def load(self, filename=None, file_lines=None, box=None, charge=None,
              mult=None):
@@ -328,8 +327,8 @@ class Configuration:
 
         return None
 
-    def __init__(self, system=None, box=None, charge=None, mult=None,
-                 name='config'):
+    def __init__(self, filename=None, system=None, box=None, charge=None,
+                 mult=None, name='config'):
         """
         A configuration consisting of a set of atoms suitable to run DFT
         or GAP on to set self.energy and self.forces
@@ -359,6 +358,10 @@ class Configuration:
         self.mult = system.mult() if system is not None else mult
 
         self.n_wraps = 0
+
+        if filename is not None:
+
+            self.load(filename)
 
 
 class ConfigurationSet:
