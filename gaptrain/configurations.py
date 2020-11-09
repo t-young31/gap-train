@@ -640,7 +640,7 @@ class ConfigurationSet:
         :param method: (str) Name of the method to use
         :param kwargs: ensemble (gaptrain.gap.GAPEnsemble)
         """
-        implemented_methods = ['random', 'cur', 'ensemble', 'higher']
+        implemented_methods = ['random', 'cur', 'ensemble', 'higher', 'cur_k']
 
         if method.lower() not in implemented_methods:
             raise NotImplementedError(f'Methods are {implemented_methods}')
@@ -652,10 +652,15 @@ class ConfigurationSet:
         if method.lower() == 'random':
             return self.remove_random(remainder=n)
 
-        if method.lower() == 'cur':
-            soap_matrix = gt.descriptors.soap(self)
-            cur_idxs = gt.cur.rows(soap_matrix, k=n, return_indexes=True)
+        if 'cur' in method.lower():
+            if method.lower() == 'cur':
+                matrix = gt.descriptors.soap(self)
+            elif method.lower() == 'cur_k':
+                matrix = gt.descriptors.soap_kernel_matrix(self)
+            else:
+                raise NotImplementedError
 
+            cur_idxs = gt.cur.rows(matrix, k=n, return_indexes=True)
             self._list = [self._list[idx] for idx in cur_idxs]
 
         if method.lower() == 'ensemble':
