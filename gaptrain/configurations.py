@@ -439,22 +439,20 @@ class ConfigurationSet:
         logger.info(f'Loading configuration set from {filename}')
         lines = open(filename, 'r').readlines()
 
-        # Number of atoms should be the first item in the file
-        try:
-            n_atoms = int(lines[0].split()[0])
-        except (TypeError, IndexError):
-            raise ex.LoadingFailed('Line 1 of the xyz file malformatted')
-
-        stride = int(n_atoms + 2)
-
         # Stride through the file and add configuration for each
-        for i, _ in enumerate(lines[::stride]):
+        i = 0
+        while i < len(lines):
+
+            # Configurations may have different numbers of atoms
+            n_atoms = int(lines[i].split()[0])
+            stride = n_atoms + 2
 
             configuration = Configuration()
-            configuration.load(file_lines=lines[i * stride:(i + 1) * stride],
+            configuration.load(file_lines=lines[i:i+stride],
                                box=box, charge=charge, mult=mult)
 
             self._list.append(configuration)
+            i += stride
 
         if self.name is None or self.name == 'data':
             self.name = filename.rstrip('.xyz')
