@@ -470,7 +470,8 @@ class AdditiveGAP:
 class IIGAP:
     """Inter+intra GAP where the inter is evaluated in a different box"""
 
-    def ase_gap_potential_str(self):
+    def ase_gap_potential_str(self,
+                              calc_str='IICalculator(intra_gap, inter_gap)'):
         """Generate the quippy/ASE string to run the potential"""
 
         if not (os.path.exists(f'{self.inter.name}.xml')
@@ -482,12 +483,12 @@ class IIGAP:
         here = os.path.abspath(os.path.dirname(__file__))
         pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
 
-        pt += [f'\n\ninter_gap = quippy.Potential("IP GAP", '
+        pt += [f'inter_gap = quippy.Potential("IP GAP", '
                f'param_filename="{self.inter.name}.xml")\n',
                f'intra_gap = quippy.Potential("IP GAP", '
                f'param_filename="{self.intra.name}.xml")\n',
                f'intra_gap.mol_idxs = {self.intra.mol_idxs}\n',
-               'pot = IICalculator(intra_gap, inter_gap)\n']
+               f'pot = {calc_str}\n']
 
         return ''.join(pt)
 
@@ -509,8 +510,38 @@ class IIGAP:
                 self.inter = arg
 
             else:
-                raise ValueError('II GAP must be initialised with only '
+                raise ValueError('IIGAP must be initialised with only '
                                  'InterGAP or IntraGAP potentials')
 
         if self.inter is None or self.intra is None:
             raise AssertionError('Must have both an inter+intra GAP')
+
+
+class SSGAP(IIGAP):
+
+    def ase_gap_potential_str(self, calc_str=None):
+        """Generate the quippy/ASE potential string with three calculators"""
+
+        if calc_str is None:
+            calc_str = 'SSCalculator(solute_gap, intra_gap, inter_gap)'
+
+        pt = ('solute_gap = quippy.Potential("IP GAP", '
+              f'     param_filename="{self.solute_intra.name}.xml")\n'
+              f'solute_gap.mol_idxs = {self.solute_intra.mol_idxs}\n')
+
+        pt += super().ase_gap_potential_str(calc_str=calc_str)
+        return pt
+
+    def __init__(self, solute_intra, solvent_intra, inter):
+        """
+        Solute-solvent (SS) Gaussian Approximation Potential comprised of a
+        GAP for thr gas phase solute, the solvent and the remainder of the
+        intermolecular interactions
+        """
+        super().__init__(solvent_intra, inter)
+
+        self.solute_intra = solute_intra
+        assert hasattr(self.solute_intra, 'mol_idxs')
+
+        if len(self.solute_intra.mol_idxs) > 1:
+            raise ValueError('More than one solvent not supported')
