@@ -54,6 +54,10 @@ def run_gpaw(configuration, max_force):
     """
     from gpaw import GPAW, PW
 
+    if ('GPAW_SETUP_PATH' not in os.environ.keys()
+            or os.environ['GPAW_SETUP_PATH'] == ''):
+        raise AssertionError('$GPAW_SETUP_PATH needs to be set')
+
     ase_atoms = configuration.ase_atoms()
 
     dft = GPAW(mode=PW(400),
