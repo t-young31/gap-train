@@ -4,7 +4,6 @@ from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
 from gaptrain.exceptions import MethodFailed, GAPFailed
 from gaptrain.gtconfig import GTConfig
-
 from subprocess import Popen, PIPE
 import os
 
@@ -71,8 +70,9 @@ def run_orca(configuration, max_force=None, n_cores=1):
                        keywords=GTConfig.orca_keywords,
                        n_cores=n_cores)
     calc.run()
-    configuration.forces = -calc.get_gradients()
-    configuration.energy = calc.get_energy()
+    ha_to_ev = 27.2114
+    configuration.forces = -ha_to_ev * calc.get_gradients()
+    configuration.energy = ha_to_ev * calc.get_energy()
 
     return configuration
 
