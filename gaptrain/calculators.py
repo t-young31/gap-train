@@ -4,7 +4,7 @@ from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
 from gaptrain.exceptions import MethodFailed, GAPFailed
 from gaptrain.gtconfig import GTConfig
-from ase.optimize import BFGS
+
 from subprocess import Popen, PIPE
 import os
 
@@ -39,6 +39,42 @@ class DFTB(Dftb):
             pass
 
         return None
+
+
+@work_in_tmp_dir()
+def run_orca(configuration, max_force=None, n_cores=1):
+    """
+    Run an orca calculation
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
+    from autode.species import Species
+    from autode.calculation import Calculation
+    from autode.methods import ORCA
+    from autode.wrappers.keywords import GradientKeywords
+
+    assert max_force is None
+
+    if not isinstance(GTConfig.orca_keywords, GradientKeywords):
+        raise AssertionError('ORCA requires a set of autodE GradientKeywords')
+
+    species = Species(name=configuration.name,
+                      atoms=configuration.atoms,
+                      charge=configuration.charge,
+                      mult=configuration.mult)
+    calc = Calculation(name='tmp',
+                       molecule=species,
+                       method=ORCA(),
+                       keywords=GTConfig.orca_keywords,
+                       n_cores=n_cores)
+    calc.run()
+    configuration.forces = -calc.get_gradients()
+    configuration.energy = calc.get_energy()
+
+    return configuration
 
 
 @work_in_tmp_dir(kept_exts=['.traj'])

@@ -150,6 +150,14 @@ class Configuration:
 
         return run_gpaw(self, max_force)
 
+    def run_orca(self, max_force=None, n_cores=None):
+        """Run an ORCA calculation on this configuration"""
+        from gaptrain.calculators import run_orca, GTConfig
+        assert max_force is None
+
+        return run_orca(self, n_cores=n_cores if n_cores is not None
+                        else GTConfig.n_cores)
+
     def print_gro_file(self, system):
         filename = 'input.gro'
         with open(filename, 'w') as f:
@@ -533,6 +541,11 @@ class ConfigurationSet:
         """Run periodic DFTB+ on these configurations"""
         from gaptrain.calculators import run_dftb
         return self._run_parallel_method(run_dftb, max_force=max_force)
+
+    def parallel_orca(self):
+        """Run parallel ORCA on these configurations"""
+        from gaptrain.calculators import run_orca
+        return self._run_parallel_method(run_orca, max_force=None, n_cores=1)
 
     def remove_first(self, n):
         """

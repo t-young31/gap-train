@@ -1,6 +1,5 @@
-from gaptrain.molecules import Molecule
 from gaptrain.molecules import Species
-from gaptrain.solvents import solvents, get_solvent
+from gaptrain.solvents import get_solvent
 from gaptrain.box import Box
 from gaptrain.log import logger
 from gaptrain.configurations import Configuration
