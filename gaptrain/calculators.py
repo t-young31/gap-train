@@ -53,6 +53,7 @@ def run_orca(configuration, max_force=None, n_cores=1):
     from autode.species import Species
     from autode.calculation import Calculation
     from autode.methods import ORCA
+    from autode.exceptions import CouldNotGetProperty
     from autode.wrappers.keywords import GradientKeywords
 
     assert max_force is None
@@ -71,7 +72,11 @@ def run_orca(configuration, max_force=None, n_cores=1):
                        n_cores=n_cores)
     calc.run()
     ha_to_ev = 27.2114
-    configuration.forces = -ha_to_ev * calc.get_gradients()
+    try:
+        configuration.forces = -ha_to_ev * calc.get_gradients()
+    except CouldNotGetProperty:
+        logger.error('Failed to set forces')
+
     configuration.energy = ha_to_ev * calc.get_energy()
 
     return configuration
