@@ -94,6 +94,7 @@ def run_gpaw(configuration, max_force):
     :param max_force: (float) or None
     """
     from gpaw import GPAW, PW
+    from ase.optimize import BFGS
 
     if ('GPAW_SETUP_PATH' not in os.environ.keys()
             or os.environ['GPAW_SETUP_PATH'] == ''):
@@ -203,6 +204,8 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     :param traj_name: (str) or None
     """
+    from ase.optimize import BFGS
+
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
                 kpts=(1, 1, 1),
