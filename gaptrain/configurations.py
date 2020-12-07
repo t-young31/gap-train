@@ -158,10 +158,8 @@ class Configuration:
 
             n = 0
             for i, molecule in enumerate(system.molecules):
-                atom_list = []
                 for atom in molecule.atoms:
                     x, y, z = self.atoms[n].coord / 10
-                    atom_list.append(atom.label)
                     print(f'{i+1:>5}'
                           f'{molecule.name:<5}'
                           f'{atom.mm_type.strip():>5}'

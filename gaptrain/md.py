@@ -88,7 +88,7 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
     with open('nvt.mdp', 'w') as nvt_file:
 
         print(f'{"title":<25}{"= GAP-Train NVT parameter file"}',
-              f'{"define":<25}{"= -DPOSRES"}',
+              f'{"define":<25}{"= -DFLEXIBLE"}',
               f'{"integrator":<25}{"= md"}',
               f'{"nsteps":<25}{"= "}{simulation_steps(dt, kwargs)}',
               f'{"dt":<25}{"= "}{dt / 1E3}',   # converts to picoseconds (ps)
@@ -101,7 +101,7 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
               f'{"nstxout-compressed":<25}{"= "}{interval}',
               f'{"continuation":<25}{"= no"}',
               f'{"constraint_algorithm":<25}{"= lincs"}',
-              f'{"constraints":<25}{"= h-bonds"}',
+              f'{"constraints":<25}{"= none"}',
               f'{"lincs_iter":<25}{"= 1"}',
               f'{"lincs_order":<25}{"= 4"}',
               f'{"cutoff-scheme":<25}{"= Verlet"}',

@@ -213,6 +213,8 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     configuration.forces = ase_atoms.get_forces()
 
+    configuration.partial_charges = ase_atoms.get_charges()
+
     # Return self to allow for multiprocessing
     return configuration
 

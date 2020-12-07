@@ -256,7 +256,8 @@ class MMSystem(System):
 
             mol_names = [m.name for m in self.molecules]
             for mol_name in sorted(set(mol_names), key=mol_names.index):
-                print(f'{mol_name:<15s}{mol_names.count(mol_name)}', file=topol_file)
+                print(f'{mol_name:<15s}{mol_names.count(mol_name)}',
+                      file=topol_file)
 
     def __init__(self, *args, box_size):
         """System that can be simulated with molecular mechanics"""

@@ -77,3 +77,4 @@ class GTConfig:
                                'sigma_at': 0.5,         # Å
                                'delta': 0.1             # eV
                                }
+ 
