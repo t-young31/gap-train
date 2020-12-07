@@ -248,6 +248,10 @@ class Configuration:
                     except (TypeError, ValueError, IndexError):
                         raise ex.LoadingFailed('Failed to load the box')
 
+            elif len(line.split()) < 4:
+                logger.warning('Unexpected line break, assuming end of atoms')
+                break
+
             else:
                 atom_label, x, y, z = line.split()[:4]
                 atoms.append(Atom(atom_label, x=x, y=y, z=z))
