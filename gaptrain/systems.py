@@ -1,6 +1,5 @@
-from gaptrain.molecules import Molecule
 from gaptrain.molecules import Species
-from gaptrain.solvents import solvents, get_solvent
+from gaptrain.solvents import get_solvent
 from gaptrain.box import Box
 from gaptrain.log import logger
 from gaptrain.configurations import Configuration
@@ -148,6 +147,74 @@ class System:
 
         return config
 
+    def grid(self, min_dist_threshold=1.5, max_attempts=10000):
+        """
+        Generate molecules on an evenly spaced grid
+
+        :return:
+        """
+        n_molecules = len(self.molecules)
+        system = deepcopy(self)
+        sub_box = Box(size=system.box.size - min_dist_threshold)
+
+        def n_x(x, y, z):
+            """Calculate the number of atoms in the x direction, given
+            two others (y, z)"""
+            return int(np.ceil(np.power(x**2 * n_molecules / (y * z), 1/3)))
+
+        grid_points = []
+        a, b, c = sub_box.size
+        n_a, n_b, n_c = n_x(a, b, c), n_x(b, a, c), n_x(c, a, b)
+        print(n_a, n_b, n_c)
+
+        # Add all the grid points in 3D over the orthorhombic box
+        for i in range(n_a):
+            for j in range(n_b):
+                for k in range(n_c):
+                    vec = np.array([i * a / n_a, j * b / n_b, k * c / n_c])
+                    grid_points.append(vec)
+
+        # Need to have fewer molecules than grid points to put them on
+        assert len(grid_points) >= n_molecules
+        print(len(grid_points))
+
+        def random_rotate(vec):
+            molecule.translate(vec=-molecule.centroid())
+            molecule.rotate(axis=np.random.uniform(-1.0, 1.0, size=3),
+                            theta=np.random.uniform(0.0, 2 * np.pi))
+            molecule.translate(vec)
+            return
+
+        n_attempts = 0
+        coords = np.empty(shape=(0, 3))
+
+        for i, molecule in enumerate(system.molecules):
+            point_idx = int(np.random.randint(0, len(grid_points)))
+
+            if i == 0:
+                random_rotate(vec=grid_points[point_idx])
+                coords = np.vstack((coords, molecule.get_coordinates()))
+                continue
+
+            # Try to add the remaining molecules
+            while molecule.min_distance(coords) < min_dist_threshold:
+
+                # Shift back to the origin then to the grid point
+                point_idx = int(np.random.randint(1, len(grid_points)))
+                random_rotate(vec=grid_points[point_idx])
+                n_attempts += 1
+
+                if n_attempts > max_attempts:
+                    raise ex.RandomiseFailed('Maximum attempts exceeded')
+
+            # Add the coordinates to the full set
+            coords = np.vstack((coords, molecule.get_coordinates()))
+            grid_points.pop(point_idx)
+
+        config = system.configuration()
+
+        return config
+
     def add_solvent(self, solvent_name, n):
         """Add water to the system to generate a ~1 g cm-3 density
 
@@ -182,7 +249,7 @@ class System:
         return 2 * n_unpaired + 1
 
     def configuration(self):
-        return Configuration(self)
+        return Configuration(system=self)
 
     def __init__(self, *args, box_size):
         """

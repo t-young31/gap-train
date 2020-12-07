@@ -40,6 +40,15 @@ def predict(gap, data):
 
 class GAP:
 
+    def ase_gap_potential_str(self):
+        """Generate the quippy/ASE string to run the potential"""
+
+        if not os.path.exists(f'{self.name}.xml'):
+            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
+
+        return ('pot = quippy.Potential("IP GAP", \n'
+                f'              param_filename="{self.name}.xml")')
+
     def train_command(self):
         """Generate the teach_sparse function call for this system of atoms"""
 
@@ -64,6 +73,8 @@ class GAP:
                        f'{atomic_number(symbol_a)}'
                        '}} '
                        f'Z={atomic_number(symbol_b)}: ')
+
+            logger.info(f'2b term: {params}')
 
         for (symbol_a, symbol_b, symbol_c), angle in self.params.angle.items():
             logger.info(f'Adding angle (3b): {symbol_a}-{symbol_b}-{symbol_c}')
@@ -183,6 +194,32 @@ class GAP:
                            'gap.train not available')
 
         self.training_data = None
+
+
+class InterGAP(GAP):
+    pass
+
+
+class IntraGAP(GAP):
+
+    def __init__(self, name, system):
+        """An intramolecular GAP, must be initialised with a system so the
+        molecules are defined
+
+        :param name: (str)
+        :param system: (gt.system.System)
+        """
+        super().__init__(name, system)
+
+        self.mol_idxs = []
+        n_atoms = 0
+
+        # Set a list of molecule indexes, so the inter can be updated
+        # TODO: allow for adaptive partitioning
+        for molecule in system.molecules:
+            self.mol_idxs.append(list(range(n_atoms,
+                                            molecule.n_atoms+n_atoms)))
+            n_atoms += molecule.n_atoms
 
 
 class Parameters:
@@ -390,6 +427,22 @@ class GAPEnsemble:
 class AdditiveGAP:
     """GAP where the energy is a sum of terms"""
 
+    def ase_gap_potential_str(self):
+        """Generate the quippy/ASE string to run the potential"""
+
+        pt_str = ''
+        for i in range(2):
+            pt_str += (f'pot{i+1} = quippy.Potential("IP GAP", \n'
+                       f'          param_filename="{self[i].name}.xml")\n')
+
+            if not os.path.exists(f'{self[i].name}.xml'):
+                raise IOError(f'GAP parameter file ({self[i].name}.xml) in '
+                              f'additiive GAP did not exist')
+
+        pt_str += f'pot = quippy.Potential("Sum", pot1=pot1, pot2=pot2)'
+
+        return pt_str
+
     def predict(self, data):
         return predict(self, data)
 
@@ -412,3 +465,83 @@ class AdditiveGAP:
 
         self.name = f'{gap1.name}_{gap2.name}'
         self._list = [gap1, gap2]
+
+
+class IIGAP:
+    """Inter+intra GAP where the inter is evaluated in a different box"""
+
+    def ase_gap_potential_str(self,
+                              calc_str='IICalculator(intra_gap, inter_gap)'):
+        """Generate the quippy/ASE string to run the potential"""
+
+        if not (os.path.exists(f'{self.inter.name}.xml')
+                and os.path.exists(f'{self.intra.name}.xml')):
+            raise IOError(f'GAP parameter files did not exist')
+
+        # Custom calculator to calculate the intra component of the energy in
+        # a larger box; in a file for neatness; first line is numpy import
+        here = os.path.abspath(os.path.dirname(__file__))
+        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
+
+        pt += [f'inter_gap = quippy.Potential("IP GAP", '
+               f'param_filename="{self.inter.name}.xml")\n',
+               f'intra_gap = quippy.Potential("IP GAP", '
+               f'param_filename="{self.intra.name}.xml")\n',
+               f'intra_gap.mol_idxs = {self.intra.mol_idxs}\n',
+               f'pot = {calc_str}\n']
+
+        return ''.join(pt)
+
+    def __init__(self, *args):
+        """
+        Collective GAP comprised of inter and intra components
+
+        :param args: (gt.gap.GAP)
+        """
+
+        self.inter = None
+        self.intra = None
+
+        for arg in args:
+            if isinstance(arg, IntraGAP):
+                self.intra = arg
+
+            elif isinstance(arg, InterGAP):
+                self.inter = arg
+
+            else:
+                raise ValueError('IIGAP must be initialised with only '
+                                 'InterGAP or IntraGAP potentials')
+
+        if self.inter is None or self.intra is None:
+            raise AssertionError('Must have both an inter+intra GAP')
+
+
+class SSGAP(IIGAP):
+
+    def ase_gap_potential_str(self, calc_str=None):
+        """Generate the quippy/ASE potential string with three calculators"""
+
+        if calc_str is None:
+            calc_str = 'SSCalculator(solute_gap, intra_gap, inter_gap)'
+
+        pt = ('solute_gap = quippy.Potential("IP GAP", '
+              f'     param_filename="{self.solute_intra.name}.xml")\n'
+              f'solute_gap.mol_idxs = {self.solute_intra.mol_idxs}\n')
+
+        pt += super().ase_gap_potential_str(calc_str=calc_str)
+        return pt
+
+    def __init__(self, solute_intra, solvent_intra, inter):
+        """
+        Solute-solvent (SS) Gaussian Approximation Potential comprised of a
+        GAP for thr gas phase solute, the solvent and the remainder of the
+        intermolecular interactions
+        """
+        super().__init__(solvent_intra, inter)
+
+        self.solute_intra = solute_intra
+        assert hasattr(self.solute_intra, 'mol_idxs')
+
+        if len(self.solute_intra.mol_idxs) > 1:
+            raise ValueError('More than one solvent not supported')

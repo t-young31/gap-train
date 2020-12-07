@@ -250,7 +250,8 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
 
     # Print a Python script to execute quippy and use ASE to drive the dynamics
     with open(f'gap.py', 'w') as quippy_script:
-        print('import quippy',
+        print('from __future__ import print_function',
+              'import quippy',
               'import numpy as np',
               'from ase.io import read, write',
               'from ase.io.trajectory import Trajectory',
@@ -261,7 +262,7 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              f'{ase_gap_potential_str(gap)}',
+              f'{gap.ase_gap_potential_str()}',
               'system.set_calculator(pot)',
               f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)',
               'traj = Trajectory("tmp.traj", \'w\', system)\n'

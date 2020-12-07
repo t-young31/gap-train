@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from gaptrain.log import logger
+import numpy as np
 
 
 def soap(*args):
@@ -43,3 +44,25 @@ def soap(*args):
 
     logger.info('SOAP calculation done')
     return soap_vec
+
+
+def soap_kernel_matrix(configs, zeta=4):
+    """
+    Calculate the kernel matrix between a set of configurations where the
+    kernel is
+
+    K(p_a, p_b) = (p_a . p_b / (p_a.p_a x p_b.p_b)^1/2 )^ζ
+
+    :param configs: (gaptrain.configurations.ConfigurationSet)
+    :param zeta: (float) Power to raise the kernel matrix to
+    :return: (np.ndarray) shape = (len(configs), len(configs))
+    """
+    soap_vecs = soap(configs)
+    n, _ = soap_vecs.shape
+
+    # Normalise each soap vector (row)
+    soap_vecs = soap_vecs / np.linalg.norm(soap_vecs, axis=1).reshape(n, 1)
+
+    k_mat = np.matmul(soap_vecs, soap_vecs.T)
+    k_mat = np.power(k_mat, zeta)
+    return k_mat

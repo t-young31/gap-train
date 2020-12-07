@@ -4,7 +4,6 @@ from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
 from gaptrain.exceptions import MethodFailed, GAPFailed
 from gaptrain.gtconfig import GTConfig
-from ase.optimize import BFGS
 from subprocess import Popen, PIPE
 import os
 
@@ -41,6 +40,48 @@ class DFTB(Dftb):
         return None
 
 
+@work_in_tmp_dir()
+def run_orca(configuration, max_force=None, n_cores=1):
+    """
+    Run an orca calculation
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
+    from autode.species import Species
+    from autode.calculation import Calculation
+    from autode.methods import ORCA
+    from autode.exceptions import CouldNotGetProperty
+    from autode.wrappers.keywords import GradientKeywords
+
+    assert max_force is None
+
+    if not isinstance(GTConfig.orca_keywords, GradientKeywords):
+        raise AssertionError('ORCA requires a set of autodE GradientKeywords')
+
+    species = Species(name=configuration.name,
+                      atoms=configuration.atoms,
+                      charge=configuration.charge,
+                      mult=configuration.mult)
+    calc = Calculation(name='tmp',
+                       molecule=species,
+                       method=ORCA(),
+                       keywords=GTConfig.orca_keywords,
+                       n_cores=n_cores)
+    calc.run()
+    ha_to_ev = 27.2114
+    try:
+        configuration.forces = -ha_to_ev * calc.get_gradients()
+    except CouldNotGetProperty:
+        logger.error('Failed to set forces')
+
+    configuration.energy = ha_to_ev * calc.get_energy()
+
+    return configuration
+
+
 @work_in_tmp_dir(kept_exts=['.traj'])
 def run_gpaw(configuration, max_force):
     """Run a periodic DFT calculation using GPAW. Will set configuration.energy
@@ -53,6 +94,11 @@ def run_gpaw(configuration, max_force):
     :param max_force: (float) or None
     """
     from gpaw import GPAW, PW
+    from ase.optimize import BFGS
+
+    if ('GPAW_SETUP_PATH' not in os.environ.keys()
+            or os.environ['GPAW_SETUP_PATH'] == ''):
+        raise AssertionError('$GPAW_SETUP_PATH needs to be set')
 
     ase_atoms = configuration.ase_atoms()
 
@@ -152,13 +198,13 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
-              f'{ase_gap_potential_str(gap)}',
+              f'{gap.ase_gap_potential_str()}',
               'system.set_calculator(pot)',
               f'{min_section}',
-              f'write("config.xyz", system)',
               'np.savetxt("energy.txt",\n'
               '           np.array([system.get_potential_energy()]))',
               'np.savetxt("forces.txt", system.get_forces())',
+              f'write("config.xyz", system)',
               sep='\n', file=quippy_script)
 
     # Run the process
@@ -192,6 +238,8 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     :param traj_name: (str) or None
     """
+    from ase.optimize import BFGS
+
     ase_atoms = configuration.ase_atoms()
     dftb = DFTB(atoms=ase_atoms,
                 kpts=(1, 1, 1),

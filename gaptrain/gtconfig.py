@@ -77,4 +77,7 @@ class GTConfig:
                                'sigma_at': 0.5,         # Å
                                'delta': 0.1             # eV
                                }
- 
+
+    # ----------------------- ORCA -------------------------------
+    # Keywords to use for an ORCA calculation
+    orca_keywords = None

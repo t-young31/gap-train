@@ -8,5 +8,5 @@ setup(name='gaptrain',
       package_data={'': ['solvent_lib/*']},
       url='https://github.com/t-young31/gaptrain',
       license='MIT',
-      authors='Tom Young, Tristan Johnston-Wood',
+      author='Tom Young, Tristan Johnston-Wood',
       author_email='tom.young@chem.ox.ac.uk')

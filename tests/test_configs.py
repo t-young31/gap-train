@@ -99,7 +99,7 @@ def test_wrap():
 
 def test_ase_atoms():
 
-    ase_atoms = Configuration(system).ase_atoms()
+    ase_atoms = Configuration(system=system).ase_atoms()
 
     assert isinstance(ase_atoms, ase.Atoms)
     # Periodic in x y and z
@@ -138,7 +138,7 @@ def test_print_gro_file():
     for molecule in water_box.molecules:
         molecule.set_mm_atom_types()
 
-    config = Configuration(water_box)
+    config = Configuration(system=water_box)
     config.wrap()
     config.print_gro_file(system=water_box)
 
@@ -383,55 +383,3 @@ def test_load_no_args():
         os.remove('test.xyz')
         if hasattr(configs, '_list'):
             assert len(configs) == 0
-
-
-# TODO this function
-def FIXME_gap_ensemble_truncate():
-
-    return
-    os.chdir(os.path.join(here, 'data', 'gap_ensemble'))
-
-    water_box = System(box_size=[7, 7, 7])
-    water_box.add_molecules(h2o, n=5)
-
-    # Add data to the box
-    configs = ConfigurationSet(name='water_configs')
-    for _ in range(30):
-        configs += water_box.random()
-
-    configs.parallel_dftb()
-
-    # Don't attempt without the GAP flag
-    if 'GT_GAP' not in os.environ or not os.environ['GT_GAP'] == 'True':
-        return
-
-    gt.GTConfig.gap_default_soap_params['n_sparse'] = 10
-    gt.GTConfig.gap_default_2b_params['n_sparse'] = 10
-
-    ensemble = gt.GAPEnsemble(name='water_ensemble',
-                              system=water_box,
-                              n=3)
-    ensemble.train(configs)
-
-    # Add a third configuration and predict the error
-    new_config = water_box.random()
-
-    configs += new_config
-    gt.GTConfig.n_cores = 8
-
-    errors = ensemble.predict_energy_error(configs)
-    print(errors)
-
-    # Error on the newly added configuration should be the largest
-    assert all(errors[-1] > error for error in errors[:-1])
-
-    # Truncate the configurations by removing the largest predicted error
-    configs.truncate(n=1, method='ensemble', ensemble=ensemble)
-
-    # Truncation should leave only the configuration that is most disimillar
-    # to the training data, i.e. the newly added one
-    dist = np.linalg.norm(new_config.coordinates() - configs[0].coordinates())
-    assert dist < 1E-6
-
-    os.chdir(here)
-

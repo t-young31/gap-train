@@ -150,6 +150,14 @@ class Configuration:
 
         return run_gpaw(self, max_force)
 
+    def run_orca(self, max_force=None, n_cores=None):
+        """Run an ORCA calculation on this configuration"""
+        from gaptrain.calculators import run_orca, GTConfig
+        assert max_force is None
+
+        return run_orca(self, n_cores=n_cores if n_cores is not None
+                        else GTConfig.n_cores)
+
     def print_gro_file(self, system):
         filename = 'input.gro'
         with open(filename, 'w') as f:
@@ -325,8 +333,8 @@ class Configuration:
 
         return None
 
-    def __init__(self, system=None, box=None, charge=None, mult=None,
-                 name='config'):
+    def __init__(self, filename=None, system=None, box=None, charge=None,
+                 mult=None, name='config'):
         """
         A configuration consisting of a set of atoms suitable to run DFT
         or GAP on to set self.energy and self.forces
@@ -356,6 +364,10 @@ class Configuration:
         self.mult = system.mult() if system is not None else mult
 
         self.n_wraps = 0
+
+        if filename is not None:
+
+            self.load(filename)
 
 
 class ConfigurationSet:
@@ -433,22 +445,20 @@ class ConfigurationSet:
         logger.info(f'Loading configuration set from {filename}')
         lines = open(filename, 'r').readlines()
 
-        # Number of atoms should be the first item in the file
-        try:
-            n_atoms = int(lines[0].split()[0])
-        except (TypeError, IndexError):
-            raise ex.LoadingFailed('Line 1 of the xyz file malformatted')
-
-        stride = int(n_atoms + 2)
-
         # Stride through the file and add configuration for each
-        for i, _ in enumerate(lines[::stride]):
+        i = 0
+        while i < len(lines):
+
+            # Configurations may have different numbers of atoms
+            n_atoms = int(lines[i].split()[0])
+            stride = n_atoms + 2
 
             configuration = Configuration()
-            configuration.load(file_lines=lines[i * stride:(i + 1) * stride],
+            configuration.load(file_lines=lines[i:i+stride],
                                box=box, charge=charge, mult=mult)
 
             self._list.append(configuration)
+            i += stride
 
         if self.name is None or self.name == 'data':
             self.name = filename.rstrip('.xyz')
@@ -529,6 +539,11 @@ class ConfigurationSet:
         """Run periodic DFTB+ on these configurations"""
         from gaptrain.calculators import run_dftb
         return self._run_parallel_method(run_dftb, max_force=max_force)
+
+    def parallel_orca(self):
+        """Run parallel ORCA on these configurations"""
+        from gaptrain.calculators import run_orca
+        return self._run_parallel_method(run_orca, max_force=None, n_cores=1)
 
     def remove_first(self, n):
         """
@@ -634,7 +649,7 @@ class ConfigurationSet:
         :param method: (str) Name of the method to use
         :param kwargs: ensemble (gaptrain.gap.GAPEnsemble)
         """
-        implemented_methods = ['random', 'cur', 'ensemble', 'higher']
+        implemented_methods = ['random', 'cur', 'ensemble', 'higher', 'cur_k']
 
         if method.lower() not in implemented_methods:
             raise NotImplementedError(f'Methods are {implemented_methods}')
@@ -646,10 +661,15 @@ class ConfigurationSet:
         if method.lower() == 'random':
             return self.remove_random(remainder=n)
 
-        if method.lower() == 'cur':
-            soap_matrix = gt.descriptors.soap(self)
-            cur_idxs = gt.cur.rows(soap_matrix, k=n, return_indexes=True)
+        if 'cur' in method.lower():
+            if method.lower() == 'cur':
+                matrix = gt.descriptors.soap(self)
+            elif method.lower() == 'cur_k':
+                matrix = gt.descriptors.soap_kernel_matrix(self)
+            else:
+                raise NotImplementedError
 
+            cur_idxs = gt.cur.rows(matrix, k=n, return_indexes=True)
             self._list = [self._list[idx] for idx in cur_idxs]
 
         if method.lower() == 'ensemble':

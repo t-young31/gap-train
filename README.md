@@ -50,6 +50,7 @@ training_data = gt.Data()
 for i in range(10):
     training_data += system.random()
 
+training_data.parallel_dftb()
 gap = gt.GAP(name='random', system=system)
 gap.train(training_data)
 ```
