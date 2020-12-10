@@ -709,5 +709,11 @@ class ConfigurationSet:
         self._list = []
 
         for arg in args:
-            assert isinstance(arg, Configuration)
-            self._list.append(arg)
+            if isinstance(arg, Configuration):
+                self._list.append(arg)
+
+            elif type(arg) is str and arg.endswith('.xyz'):
+                self.load(filename=arg)
+
+            else:
+                raise AssertionError('Unsupported argument type')
