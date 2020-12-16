@@ -16,15 +16,14 @@ class IICalculator(Calculator):
 
         # Get the current coordinates and indexes of the atoms to shift',
         coords = ex_atoms.get_positions()
-        mol_idxs = np.array(self.intra.mol_idxs, dtype=int)
 
-        for atom_idxs in mol_idxs:
-            vec = np.average(coords[atom_idxs], axis=0)
-            frac_com = vec / np.diagonal(atoms.cell)
+        vec = np.average(coords[self.mol_idxs], axis=1)
+        vecs = np.repeat(vec, repeats=self.mol_idxs.shape[1], axis=0)
+        frac_com = vecs / np.diagonal(atoms.cell)
 
-            # Shift from the current position to the new approximate
-            # fractional center of mass
-            coords[atom_idxs] += (frac_com * np.diagonal(ex_atoms.cell) - vec)
+        # Shift from the current position to the new approximate
+        # fractional center of mass
+        coords += (frac_com * np.diagonal(ex_atoms.cell) - vecs)
 
         ex_atoms.set_positions(coords)
         ex_atoms.wrap()
@@ -65,6 +64,7 @@ class IICalculator(Calculator):
 
         self.intra = intra
         assert hasattr(intra, "mol_idxs")
+        self.mol_idxs = np.array(self.intra.mol_idxs, dtype=int)
 
         self.inter = inter
 
