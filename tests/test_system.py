@@ -138,3 +138,19 @@ def test_generate_topology():
     MMSystem.generate_topology(system)
     assert os.stat("topol.top").st_size != 0
     os.remove('topol.top')
+
+
+def test_density():
+    """Test the density calculation with a few water boxes"""
+
+    req_density = 1.0
+    mw = 18.02      # Density of water
+
+    for n_waters in [1, 2, 3, 5, 7, 127]:
+        length = (((mw * n_waters /
+                    (6.022E23 * req_density)) / 1E6)**(1/3) * 1E10)
+
+        system = System(box_size=[length, length, length])
+        system.add_molecules(h2o, n=n_waters)
+
+        assert np.abs(system.density - req_density) < 1E-3

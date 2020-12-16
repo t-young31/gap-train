@@ -366,8 +366,8 @@ class Configuration:
         self.energy = None                                  # eV
 
         self.box = system.box if system is not None else box
-        self.charge = system.charge() if system is not None else charge
-        self.mult = system.mult() if system is not None else mult
+        self.charge = system.charge if system is not None else charge
+        self.mult = system.mult if system is not None else mult
 
         self.n_wraps = 0
 
@@ -441,12 +441,12 @@ class ConfigurationSet:
         filename = f'{self.name}.xyz' if filename is None else filename
 
         if not os.path.exists(filename):
-            raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
+            raise ex.LoadingFailed(f'XYZ file for {filename} did not exist')
 
         if system is not None:
             if all(prm for prm in (system.box, system.charge, system.mult)):
                 logger.info('Setting box, charge and multiplicity from a conf')
-                box, charge, mult = system.box, system.charge(), system.mult()
+                box, charge, mult = system.box, system.charge, system.mult
 
         logger.info(f'Loading configuration set from {filename}')
         lines = open(filename, 'r').readlines()
@@ -456,7 +456,12 @@ class ConfigurationSet:
         while i < len(lines):
 
             # Configurations may have different numbers of atoms
-            n_atoms = int(lines[i].split()[0])
+            try:
+                n_atoms = int(lines[i].split()[0])
+            except (TypeError, IndexError):
+                raise ex.LoadingFailed('Could not read the number of atoms in'
+                                       f'{filename}')
+
             stride = n_atoms + 2
 
             configuration = Configuration()
