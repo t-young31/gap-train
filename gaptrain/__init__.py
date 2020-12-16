@@ -9,6 +9,7 @@ from gaptrain.loss import RMSE
 from gaptrain import md
 from gaptrain import descriptors
 from gaptrain import cur
+from gaptrain import active
 from gaptrain.gap import (GAP,
                           GAPEnsemble,
                           AdditiveGAP,

@@ -34,8 +34,6 @@ class IICalculator(Calculator):
                   system_changes=None,
                   **kwargs):
         """New calculate function used to get energies and forces"""
-        # Calculator.calculate(self, atoms, properties, system_changes)
-
         intra_atoms = self.expanded_atoms(atoms)
         intra_atoms.set_calculator(self.intra)
 
