@@ -96,6 +96,7 @@ class GAP:
         for symbol, soap in self.params.soap.items():
             logger.info(f'Adding SOAP:              {symbol}')
             other_atomic_ns = [atomic_number(s) for s in soap["other"]]
+            logger.info(f'with neighbours           {soap["other"]}')
 
             params += ('soap sparse_method=cur_points '
                        f'n_sparse={soap["n_sparse"]} '
@@ -176,7 +177,7 @@ class GAP:
         self.params = pickle.load(open(f'{self.name}.gap', 'rb'))
         return None
 
-    def __init__(self, name, system=None):
+    def __init__(self, name, system=None, default_params=True):
         """
         A Gaussian Approximation Potential
 
@@ -185,11 +186,12 @@ class GAP:
         """
 
         self.name = name
-        self.params = None
 
-        if system is not None:
+        if system is not None and default_params:
             self.params = Parameters(atom_symbols=system.atom_symbols())
+
         else:
+            self.params = Parameters(atom_symbols=[])
             logger.warning('Initialised a GAP with no parameters. '
                            'gap.train not available')
 
@@ -258,18 +260,31 @@ class Parameters:
 
     def _set_soap(self, atom_symbols):
         """Set the SOAP parameters"""
+        added_pairs = []
 
         for symbol in set(atom_symbols):
+
+            if symbol == 'H':
+                logger.warning('Not adding SOAP on H')
+                continue
+
             params = GTConfig.gap_default_soap_params.copy()
 
-            # Add all the atomic symbols that aren't this one
-            params["other"] = [s for s in set(atom_symbols) if s != symbol]
+            # Add all the atomic symbols that aren't this one, the neighbour
+            # density for which also hasn't been added already
+            params["other"] = [s for s in set(atom_symbols)
+                               if s != symbol
+                               and s+symbol not in added_pairs
+                               and symbol+s not in added_pairs]
+
+            for other_symbol in params["other"]:
+                added_pairs.append(symbol+other_symbol)
+
+            if len(params["other"]) == 0:
+                logger.info(f'Not adding SOAP to {symbol} - should be covered')
+                continue
 
             self.soap[symbol] = params
-
-        if 'H' in self.soap:
-            logger.warning('H found in SOAP descriptor  - removing')
-            self.soap.pop('H')
 
         return None
 
@@ -284,10 +299,7 @@ class Parameters:
         self.general = GTConfig.gap_default_params
 
         self.pairwise = {}
-        self._set_pairs(atom_symbols)
-
         self.angle = {}
-
         self.soap = {}
         self._set_soap(atom_symbols)
 

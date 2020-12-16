@@ -23,11 +23,6 @@ def test_gap():
     assert hasattr(gap.params, 'pairwise')
     assert hasattr(gap.params, 'soap')
 
-    # Should only have three pairwise descriptors
-    assert (('H', 'O') in gap.params.pairwise.keys() or
-            ('O', 'H') in gap.params.pairwise.keys())
-    assert len(list(gap.params.pairwise)) == 3
-
     # By default should only add a SOAP to non-hydrogen elements
     assert 'O' in gap.params.soap.keys()
     assert len(list(gap.params.soap)) == 1
