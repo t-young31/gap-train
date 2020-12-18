@@ -477,25 +477,26 @@ class ConfigurationSet:
 
         return None
 
-    def save(self, override=True):
+    def save(self, filename=None, override=True):
         """Save an extended xyz file for this set of configurations"""
 
         # Ensure the name is unique
-        if not override and os.path.exists(f'{self.name}.xyz'):
-            n = 0
-            while os.path.exists(f'{self.name}{n}.xyz'):
-                n += 1
+        if filename is None:
+            filename = f'{self.name}.xyz'
 
-            self.name = f'{self.name}{n}'
+            if not override and os.path.exists(f'{self.name}.xyz'):
+                n = 0
+                while os.path.exists(f'{self.name}{n}.xyz'):
+                    n += 1
+                filename = f'{self.name}{n}.xyz'
 
-        if override:
-            # Empty the file
-            open(f'{self.name}.xyz', 'w').close()
+            if override:  # Empty the file
+                open(f'{self.name}.xyz', 'w').close()
 
         # Add all of the configurations to the extended xyz file
         for config in self._list:
             # Print either the ground truth or predicted values
-            config.save(f'{self.name}.xyz', append=True)
+            config.save(filename, append=True)
 
         return None
 
