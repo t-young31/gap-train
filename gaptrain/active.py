@@ -1,3 +1,4 @@
+import os
 import gaptrain as gt
 import numpy as np
 import gaptrain.exceptions as ex
@@ -192,6 +193,10 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
         except ex.RandomiseFailed:
             continue
 
+    if method_name is None:
+        logger.warning('Have no method - not evaluating energies')
+        return init_configs
+
     # And run the desired method in parallel across them
     method = getattr(init_configs, f'parallel_{method_name.lower()}')
     method()
@@ -290,6 +295,7 @@ def train(system,
                                     n=n_init_configs,
                                     method_name=method_name,
                                     system=system)
+
     # Initial configuration must have energies
     assert all(cfg.energy is not None for cfg in init_configs)
 
@@ -299,6 +305,10 @@ def train(system,
     # Initialise a τ metric with default parameters
     if validate and tau is None:
         tau = gt.loss.Tau(configs=get_init_configs(system, n=5))
+
+    # Default to validating 10 times through the training
+    if validate and val_interval is None:
+        val_interval = max_active_iters // 10
 
     # Initialise training data
     train_data = gt.Data(name=gap.name)
@@ -343,3 +353,37 @@ def train(system,
                 break
 
     return train_data, gap
+
+
+def train_ii(system,
+             method_name,
+             intra_gap,
+             inter_gap=None,
+             max_time_active_fs=1000,
+             n_configs_iter=10,
+             temp=300,
+             active_e_thresh=None,
+             max_energy_threshold=None,
+             validate=False,
+             tau=None,
+             val_interval=None,
+             max_active_iters=50,
+             n_init_configs=10,
+             init_inter_configs=None):
+    """Train an intra+inter molecular GAP
+
+    :param intra_gap: Intramolecular GAP - *must* be trained
+    """
+
+    if not all(mol == system.molecules[0] for mol in system.molecules):
+        raise ValueError('An intra+intermolecular GAP requires all the same '
+                         'molecules in the system e.g. H2O(aq)')
+
+    if not os.path.exists(f'{intra_gap.name}.xml'):
+        raise RuntimeError('An intramolecular GAP must be trained prior to an '
+                           'intra+intermolecular GAP')
+
+
+
+
+

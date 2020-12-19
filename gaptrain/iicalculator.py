@@ -62,7 +62,12 @@ class IICalculator(Calculator):
 
         self.intra = intra
         assert hasattr(intra, "mol_idxs")
+
+        # Initialise a matrix of molecular indexes, as the atoms will be
+        # passed to expanded_atoms indexed from 0 then we need to make sure
+        # the lowest value in the array is zero (the first atom index)
         self.mol_idxs = np.array(self.intra.mol_idxs, dtype=int)
+        self.mol_idxs -= np.min(self.mol_idxs)
 
         self.inter = inter
 

@@ -204,6 +204,34 @@ class InterGAP(GAP):
 
 class IntraGAP(GAP):
 
+    def _set_mol_idxs(self, system):
+        """Set the molecular indexes from a system as the most abundant
+        identical molecules"""
+        mols_and_num = {}
+        for molecule in system.molecules:
+            if str(molecule) not in mols_and_num:
+                mols_and_num[str(molecule)] = 1
+            else:
+                mols_and_num[str(molecule)] += 1
+
+        # Rudimentary sort..
+        max_mol, max_num = None, 0
+        for mol, num in mols_and_num.items():
+            if num > max_num:
+                max_mol = mol
+
+        # Add the indexes of the most abundant molecules
+        curr_n_atoms = 0
+
+        for molecule in system.molecules:
+            if str(molecule) == max_mol:
+                idxs = range(curr_n_atoms, curr_n_atoms + molecule.n_atoms)
+                self.mol_idxs.append(list(idxs))
+
+            curr_n_atoms += molecule.n_atoms
+
+        return None
+
     def __init__(self, name, system):
         """An intramolecular GAP, must be initialised with a system so the
         molecules are defined
@@ -214,14 +242,8 @@ class IntraGAP(GAP):
         super().__init__(name, system)
 
         self.mol_idxs = []
-        n_atoms = 0
-
-        # Set a list of molecule indexes, so the inter can be updated
-        # TODO: allow for adaptive partitioning
-        for molecule in system.molecules:
-            self.mol_idxs.append(list(range(n_atoms,
-                                            molecule.n_atoms+n_atoms)))
-            n_atoms += molecule.n_atoms
+        self._set_mol_idxs(system)
+        print(self.mol_idxs)
 
 
 class Parameters:
