@@ -10,7 +10,8 @@ from gaptrain.log import logger
 
 def calc_error(frame, gap, method_name):
     """Calculate the error between the ground truth and the GAP prediction"""
-    getattr(frame, f'run_{method_name.lower()}')(n_cores=1)
+    frame.single_point(method_name=method_name.lower(),
+                       n_cores=1)
 
     pred = frame.copy()
     pred.run_gap(gap=gap, n_cores=1)
@@ -43,16 +44,6 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
 
     if float(e_thresh) < 0:
         raise ValueError(f'Error threshold {e_thresh} must be postiive (eV)')
-
-    implemented_ref_methods = ['dftb', 'gpaw', 'orca']
-    if method_name not in implemented_ref_methods:
-        raise ValueError(f'Unknown reference method ({method_name}) '
-                         f'implemented methods are {implemented_ref_methods}')
-
-    if method_name == 'orca' and gt.GTConfig.orca_keywords is None:
-        raise ValueError("For ORCA training GTConfig.orca_keywords must be "
-                         "set. e.g. "
-                         "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
 
     md_time_fs = 2 + n_calls**3
     gap_traj = gt.md.run_gapmd(config,
@@ -146,7 +137,8 @@ def get_active_configs(config, gap, method_name,
                     configs.add(config)
             # Lots of different exceptions can be raised when trying to
             # generate an active config, continue regardless..
-            except:
+            except ValueError:
+                logger.error('Raised an exception in calculating the energy')
                 continue
 
     return configs
@@ -192,6 +184,8 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
             init_configs += system.random(min_dist_threshold=dist)
         except ex.RandomiseFailed:
             continue
+    logger.info(f'Added {len(init_configs)} configurations with min dist = '
+                f'{dist:.3f} Å')
 
     if method_name is None:
         logger.warning('Have no method - not evaluating energies')
@@ -215,6 +209,7 @@ def train(system,
           max_energy_threshold=None,
           validate=False,
           tau=None,
+          tau_max=None,
           val_interval=None,
           max_active_iters=50,
           n_init_configs=10,
@@ -271,6 +266,10 @@ def train(system,
     :param tau: (gt.loss.Tau) A instance of the τ error metric, unused if no
                 validation is performed. Otherwise
 
+    :param tau_max: (float | None) Maximum τ_acc in fs if float, will break out
+                    of the active learning loop if this value is reached. If
+                    None then won't break out
+
     :param val_interval: (int) Interval in the active training loop at which to
                          run the validation. Defaults to max_active_iters // 10
                          if validation is requested
@@ -316,6 +315,7 @@ def train(system,
 
     # and train an initial GAP
     gap.train(init_configs)
+    assert os.path.exists(f'{gap.name}.xml')
 
     if active_e_thresh is None:
         #                 1 kcal mol-1 molecule-1
@@ -348,8 +348,8 @@ def train(system,
             tau.calculate(gap=gap, method_name=method_name)
             print(iteration, tau.value, sep='\t', file=tau_file)
 
-            if np.abs(tau.value - tau.max_value) < 1:
-                logger.info('Reached the maximum tau. Active learning = Done')
+            if tau_max is not None and np.abs(tau.value - tau_max) < 1:
+                logger.info('Reached the maximum tau. Active learning = DONE')
                 break
 
     return train_data, gap
@@ -384,6 +384,7 @@ def train_ii(system,
                            'intra+intermolecular GAP')
 
 
+    raise NotImplementedError
 
 
 

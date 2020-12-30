@@ -1,5 +1,6 @@
-from gaptrain.log import logger
+import gaptrain as gt
 import numpy as np
+from gaptrain.log import logger
 
 
 class DeltaError:
@@ -75,25 +76,125 @@ class MSE(DeltaError):
 
 class Tau:
 
-    def calculate(self, gap, method_name):
+    def __str__(self):
+        err = np.round(self.error, 2) if self.error is not None else '??'
+        return f'τ_acc = {np.round(self.value, 2)} ± {err} fs'
 
-        raise NotImplementedError
+    def _calculate_single(self, init_config, gap, method_name):
+        """
+        Calculate a single τ_acc from one configuration
+
+        :param init_config: (gt.Configuration)
+        :param gap: (gt.GAP)
+        :param method_name: (str) Ground truth method e.g. dftb, orca, gpaw
+        """
+
+        cuml_error, curr_time = 0, 0
+
+        block_time = self.interval_time * gt.GTConfig.n_cores
+        step_interval = self.interval_time // self.dt
+
+        while curr_time < self.max_time:
+
+            traj = gt.md.run_gapmd(init_config,
+                                   gap=gap,
+                                   temp=300,
+                                   dt=self.dt,
+                                   interval=step_interval,
+                                   fs=block_time,
+                                   n_cores=min(gt.GTConfig.n_cores, 4))
+
+            # Only evaluate the energy
+            traj.single_point(method_name=method_name)
+
+            pred = traj.copy()
+            pred.parallel_gap(gap=gap)
+
+            for j in range(len(traj)):
+                e_error = np.abs(traj[j].energy - pred[j].energy)
+                print(curr_time, e_error)
+
+                # Add any error above the allowed threshold
+                cuml_error += max(e_error - self.e_l, 0)
+                curr_time += self.dt * step_interval
+                logger.info(f'time = {curr_time}')
+
+                if cuml_error > self.e_t:
+                    return curr_time
+
+            init_config = traj[-1]
+
+        logger.info(f'Reached max(τ_acc) = {self.max_time} fs')
+        return self.max_time
+
+    def calculate(self, gap, method_name):
+        """Calculate the time to accumulate self.e_t eV of error above
+        self.e_l eV"""
+
+        taus = []
+
+        for config in self.init_configs:
+            tau = self._calculate_single(init_config=config,
+                                         gap=gap,
+                                         method_name=method_name)
+            taus.append(tau)
+
+        # Calculate τ_acc as the average ± the standard error in the mean
+        self.value = np.average(np.array(taus))
+        if len(taus) > 1:
+            self.error = np.std(np.array(taus)) / np.sqrt(len(taus))   # σ / √N
+
+        logger.info(str(self))
+        return None
 
     def __init__(self, configs, e_lower=0.1, e_thresh=1, max_fs=1000,
-                 interval_fs=20):
+                 interval_fs=20, temp=300, dt_fs=0.5):
         """
         τ_acc prospective error metric in fs
 
         ----------------------------------------------------------------------
-        :param configs:
+        :param configs: (list(gt.Configuration) | gt.ConfigurationSet) A set of
+                        initial configurations from which dynamics with be
+                        propagated from
 
-        :param e_lower:
+        :param e_lower: (float) E_l energy threshold in eV below which
+                        the error is zero-ed, i.e. the acceptable level of
+                        error possible in the system
 
-        :param e_thresh:
+        :param e_thresh: (float) E_t total cumulative error in eV. τ_acc is
+                         defined at the time in the simulation where this
+                         threshold is exceeded
 
-        :param max_fs:
+        :param max_fs: (float) Maximum time in femto-seconds for τ_acc
 
-        :param interval_fs:
+        :zaram interval_fs: (float) Interval between which |E_true - E_GAP| is
+                            calculated. *MUST* be at least one timestep
+
+        :param temp: (float) Temperature of the simulation to perform
+
+        :param dt_fs: (float) Timestep of the simulation in femto-seconds
         """
+        if len(configs) < 1:
+            raise ValueError('Must have at least one configuration to '
+                             'calculate τ_acc from')
 
-        self.value = 0
+        if interval_fs < dt_fs:
+            raise ValueError('The calculated interval must be more than a '
+                             'single timestep')
+
+        self.value = 0                          # τ_acc / fs
+        self.error = None                       # standard error in the mean
+
+        self.init_configs = configs
+
+        self.dt = float(dt_fs)
+        self.temp = float(temp)
+        self.max_time = float(max_fs)
+        self.interval_time = float(interval_fs)
+
+        self.e_l = float(e_lower)
+        self.e_t = float(e_thresh)
+
+        logger.info('Successfully initialised τ_acc, will do a maximum of '
+                    f'{int(self.max_time // self.interval_time)} reference '
+                    f'calculations')

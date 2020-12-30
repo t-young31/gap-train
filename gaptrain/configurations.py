@@ -155,8 +155,26 @@ class Configuration:
         from gaptrain.calculators import run_orca, GTConfig
         assert max_force is None
 
+        if gt.GTConfig.orca_keywords is None:
+            raise ValueError("For ORCA training GTConfig.orca_keywords must be"
+                             " set. e.g. "
+                             "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
+
         return run_orca(self, n_cores=n_cores if n_cores is not None
                         else GTConfig.n_cores)
+
+    def optimise(self, method_name, max_force, n_cores=None):
+        """Optimise this configuration to a force threshold:
+         |F_i| < max_force eV / A  for all atoms i"""
+        assert max_force > 0 and method_name in ('dftb', 'gpaw', 'orca')
+
+        methd = f'run_{method_name.lower()}'
+        return getattr(self, methd)(max_force=max_force, n_cores=n_cores)
+
+    def single_point(self, method_name, n_cores=None):
+        """Run a single point energy/force evaluation on this configuration"""
+        assert method_name in ('dftb', 'gpaw', 'orca')
+        return getattr(self, f'run_{method_name.lower()}')(n_cores=n_cores)
 
     def print_gro_file(self, system):
         filename = 'input.gro'
@@ -557,6 +575,17 @@ class ConfigurationSet:
         from gaptrain.calculators import run_orca
         return self._run_parallel_method(run_orca, max_force=None, n_cores=1)
 
+    def optimise(self, method_name, max_force):
+        """Run parallel optimisations"""
+        assert max_force > 0 and method_name in ('dftb', 'gpaw', 'orca')
+        methd = f'parallel_{method_name.lower()}'
+        return getattr(self, methd)(max_force=max_force)
+
+    def single_point(self, method_name):
+        """Run parallel single points"""
+        assert method_name in ('dftb', 'gpaw', 'orca')
+        return getattr(self, f'parallel_{method_name.lower()}')()
+
     def remove_first(self, n):
         """
         Remove the first n configurations
@@ -648,8 +677,6 @@ class ConfigurationSet:
         logger.info(f'Removing the least stable {n} configurations')
 
         idxs = np.argsort(energies)
-        print(idxs)
-        print(idxs[-1])
         self._list = [self._list[i] for i in idxs[:-n]]
         return None
 

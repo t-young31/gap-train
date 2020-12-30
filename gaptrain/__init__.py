@@ -5,7 +5,7 @@ from gaptrain.box import Box
 from gaptrain.data import Data
 from gaptrain.gtconfig import GTConfig
 from gaptrain.trajectories import Trajectory
-from gaptrain.loss import RMSE
+from gaptrain.loss import RMSE, Tau
 from gaptrain import md
 from gaptrain import descriptors
 from gaptrain import cur
@@ -32,6 +32,7 @@ __all__ = ['System',
            'GTConfig',
            'Trajectory',
            'RMSE',
+           'Tau',
            'Box',
            'md',
            'descriptors',
