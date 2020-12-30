@@ -98,7 +98,7 @@ class Tau:
 
             traj = gt.md.run_gapmd(init_config,
                                    gap=gap,
-                                   temp=300,
+                                   temp=self.temp,
                                    dt=self.dt,
                                    interval=step_interval,
                                    fs=block_time,
@@ -110,14 +110,18 @@ class Tau:
             pred = traj.copy()
             pred.parallel_gap(gap=gap)
 
+            logger.info('      ___ |E_true - E_GAP|/eV ___')
+            logger.info(f' t/fs      err      cumul(err)')
+
             for j in range(len(traj)):
                 e_error = np.abs(traj[j].energy - pred[j].energy)
-                print(curr_time, e_error)
 
                 # Add any error above the allowed threshold
                 cuml_error += max(e_error - self.e_l, 0)
                 curr_time += self.dt * step_interval
-                logger.info(f'time = {curr_time}')
+                logger.info(f'{curr_time:5.0f}     '
+                            f'{e_error:6.4f}     '
+                            f'{cuml_error:6.4f}')
 
                 if cuml_error > self.e_t:
                     return curr_time

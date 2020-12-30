@@ -181,7 +181,8 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
     # Finally generate the initial configurations
     while len(init_configs) < n:
         try:
-            init_configs += system.random(min_dist_threshold=dist)
+            init_configs += system.random(min_dist_threshold=dist,
+                                          with_intra=True)
         except ex.RandomiseFailed:
             continue
     logger.info(f'Added {len(init_configs)} configurations with min dist = '
@@ -322,6 +323,9 @@ def train(system,
         active_e_thresh = 0.043363 * len(system.molecules)
 
     tau_file = open(f'{gap.name}_tau.txt', 'w')
+    print('Iteration  τ_acc / fs', file=tau_file)
+
+    # Run the active learning loop, running iterative GAP-MD
     for iteration in range(max_active_iters):
         configs = get_active_configs(system.random(),
                                      gap=gap,
@@ -331,6 +335,11 @@ def train(system,
                                      e_thresh=active_e_thresh,
                                      max_time_fs=max_time_active_fs)
         if len(configs) == 0:
+            # Calculate the final tau if we're running with validation
+            if validate:
+                tau.calculate(gap=gap, method_name=method_name)
+                print(iteration, tau.value, sep='\t\t\t', file=tau_file)
+
             logger.info('No configs to add. Active learning = DONE')
             break
 
@@ -346,7 +355,7 @@ def train(system,
         # Print the accuracy
         if validate and iteration % val_interval == 0:
             tau.calculate(gap=gap, method_name=method_name)
-            print(iteration, tau.value, sep='\t', file=tau_file)
+            print(iteration, tau.value, sep='\t\t\t', file=tau_file)
 
             if tau_max is not None and np.abs(tau.value - tau_max) < 1:
                 logger.info('Reached the maximum tau. Active learning = DONE')
