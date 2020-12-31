@@ -49,7 +49,7 @@ class IICalculator(Calculator):
                                   intra_atoms.get_forces())
         return None
 
-    def __init__(self, intra, inter, expansion_factor=10, **kwargs):
+    def __init__(self, intra, inter=None, expansion_factor=10, **kwargs):
         """
         Combination of two ASE calculators used to evaluate intramolecular and
         intermolecular contributions separately. The intramolecular term is
@@ -76,6 +76,24 @@ class IICalculator(Calculator):
         self.parameters = {}
 
         self.expansion_factor = expansion_factor
+
+
+class IntraCalculator(IICalculator):
+    """Calculate only the intra-molecular component of the energy"""
+
+    def calculate(self, atoms=None, properties=None,
+                  system_changes=None,
+                  **kwargs):
+        """New calculate function used to get energies and forces"""
+        intra_atoms = self.expanded_atoms(atoms)
+        intra_atoms.set_calculator(self.intra)
+
+        # Add the energies and forces
+        self.results["energy"] = intra_atoms.get_potential_energy()
+        self.results["free_energy"] = self.results["energy"]
+
+        self.results["forces"] = intra_atoms.get_forces()
+        return None
 
 
 class SSCalculator(IICalculator):

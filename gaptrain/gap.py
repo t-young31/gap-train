@@ -232,6 +232,23 @@ class IntraGAP(GAP):
 
         return None
 
+    def ase_gap_potential_str(self):
+        """Generate the quippy/ASE string to run the potential"""
+
+        if not os.path.exists(f'{self.name}.xml'):
+            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
+
+        # Custom calculator for the intra energy in a larger box
+        here = os.path.abspath(os.path.dirname(__file__))
+        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
+
+        pt += [f'intra_gap = quippy.Potential("IP GAP", '
+               f'param_filename="{self.name}.xml")\n',
+               f'intra_gap.mol_idxs = {self.mol_idxs}\n',
+               f'pot = IntraCalculator(intra_gap)\n']
+
+        return ''.join(pt)
+
     def __init__(self, name, system):
         """An intramolecular GAP, must be initialised with a system so the
         molecules are defined
@@ -243,7 +260,9 @@ class IntraGAP(GAP):
 
         self.mol_idxs = []
         self._set_mol_idxs(system)
-        print(self.mol_idxs)
+
+        logger.info(f'Initialised an intra-GAP with molecular indexes:'
+                    f' {self.mol_idxs}')
 
 
 class Parameters:
@@ -504,6 +523,16 @@ class AdditiveGAP:
 class IIGAP:
     """Inter+intra GAP where the inter is evaluated in a different box"""
 
+    def train(self, data):
+        """Train the inter-component of the GAP"""
+        logger.info('Training the intermolecular component of the potential. '
+                    'Expecting data that is free from intra energy and force')
+
+        if not os.path.exists(f'{self.intra.name}.xml'):
+            raise RuntimeError('Intra must be already trained')
+
+        return self.inter.train(data)
+
     def ase_gap_potential_str(self,
                               calc_str='IICalculator(intra_gap, inter_gap)'):
         """Generate the quippy/ASE string to run the potential"""
@@ -513,7 +542,7 @@ class IIGAP:
             raise IOError(f'GAP parameter files did not exist')
 
         # Custom calculator to calculate the intra component of the energy in
-        # a larger box; in a file for neatness; first line is numpy import
+        # a larger box; in a file for neatness
         here = os.path.abspath(os.path.dirname(__file__))
         pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
 
@@ -549,6 +578,8 @@ class IIGAP:
 
         if self.inter is None or self.intra is None:
             raise AssertionError('Must have both an inter+intra GAP')
+
+        self.name = f'{self.intra.name}_{self.inter.name}'
 
 
 class SSGAP(IIGAP):

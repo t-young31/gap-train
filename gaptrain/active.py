@@ -21,6 +21,23 @@ def calc_error(frame, gap, method_name):
     return error
 
 
+def remove_intra(configs, gap):
+    """
+
+    """
+
+    if isinstance(gap, gt.IIGAP):
+        logger.info('Removing the intramolecular energy and forces..')
+        intra_configs = configs.copy()
+        intra_configs.parallel_gap(gap=gap.intra)
+
+        for config, intra_config in zip(configs, intra_configs):
+            config.energy -= intra_config.energy
+            config.forces -= intra_config.forces
+
+    return configs
+
+
 def get_active_config(config, gap, temp, e_thresh, max_time_fs,
                       method_name='dftb', curr_time_fs=0, n_calls=0):
     """
@@ -135,9 +152,10 @@ def get_active_configs(config, gap, method_name,
                 config = result.get(timeout=None)
                 if config is not None and config.energy is not None:
                     configs.add(config)
+
             # Lots of different exceptions can be raised when trying to
             # generate an active config, continue regardless..
-            except ValueError:
+            except:
                 logger.error('Raised an exception in calculating the energy')
                 continue
 
@@ -214,7 +232,8 @@ def train(system,
           val_interval=None,
           max_active_iters=50,
           n_init_configs=10,
-          init_configs=None):
+          init_configs=None,
+          fix_init_config=False):
     """
     Train a system using active learning, by propagating dynamics using ML
     driven molecular dynamics (MD) and adding configurations where the error
@@ -285,16 +304,20 @@ def train(system,
     :param init_configs: (gt.ConfigurationSet) A set of configurations from
                          which to start the active learning from
 
+    :param fix_init_config: (bool) Always start from the same initial
+                            configuration for the active learning loop, if
+                            False then the minimum energy structure is used.
+                            Useful for TS learning, where dynamics should be
+                            propagated from a saddle point not the minimum
     :return:
     """
-    if len(system.molecules) > 1:
-        # TODO training for arbitrary systems
-        raise NotImplementedError
-
     init_configs = get_init_configs(init_configs=init_configs,
                                     n=n_init_configs,
                                     method_name=method_name,
                                     system=system)
+    do_remove_intra = isinstance(gap, gt.IIGAP)
+    if do_remove_intra:
+        remove_intra(init_configs, gap=gap)
 
     # Initial configuration must have energies
     assert all(cfg.energy is not None for cfg in init_configs)
@@ -316,24 +339,32 @@ def train(system,
 
     # and train an initial GAP
     gap.train(init_configs)
-    assert os.path.exists(f'{gap.name}.xml')
 
     if active_e_thresh is None:
         #                 1 kcal mol-1 molecule-1
         active_e_thresh = 0.043363 * len(system.molecules)
 
+    # Initialise the validation output file
     tau_file = open(f'{gap.name}_tau.txt', 'w')
-    print('Iteration  τ_acc / fs', file=tau_file)
+    if validate:
+        print('Iteration  τ_acc / fs', file=tau_file)
 
     # Run the active learning loop, running iterative GAP-MD
     for iteration in range(max_active_iters):
-        configs = get_active_configs(system.random(),
+
+        # Set the configuration from which GAP-MD will be run
+        min_idx = int(np.argmin(train_data.energies()))
+        init_config = train_data[0] if fix_init_config else train_data[min_idx]
+
+        configs = get_active_configs(init_config,
                                      gap=gap,
                                      method_name=method_name,
                                      n_configs=n_configs_iter,
                                      temp=temp,
                                      e_thresh=active_e_thresh,
                                      max_time_fs=max_time_active_fs)
+
+        # Active learning finds no configurations,,
         if len(configs) == 0:
             # Calculate the final tau if we're running with validation
             if validate:
@@ -342,6 +373,9 @@ def train(system,
 
             logger.info('No configs to add. Active learning = DONE')
             break
+
+        if do_remove_intra:
+            remove_intra(configs, gap=gap)
 
         train_data += configs
 
@@ -362,38 +396,3 @@ def train(system,
                 break
 
     return train_data, gap
-
-
-def train_ii(system,
-             method_name,
-             intra_gap,
-             inter_gap=None,
-             max_time_active_fs=1000,
-             n_configs_iter=10,
-             temp=300,
-             active_e_thresh=None,
-             max_energy_threshold=None,
-             validate=False,
-             tau=None,
-             val_interval=None,
-             max_active_iters=50,
-             n_init_configs=10,
-             init_inter_configs=None):
-    """Train an intra+inter molecular GAP
-
-    :param intra_gap: Intramolecular GAP - *must* be trained
-    """
-
-    if not all(mol == system.molecules[0] for mol in system.molecules):
-        raise ValueError('An intra+intermolecular GAP requires all the same '
-                         'molecules in the system e.g. H2O(aq)')
-
-    if not os.path.exists(f'{intra_gap.name}.xml'):
-        raise RuntimeError('An intramolecular GAP must be trained prior to an '
-                           'intra+intermolecular GAP')
-
-
-    raise NotImplementedError
-
-
-

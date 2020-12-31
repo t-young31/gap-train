@@ -512,6 +512,7 @@ class ConfigurationSet:
                 open(f'{self.name}.xyz', 'w').close()
 
         # Add all of the configurations to the extended xyz file
+        logger.info(f'Saving {len(self._list)} configurations to {filename}')
         for config in self._list:
             # Print either the ground truth or predicted values
             config.save(filename, append=True)
