@@ -240,6 +240,11 @@ class System:
         return [atom.label for m in self.molecules for atom in m.atoms]
 
     @property
+    def n_unique_molecules(self):
+        """Get the number of unique molecules in a system"""
+        return len(set([str(mol) for mol in self.molecules]))
+
+    @property
     def density(self):
         """Calculate the density of the system in g cm-3"""
 
@@ -286,7 +291,7 @@ class System:
 
         self.box = Box(box_size)
 
-        logger.info(f'Initalised a system\n'
+        logger.info(f'Initialised a system\n'
                     f'Number of molecules = {len(self.molecules)}\n'
                     f'Charge              = {self.charge} e\n'
                     f'Spin multiplicity   = {self.mult}')

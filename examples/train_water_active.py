@@ -12,7 +12,9 @@ exit()
 
 h2o.add_solvent('h2o', n=9)
 
-intra_gap = gt.IntraGAP(name='active_gap_h2o', system=h2o)
+intra_gap = gt.IntraGAP(name='active_gap_h2o',
+                        system=h2o,
+                        molecule=gt.solvents.get_solvent('h2o'))
 inter_gap = gt.InterGAP(name='inter', system=h2o)
 
 # data, gap = gt.active.train(water,

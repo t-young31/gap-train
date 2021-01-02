@@ -9,6 +9,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
+methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
 
 
 def test_grid_positions():
@@ -59,6 +60,7 @@ def test_system():
     two_waters = [h2o, h2o]
     system += two_waters
     assert len(system) == 13
+    assert system.n_unique_molecules == 1
 
     assert str(system) == 'H2O_13' or str(system) == 'OH2_13'
 
@@ -66,6 +68,17 @@ def test_system():
     system.configuration().save(filename='test.xyz')
     assert os.path.exists('test.xyz')
     os.remove('test.xyz')
+
+
+def test_n_mols():
+
+    system = System(box_size=[5, 5, 5])
+    system.add_molecules(methane, n=1)
+    system.add_molecules(h2o, n=1)
+    assert system.n_unique_molecules == 2
+
+    system.add_molecules(h2o, n=5)
+    assert system.n_unique_molecules == 2
 
 
 def test_random_positions():

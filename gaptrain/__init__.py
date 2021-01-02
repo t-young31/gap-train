@@ -11,6 +11,7 @@ from gaptrain import descriptors
 from gaptrain import cur
 from gaptrain import active
 from gaptrain import gap
+from gaptrain import solvents
 from gaptrain.gap import GAP, IntraGAP, InterGAP, IIGAP
 
 __all__ = ['System',
@@ -31,4 +32,5 @@ __all__ = ['System',
            'gap',
            'md',
            'descriptors',
-           'cur']
+           'cur',
+           'solvents']

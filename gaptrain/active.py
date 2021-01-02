@@ -454,3 +454,60 @@ def train(system,
                 break
 
     return train_data, gap
+
+
+def train_ii(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
+    """
+    Train an intra+intermolecular from just a system
+
+    ---------------------------------------------------------------------------
+    :param system: (gt.System)
+
+    :param method_name: (str) e.g dftb
+
+    :param intra_temp: (float) Temperature to run the intramolecular training
+
+    :param intra_temp: (float) Temperature to run the intermolecular training
+    """
+
+    if system.n_unique_molecules > 1:
+        raise ValueError('Can only train an inter+intra for a single bulk '
+                         'molecular species')
+
+    if system.n_unique_molecules < 1:
+        raise ValueError('Must have at least one molecule to train GAP for')
+
+    if 'temp' in kwargs:
+        raise ValueError('Ambiguous specification, please specify: intra_temp '
+                         'and inter_temp')
+
+    # Create a system of just the monomer to train the intra-molecular
+    # component of the system
+    molecule = system.molecules[0]
+    intra_system = gt.System(box_size=system.box.size)
+    intra_system.add_molecules(molecule)
+
+    # and train the intra component using a bespoke GAP
+    gap = gt.GAP(name=f'intra_{molecule.name}', system=intra_system)
+    intra_data, _ = train(intra_system,
+                          method_name=method_name,
+                          gap=gap,
+                          temp=intra_temp,
+                          **kwargs)
+
+    # Now create an intra GAP that has the molecule indexes
+    intra_gap = gt.gap.IntraGAP(name=f'intra_{molecule.name}',
+                                system=system,
+                                molecule=molecule)
+
+    inter_gap = gt.InterGAP(name=f'inter_{molecule.name}',
+                            system=system)
+
+    # And finally train the inter component of the energy
+    inter_data, gap = gt.active.train(system,
+                                      method_name=method_name,
+                                      temp=inter_temp,
+                                      gap=gt.IIGAP(intra_gap, inter_gap),
+                                      **kwargs)
+
+    return intra_temp, inter_data, gap
