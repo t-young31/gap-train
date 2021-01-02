@@ -204,7 +204,62 @@ class InterGAP(GAP):
 
 class IntraGAP(GAP):
 
-    def _set_mol_idxs(self, system):
+    def _set_mol_idxs(self, system, molecule):
+        """Set the indexes of the molecule in the system that this GAP
+        applies to"""
+        if molecule is None:
+            raise NotImplementedError
+
+        curr_n_atoms = 0
+
+        for s_molecule in system.molecules:
+            if molecule == s_molecule:
+                idxs = range(curr_n_atoms, curr_n_atoms + molecule.n_atoms)
+                self.mol_idxs.append(list(idxs))
+
+            curr_n_atoms += s_molecule.n_atoms
+
+        if len(self.mol_idxs) == 0:
+            raise RuntimeError(f'Found no molecules matching: {str(molecule)}'
+                               f' in the system')
+        return None
+
+    def ase_gap_potential_str(self):
+        """Generate the quippy/ASE string to run the potential"""
+
+        if not os.path.exists(f'{self.name}.xml'):
+            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
+
+        # Custom calculator for the intra energy in a larger box
+        here = os.path.abspath(os.path.dirname(__file__))
+        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
+
+        pt += [f'intra_gap = quippy.Potential("IP GAP", '
+               f'param_filename="{self.name}.xml")\n',
+               f'intra_gap.mol_idxs = {self.mol_idxs}\n',
+               f'pot = IntraCalculator(intra_gap)\n']
+
+        return ''.join(pt)
+
+    def __init__(self, name, system, molecule):
+        """An intramolecular GAP, must be initialised with a system so the
+        molecules are defined
+
+        :param name: (str)
+        :param system: (gt.system.System)
+        """
+        super().__init__(name, system)
+
+        self.mol_idxs = []
+        self._set_mol_idxs(system, molecule)
+
+        logger.info(f'Initialised an intra-GAP with molecular indexes:'
+                    f' {self.mol_idxs}')
+
+
+class SolventIntraGAP(IntraGAP):
+
+    def _set_mol_idxs(self, system, molecule):
         """Set the molecular indexes from a system as the most abundant
         identical molecules"""
         mols_and_num = {}
@@ -232,37 +287,12 @@ class IntraGAP(GAP):
 
         return None
 
-    def ase_gap_potential_str(self):
-        """Generate the quippy/ASE string to run the potential"""
-
-        if not os.path.exists(f'{self.name}.xml'):
-            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
-
-        # Custom calculator for the intra energy in a larger box
-        here = os.path.abspath(os.path.dirname(__file__))
-        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
-
-        pt += [f'intra_gap = quippy.Potential("IP GAP", '
-               f'param_filename="{self.name}.xml")\n',
-               f'intra_gap.mol_idxs = {self.mol_idxs}\n',
-               f'pot = IntraCalculator(intra_gap)\n']
-
-        return ''.join(pt)
-
     def __init__(self, name, system):
-        """An intramolecular GAP, must be initialised with a system so the
-        molecules are defined
+        super().__init__(name, system, molecule=None)
 
-        :param name: (str)
-        :param system: (gt.system.System)
-        """
-        super().__init__(name, system)
 
-        self.mol_idxs = []
-        self._set_mol_idxs(system)
-
-        logger.info(f'Initialised an intra-GAP with molecular indexes:'
-                    f' {self.mol_idxs}')
+class SoluteIntraGAP(IntraGAP):
+    pass
 
 
 class Parameters:
@@ -320,7 +350,7 @@ class Parameters:
             # If there are no other atoms of this type then remove the self
             # pair
             if atom_symbols.count(symbol) == 1:
-                params["other"].pop(symbol)
+                params["other"].remove(symbol)
 
             for other_symbol in params["other"]:
                 added_pairs.append(symbol+other_symbol)
@@ -587,6 +617,13 @@ class IIGAP:
 
 
 class SSGAP(IIGAP):
+
+    def train(self, data):
+        """Train the inter component of a solute-solvent GAP """
+        if not os.path.exists(f'{self.solute_intra.name}.xml'):
+            raise RuntimeError('Solute intra must be already trained')
+
+        return super().train(data)
 
     def ase_gap_potential_str(self, calc_str=None):
         """Generate the quippy/ASE potential string with three calculators"""

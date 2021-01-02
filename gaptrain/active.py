@@ -29,14 +29,24 @@ def remove_intra(configs, gap):
     :param gap: (gt.GAP)
     """
 
-    if isinstance(gap, gt.IIGAP):
+    if isinstance(gap, gt.gap.IIGAP):
         logger.info('Removing the intramolecular energy and forces..')
         intra_configs = configs.copy()
         intra_configs.parallel_gap(gap=gap.intra)
 
-        for config, intra_config in zip(configs, intra_configs):
-            config.energy -= intra_config.energy
-            config.forces -= intra_config.forces
+        for config, i_config in zip(configs, intra_configs):
+            config.energy -= i_config.energy
+            config.forces -= i_config.forces
+
+        # If there is also a solute in the system then remove the energy
+        # associated with it
+        if isinstance(gap, gt.gap.SSGAP):
+            solute_configs = configs.copy()
+            solute_configs.parallel_gap(gap=gap.solute_intra)
+
+            for config, s_config in zip(configs, solute_configs):
+                config.energy -= s_config.energy
+                config.forces -= s_config.forces
 
     return configs
 

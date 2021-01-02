@@ -10,11 +10,10 @@ data, gap = gt.active.train(h2o, method_name='dftb', validate=False,
 
 exit()
 
-water = gt.System(box_size=[10, 10, 10])
-water.add_solvent('h2o', n=10)
+h2o.add_solvent('h2o', n=9)
 
-intra_gap = gt.IntraGAP(name='active_gap_h2o', system=water)
-inter_gap = gt.InterGAP(name='inter', system=water)
+intra_gap = gt.IntraGAP(name='active_gap_h2o', system=h2o)
+inter_gap = gt.InterGAP(name='inter', system=h2o)
 
 # data, gap = gt.active.train(water,
 #                             method_name='dftb',
@@ -22,7 +21,7 @@ inter_gap = gt.InterGAP(name='inter', system=water)
 #                             gap=gt.IIGAP(intra_gap, inter_gap))
 
 
-traj = gt.md.run_gapmd(configuration=water.random(min_dist_threshold=2.0),
+traj = gt.md.run_gapmd(configuration=h2o.random(min_dist_threshold=2.0),
                        gap=gt.IIGAP(intra_gap, inter_gap),
                        temp=300,
                        dt=0.5,

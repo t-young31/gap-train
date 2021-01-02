@@ -10,12 +10,8 @@ from gaptrain import md
 from gaptrain import descriptors
 from gaptrain import cur
 from gaptrain import active
-from gaptrain.gap import (GAP,
-                          GAPEnsemble,
-                          AdditiveGAP,
-                          IntraGAP,
-                          InterGAP,
-                          IIGAP)
+from gaptrain import gap
+from gaptrain.gap import GAP, IntraGAP, InterGAP, IIGAP
 
 __all__ = ['System',
            'Configuration',
@@ -23,8 +19,6 @@ __all__ = ['System',
            'Molecule',
            'Ion',
            'GAP',
-           'GAPEnsemble',
-           'AdditiveGAP',
            'IntraGAP',
            'InterGAP',
            'IIGAP',
@@ -34,6 +28,7 @@ __all__ = ['System',
            'RMSE',
            'Tau',
            'Box',
+           'gap',
            'md',
            'descriptors',
            'cur']

@@ -85,14 +85,24 @@ class IntraCalculator(IICalculator):
                   system_changes=None,
                   **kwargs):
         """New calculate function used to get energies and forces"""
-        intra_atoms = self.expanded_atoms(atoms)
+        mol_idxs = np.array(self.intra.mol_idxs, dtype=int).flatten()
+
+        # Create a new set of atoms, which may not include every atom
+        atoms_subset = Atoms(numbers=[atoms.numbers[i] for i in mol_idxs],
+                             positions=atoms.positions[mol_idxs],
+                             pbc=True,
+                             cell=atoms.cell)
+
+        intra_atoms = self.expanded_atoms(atoms_subset)
         intra_atoms.set_calculator(self.intra)
 
         # Add the energies and forces
         self.results["energy"] = intra_atoms.get_potential_energy()
         self.results["free_energy"] = self.results["energy"]
 
-        self.results["forces"] = intra_atoms.get_forces()
+        forces = np.zeros(shape=(len(atoms), 3))
+        forces[mol_idxs] += intra_atoms.get_forces()
+        self.results["forces"] = forces
         return None
 
 
@@ -153,6 +163,6 @@ class SSCalculator(IICalculator):
         self.solute_idxs = np.array(self.solute_intra.mol_idxs[0], dtype=int)
 
         self.solvent_idxs = []
-        for idxs in solvent_intra.mol_idxs:
+        for idxs in solvent_intra.mol_idxs:     # Flatten the solvent idx list
             self.solvent_idxs += list(idxs)
         self.solvent_idxs = np.array(self.solvent_idxs, dtype=int)
