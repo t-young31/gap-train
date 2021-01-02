@@ -314,9 +314,13 @@ class Parameters:
             # Add all the atomic symbols that aren't this one, the neighbour
             # density for which also hasn't been added already
             params["other"] = [s for s in set(atom_symbols)
-                               if s != symbol
-                               and s+symbol not in added_pairs
+                               if s+symbol not in added_pairs
                                and symbol+s not in added_pairs]
+
+            # If there are no other atoms of this type then remove the self
+            # pair
+            if atom_symbols.count(symbol) == 1:
+                params["other"].pop(symbol)
 
             for other_symbol in params["other"]:
                 added_pairs.append(symbol+other_symbol)

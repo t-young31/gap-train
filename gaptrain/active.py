@@ -10,8 +10,7 @@ from gaptrain.log import logger
 
 def calc_error(frame, gap, method_name):
     """Calculate the error between the ground truth and the GAP prediction"""
-    frame.single_point(method_name=method_name.lower(),
-                       n_cores=1)
+    frame.single_point(method_name=method_name,  n_cores=1)
 
     pred = frame.copy()
     pred.run_gap(gap=gap, n_cores=1)
@@ -23,7 +22,11 @@ def calc_error(frame, gap, method_name):
 
 def remove_intra(configs, gap):
     """
+    Remove the intramolecular energy and forces from a set of configurations
+    using a GAP
 
+    :param configs: (gt.ConfigurationSet)
+    :param gap: (gt.GAP)
     """
 
     if isinstance(gap, gt.IIGAP):
@@ -39,20 +42,33 @@ def remove_intra(configs, gap):
 
 
 def get_active_config(config, gap, temp, e_thresh, max_time_fs,
-                      method_name='dftb', curr_time_fs=0, n_calls=0):
+                      method_name='dftb', curr_time_fs=0, n_calls=0,
+                      extra_time_fs=0):
     """
     Given a configuration run MD with a GAP until the absolute error between
     the predicted and true values is above a threshold
 
     --------------------------------------------------------------------------
     :param config: (gt.Configuration)
+
     :param gap: (gt.GAP)
-    :param e_thresh: (float)
+
+    :param e_thresh: (float) Threshold energy error (eV) above which the
+                     configuration is returned
+
     :param temp: (float) Temperature to propagate GAP-MD
+
     :param max_time_fs: (float)
+
     :param method_name: (str)
+
     :param curr_time_fs: (float)
+
     :param n_calls: (int) Number of times this function has been called
+
+    :param extra_time_fs: (float) Some extra time to run initially e.g. as the
+                          GAP is already likely to get to e.g. 100 fs, so run
+                          that initially and don't run ground truth evaluations
 
     :return: (gt.Configuration)
     """
@@ -60,9 +76,13 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
         raise ValueError('Cannot run MD with a negative temperature')
 
     if float(e_thresh) < 0:
-        raise ValueError(f'Error threshold {e_thresh} must be postiive (eV)')
+        raise ValueError(f'Error threshold {e_thresh} must be positive (eV)')
 
-    md_time_fs = 2 + n_calls**3
+    if extra_time_fs > 0:
+        logger.info(f'Running an extra {extra_time_fs:.1f} fs of MD before '
+                    f'calculating an error')
+
+    md_time_fs = 2 + n_calls**3 + float(extra_time_fs)
     gap_traj = gt.md.run_gapmd(config,
                                gap=gap,
                                temp=float(temp),
@@ -70,14 +90,17 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
                                interval=4,
                                fs=md_time_fs,
                                n_cores=1)
-    curr_time_fs += md_time_fs
+
+    # Actual initial time, given this function can be called multiple times
+    for frame in gap_traj:
+        frame.t0 = curr_time_fs + extra_time_fs
 
     # Evaluate the error on the final frame
     error = calc_error(frame=gap_traj[-1], gap=gap, method_name=method_name)
 
     if error > 100 * e_thresh:
         logger.error('Huge error: 100x threshold, returning the first frame')
-        getattr(gap_traj[0], f'run_{method_name}')(n_cores=1)
+        gap_traj[0].single_point(method_name=method_name, n_cores=1)
         return gap_traj[0]
 
     if error > 10 * e_thresh:
@@ -93,10 +116,13 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
     if error > e_thresh:
         return gap_traj[-1]
 
-    if curr_time_fs > max_time_fs:
+    if curr_time_fs + md_time_fs > max_time_fs:
         logger.info(f'Reached the maximum time {max_time_fs} fs, returning '
                     f'None')
         return None
+
+    # Increment t_0 to the new time
+    curr_time_fs += md_time_fs
 
     # If the prediction is within the threshold then call this function again
     return get_active_config(config, gap, temp, e_thresh, max_time_fs,
@@ -106,7 +132,8 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
 
 
 def get_active_configs(config, gap, method_name,
-                       max_time_fs=1000, n_configs=10, temp=300, e_thresh=0.1):
+                       max_time_fs=1000, n_configs=10, temp=300, e_thresh=0.1,
+                       min_time_fs=0):
     """
     Generate n_configs using on-the-fly active learning parallelised over
     GTConfig.n_cores
@@ -129,6 +156,11 @@ def get_active_configs(config, gap, method_name,
                      is returned by the active learning function i.e
                      E_t < |E_GAP - E_true|
 
+    :param min_time_fs: (float) Minimum propagation time in the active learning
+                        loop. If non-zero then will run this amount of time
+                        initially then look for a configuration with a
+                        |E_0 - E_GAP| > e_thresh
+
     :return:(gt.ConfigurationSet)
     """
     if int(n_configs) < int(gt.GTConfig.n_cores):
@@ -144,7 +176,8 @@ def get_active_configs(config, gap, method_name,
         for _ in range(n_configs):
             result = pool.apply_async(func=get_active_config,
                                       args=(config, gap, temp, e_thresh,
-                                            max_time_fs, method_name))
+                                            max_time_fs, method_name, 0, 0,
+                                            min_time_fs))
             results.append(result)
 
         for result in results:
@@ -222,6 +255,7 @@ def train(system,
           method_name,
           gap=None,
           max_time_active_fs=1000,
+          min_time_active_fs=0,
           n_configs_iter=10,
           temp=300,
           active_e_thresh=None,
@@ -262,6 +296,11 @@ def train(system,
 
     :param max_time_active_fs: (float) Maximum propagation time in the active
                                learning loop. Default = 1 ps
+
+    :param min_time_active_fs: (float) Minimum propagation time for an
+                               active learnt configuration. Will be updated
+                               so the error is only calculated where the GAP
+                               is unlikely to be accurate
 
     :param n_configs_iter: (int) Number of configurations to generate per
                            active learning cycle
@@ -315,6 +354,9 @@ def train(system,
                                     n=n_init_configs,
                                     method_name=method_name,
                                     system=system)
+
+    # Remove the intra-molecular energy if an intra+inter (II) GAP is being
+    # trained
     do_remove_intra = isinstance(gap, gt.IIGAP)
     if do_remove_intra:
         remove_intra(init_configs, gap=gap)
@@ -345,8 +387,8 @@ def train(system,
         active_e_thresh = 0.043363 * len(system.molecules)
 
     # Initialise the validation output file
-    tau_file = open(f'{gap.name}_tau.txt', 'w')
     if validate:
+        tau_file = open(f'{gap.name}_tau.txt', 'w')
         print('Iteration  τ_acc / fs', file=tau_file)
 
     # Run the active learning loop, running iterative GAP-MD
@@ -362,7 +404,8 @@ def train(system,
                                      n_configs=n_configs_iter,
                                      temp=temp,
                                      e_thresh=active_e_thresh,
-                                     max_time_fs=max_time_active_fs)
+                                     max_time_fs=max_time_active_fs,
+                                     min_time_fs=min_time_active_fs)
 
         # Active learning finds no configurations,,
         if len(configs) == 0:
@@ -373,6 +416,11 @@ def train(system,
 
             logger.info('No configs to add. Active learning = DONE')
             break
+
+        min_time_active_fs = min(config.t0 for config in configs)
+        logger.info(f'All active configurations reached t = '
+                    f'{min_time_active_fs} fs before an error exceeded the '
+                    f'threshold of {active_e_thresh} eV')
 
         if do_remove_intra:
             remove_intra(configs, gap=gap)
