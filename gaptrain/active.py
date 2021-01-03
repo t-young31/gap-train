@@ -467,7 +467,7 @@ def train_ii(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
 
     :param intra_temp: (float) Temperature to run the intramolecular training
 
-    :param intra_temp: (float) Temperature to run the intermolecular training
+    :param inter_temp: (float) Temperature to run the intermolecular training
     """
 
     if system.n_unique_molecules > 1:
@@ -510,4 +510,69 @@ def train_ii(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
                                       gap=gt.IIGAP(intra_gap, inter_gap),
                                       **kwargs)
 
-    return intra_temp, inter_data, gap
+    return (intra_data, inter_data), gap
+
+
+def train_ss(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
+    """
+    Train an intra+intermolecular from just a system
+
+    ---------------------------------------------------------------------------
+    :param system: (gt.System)
+
+    :param method_name: (str) e.g dftb
+
+    :param intra_temp: (float) Temperature to run the intramolecular training
+
+    :param inter_temp: (float) Temperature to run the intermolecular training
+    """
+    if system.n_unique_molecules != 2:
+        raise ValueError('Can only train an solute-solvent GAP for a system '
+                         'with two molecules, the solute and the solvent')
+
+    # Find the least, and most abundant molecules in the system, as the solute
+    # and solvent respectively
+    names = [mol.name for mol in system.molecules]
+    nm1, nm2 = tuple(set(names))
+    solute_name, solv_name = (nm1, nm2) if names.count(nm1) == 1 else (nm2, nm1)
+
+    solute = [mol for mol in system.molecules if mol.name == solute_name][0]
+    solv = [mol for mol in system.molecules if mol.name == solv_name][0]
+
+    data = []   # List of training data for all the components in the system
+
+    # Train the intramolecular components of the potential for the solute and
+    # the solvent
+    for molecule in (solute, solv):
+        # Create a system with only one molecule
+        intra_system = gt.System(box_size=system.box.size)
+        intra_system.add_molecules(molecule)
+
+        # and train..
+        logger.info(f'Training intramolecular component of {molecule.name}')
+        mol_data, _ = gt.active.train(intra_system,
+                                      gap=gt.GAP(name=f'intra_{molecule.name}',
+                                                 system=intra_system),
+                                      method_name=method_name,
+                                      validate=False,
+                                      temp=intra_temp,
+                                      **kwargs)
+        data.append(mol_data)
+
+    # Recreate the GAPs with the full system (so they have the
+    solv_gap = gt.gap.SolventIntraGAP(name=f'intra_{solv.name}', system=system)
+    solute_gap = gt.gap.SoluteIntraGAP(name=f'intra_{solute.name}',
+                                       system=system, molecule=solute)
+    inter_gap = gt.InterGAP(name='inter', system=system)
+
+    # and finally train the intermolecular part of the potential
+    inter_data, gap = gt.active.train(system,
+                                      method_name=method_name,
+                                      gap=gt.gap.SSGAP(solute_intra=solute_gap,
+                                                       solvent_intra=solv_gap,
+                                                       inter=inter_gap),
+                                      temp=inter_temp,
+                                      **kwargs)
+    data.append(inter_data)
+
+    return tuple(data), gap
