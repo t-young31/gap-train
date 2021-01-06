@@ -61,6 +61,8 @@ class Trajectory(gt.ConfigurationSet):
         # Iterate through each frame (set of atoms) in the trajectory
         for atoms in traj:
             config = init_config.copy()
+            config.energy = None
+            config.forces = None
 
             # Set the coordinate of every atom in the configuration
             for i, position in enumerate(atoms.get_positions()):

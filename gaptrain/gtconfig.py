@@ -72,8 +72,12 @@ class GTConfig:
 
     # Default SOAP parameters
     gap_default_soap_params = {'cutoff': 3.0,           # Å
-                               'n_sparse': 100,
+                               'n_sparse': 500,
                                'order': 6,
                                'sigma_at': 0.5,         # Å
                                'delta': 0.1             # eV
                                }
+
+    # ----------------------- ORCA -------------------------------
+    # Keywords to use for an ORCA calculation
+    orca_keywords = None

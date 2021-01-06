@@ -132,7 +132,7 @@ def plot_forces_hist(ax, forces, color=None, label=None):
             label=label)
 
     # Force histogram formatting
-    ax.set_xlabel('|$F$| / ev Å$^{-1}$')
+    ax.set_xlabel('|$F$| / eV Å$^{-1}$')
     ax.set_ylabel('Frequency')
 
     return None

@@ -150,6 +150,32 @@ class Configuration:
 
         return run_gpaw(self, max_force)
 
+    def run_orca(self, max_force=None, n_cores=None):
+        """Run an ORCA calculation on this configuration"""
+        from gaptrain.calculators import run_orca, GTConfig
+        assert max_force is None
+
+        if gt.GTConfig.orca_keywords is None:
+            raise ValueError("For ORCA training GTConfig.orca_keywords must be"
+                             " set. e.g. "
+                             "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
+
+        return run_orca(self, n_cores=n_cores if n_cores is not None
+                        else GTConfig.n_cores)
+
+    def optimise(self, method_name, max_force, n_cores=None):
+        """Optimise this configuration to a force threshold:
+         |F_i| < max_force eV / A  for all atoms i"""
+        assert max_force > 0 and method_name in ('dftb', 'gpaw', 'orca')
+
+        methd = f'run_{method_name.lower()}'
+        return getattr(self, methd)(max_force=max_force, n_cores=n_cores)
+
+    def single_point(self, method_name, n_cores=None):
+        """Run a single point energy/force evaluation on this configuration"""
+        assert method_name in ('dftb', 'gpaw', 'orca')
+        return getattr(self, f'run_{method_name.lower()}')(n_cores=n_cores)
+
     def print_gro_file(self, system):
         filename = 'input.gro'
         with open(filename, 'w') as f:
@@ -239,6 +265,10 @@ class Configuration:
 
                     except (TypeError, ValueError, IndexError):
                         raise ex.LoadingFailed('Failed to load the box')
+
+            elif len(line.split()) < 4:
+                logger.warning('Unexpected line break, assuming end of atoms')
+                break
 
             else:
                 atom_label, x, y, z = line.split()[:4]
@@ -354,8 +384,8 @@ class Configuration:
         self.energy = None                                  # eV
 
         self.box = system.box if system is not None else box
-        self.charge = system.charge() if system is not None else charge
-        self.mult = system.mult() if system is not None else mult
+        self.charge = system.charge if system is not None else charge
+        self.mult = system.mult if system is not None else mult
 
         self.n_wraps = 0
 
@@ -429,32 +459,35 @@ class ConfigurationSet:
         filename = f'{self.name}.xyz' if filename is None else filename
 
         if not os.path.exists(filename):
-            raise ex.LoadingFailed(f'XYZ file for {self.name} did not exist')
+            raise ex.LoadingFailed(f'XYZ file for {filename} did not exist')
 
         if system is not None:
             if all(prm for prm in (system.box, system.charge, system.mult)):
                 logger.info('Setting box, charge and multiplicity from a conf')
-                box, charge, mult = system.box, system.charge(), system.mult()
+                box, charge, mult = system.box, system.charge, system.mult
 
         logger.info(f'Loading configuration set from {filename}')
         lines = open(filename, 'r').readlines()
 
-        # Number of atoms should be the first item in the file
-        try:
-            n_atoms = int(lines[0].split()[0])
-        except (TypeError, IndexError):
-            raise ex.LoadingFailed('Line 1 of the xyz file malformatted')
-
-        stride = int(n_atoms + 2)
-
         # Stride through the file and add configuration for each
-        for i, _ in enumerate(lines[::stride]):
+        i = 0
+        while i < len(lines):
+
+            # Configurations may have different numbers of atoms
+            try:
+                n_atoms = int(lines[i].split()[0])
+            except (TypeError, IndexError):
+                raise ex.LoadingFailed('Could not read the number of atoms in'
+                                       f'{filename}')
+
+            stride = n_atoms + 2
 
             configuration = Configuration()
-            configuration.load(file_lines=lines[i * stride:(i + 1) * stride],
+            configuration.load(file_lines=lines[i:i+stride],
                                box=box, charge=charge, mult=mult)
 
             self._list.append(configuration)
+            i += stride
 
         if self.name is None or self.name == 'data':
             self.name = filename.rstrip('.xyz')
@@ -462,25 +495,27 @@ class ConfigurationSet:
 
         return None
 
-    def save(self, override=True):
+    def save(self, filename=None, override=True):
         """Save an extended xyz file for this set of configurations"""
 
         # Ensure the name is unique
-        if not override and os.path.exists(f'{self.name}.xyz'):
-            n = 0
-            while os.path.exists(f'{self.name}{n}.xyz'):
-                n += 1
+        if filename is None:
+            filename = f'{self.name}.xyz'
 
-            self.name = f'{self.name}{n}'
+            if not override and os.path.exists(f'{self.name}.xyz'):
+                n = 0
+                while os.path.exists(f'{self.name}{n}.xyz'):
+                    n += 1
+                filename = f'{self.name}{n}.xyz'
 
-        if override:
-            # Empty the file
-            open(f'{self.name}.xyz', 'w').close()
+            if override:  # Empty the file
+                open(f'{self.name}.xyz', 'w').close()
 
         # Add all of the configurations to the extended xyz file
+        logger.info(f'Saving {len(self._list)} configurations to {filename}')
         for config in self._list:
             # Print either the ground truth or predicted values
-            config.save(f'{self.name}.xyz', append=True)
+            config.save(filename, append=True)
 
         return None
 
@@ -535,6 +570,22 @@ class ConfigurationSet:
         """Run periodic DFTB+ on these configurations"""
         from gaptrain.calculators import run_dftb
         return self._run_parallel_method(run_dftb, max_force=max_force)
+
+    def parallel_orca(self):
+        """Run parallel ORCA on these configurations"""
+        from gaptrain.calculators import run_orca
+        return self._run_parallel_method(run_orca, max_force=None, n_cores=1)
+
+    def optimise(self, method_name, max_force):
+        """Run parallel optimisations"""
+        assert max_force > 0 and method_name in ('dftb', 'gpaw', 'orca')
+        methd = f'parallel_{method_name.lower()}'
+        return getattr(self, methd)(max_force=max_force)
+
+    def single_point(self, method_name):
+        """Run parallel single points"""
+        assert method_name in ('dftb', 'gpaw', 'orca')
+        return getattr(self, f'parallel_{method_name.lower()}')()
 
     def remove_first(self, n):
         """
@@ -627,8 +678,6 @@ class ConfigurationSet:
         logger.info(f'Removing the least stable {n} configurations')
 
         idxs = np.argsort(energies)
-        print(idxs)
-        print(idxs[-1])
         self._list = [self._list[i] for i in idxs[:-n]]
         return None
 
@@ -640,7 +689,7 @@ class ConfigurationSet:
         :param method: (str) Name of the method to use
         :param kwargs: ensemble (gaptrain.gap.GAPEnsemble)
         """
-        implemented_methods = ['random', 'cur', 'ensemble', 'higher']
+        implemented_methods = ['random', 'cur', 'ensemble', 'higher', 'cur_k']
 
         if method.lower() not in implemented_methods:
             raise NotImplementedError(f'Methods are {implemented_methods}')
@@ -652,10 +701,15 @@ class ConfigurationSet:
         if method.lower() == 'random':
             return self.remove_random(remainder=n)
 
-        if method.lower() == 'cur':
-            soap_matrix = gt.descriptors.soap(self)
-            cur_idxs = gt.cur.rows(soap_matrix, k=n, return_indexes=True)
+        if 'cur' in method.lower():
+            if method.lower() == 'cur':
+                matrix = gt.descriptors.soap(self)
+            elif method.lower() == 'cur_k':
+                matrix = gt.descriptors.soap_kernel_matrix(self)
+            else:
+                raise NotImplementedError
 
+            cur_idxs = gt.cur.rows(matrix, k=n, return_indexes=True)
             self._list = [self._list[idx] for idx in cur_idxs]
 
         if method.lower() == 'ensemble':
@@ -689,5 +743,11 @@ class ConfigurationSet:
         self._list = []
 
         for arg in args:
-            assert isinstance(arg, Configuration)
-            self._list.append(arg)
+            if isinstance(arg, Configuration):
+                self._list.append(arg)
+
+            elif type(arg) is str and arg.endswith('.xyz'):
+                self.load(filename=arg)
+
+            else:
+                raise AssertionError('Unsupported argument type')
