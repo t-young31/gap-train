@@ -384,6 +384,7 @@ class Configuration:
         self.box = system.box if system is not None else box
         self.charge = system.charge if system is not None else charge
         self.mult = system.mult if system is not None else mult
+        self.partial_charges = None                         # e
 
         self.n_wraps = 0
 
