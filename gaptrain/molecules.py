@@ -1,18 +1,25 @@
 import autode as ade
 from autode.input_output import xyz_file_to_atoms
+from autode.geom import calc_rmsd
 from autode.atoms import Atom
 from autode.atoms import get_vdw_radius
 from gaptrain.log import logger
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
 import numpy as np
-import os
 
 
 class Species(ade.species.Species):
 
     def __repr__(self):
         return f'Species(name={self.name}, n_atoms={len(self.atoms)})'
+
+    def __eq__(self, other):
+        """Are two molecules the same?"""
+        if str(other) != str(self) or len(self.atoms) != len(other.atoms):
+            return False
+
+        return True
 
     def __str__(self):
         """Chemical formula for this species e.g. H2O"""

@@ -47,3 +47,32 @@ def work_in_tmp_dir(kept_exts=None, copied_exts=None):
 
         return wrapped_function
     return func_decorator
+
+
+def unique_name(basename, exts=('xml', 'log', 'xyz')):
+    """
+    Return a unique filename based on not clashing with other files with the
+    same basename plus extension. Append 0, 1... iteratively untill something
+    unique is defined
+
+    :param basename: (str)
+    :param exts: (tuple(str))
+    :return:
+    """
+    if any(ext.startswith('.') for ext in exts):
+        raise ValueError('Extensions cannot have . prefixes')
+
+    def any_exist():
+        """Do any of the filenames with the possible extensions exist?"""
+        return any(os.path.exists(f'{basename}.{ext}') for ext in exts)
+
+    if not any_exist():
+        return basename
+
+    old_basename = basename
+    i = 0
+    while any_exist():
+        basename = f'{old_basename}{i}'
+        i += 1
+
+    return basename

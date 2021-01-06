@@ -96,6 +96,7 @@ class GAP:
         for symbol, soap in self.params.soap.items():
             logger.info(f'Adding SOAP:              {symbol}')
             other_atomic_ns = [atomic_number(s) for s in soap["other"]]
+            logger.info(f'with neighbours           {soap["other"]}')
 
             params += ('soap sparse_method=cur_points '
                        f'n_sparse={soap["n_sparse"]} '
@@ -176,7 +177,7 @@ class GAP:
         self.params = pickle.load(open(f'{self.name}.gap', 'rb'))
         return None
 
-    def __init__(self, name, system=None):
+    def __init__(self, name, system=None, default_params=True):
         """
         A Gaussian Approximation Potential
 
@@ -185,11 +186,12 @@ class GAP:
         """
 
         self.name = name
-        self.params = None
 
-        if system is not None:
+        if system is not None and default_params:
             self.params = Parameters(atom_symbols=system.atom_symbols())
+
         else:
+            self.params = Parameters(atom_symbols=[])
             logger.warning('Initialised a GAP with no parameters. '
                            'gap.train not available')
 
@@ -202,7 +204,44 @@ class InterGAP(GAP):
 
 class IntraGAP(GAP):
 
-    def __init__(self, name, system):
+    def _set_mol_idxs(self, system, molecule):
+        """Set the indexes of the molecule in the system that this GAP
+        applies to"""
+        if molecule is None:
+            raise NotImplementedError
+
+        curr_n_atoms = 0
+
+        for s_molecule in system.molecules:
+            if molecule == s_molecule:
+                idxs = range(curr_n_atoms, curr_n_atoms + molecule.n_atoms)
+                self.mol_idxs.append(list(idxs))
+
+            curr_n_atoms += s_molecule.n_atoms
+
+        if len(self.mol_idxs) == 0:
+            raise RuntimeError(f'Found no molecules matching: {str(molecule)}'
+                               f' in the system')
+        return None
+
+    def ase_gap_potential_str(self):
+        """Generate the quippy/ASE string to run the potential"""
+
+        if not os.path.exists(f'{self.name}.xml'):
+            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
+
+        # Custom calculator for the intra energy in a larger box
+        here = os.path.abspath(os.path.dirname(__file__))
+        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
+
+        pt += [f'intra_gap = quippy.Potential("IP GAP", '
+               f'param_filename="{self.name}.xml")\n',
+               f'intra_gap.mol_idxs = {self.mol_idxs}\n',
+               f'pot = IntraCalculator(intra_gap)\n']
+
+        return ''.join(pt)
+
+    def __init__(self, name, system, molecule):
         """An intramolecular GAP, must be initialised with a system so the
         molecules are defined
 
@@ -212,14 +251,48 @@ class IntraGAP(GAP):
         super().__init__(name, system)
 
         self.mol_idxs = []
-        n_atoms = 0
+        self._set_mol_idxs(system, molecule)
 
-        # Set a list of molecule indexes, so the inter can be updated
-        # TODO: allow for adaptive partitioning
+        logger.info(f'Initialised an intra-GAP with molecular indexes:'
+                    f' {self.mol_idxs}')
+
+
+class SolventIntraGAP(IntraGAP):
+
+    def _set_mol_idxs(self, system, molecule):
+        """Set the molecular indexes from a system as the most abundant
+        identical molecules"""
+        mols_and_num = {}
         for molecule in system.molecules:
-            self.mol_idxs.append(list(range(n_atoms,
-                                            molecule.n_atoms+n_atoms)))
-            n_atoms += molecule.n_atoms
+            if str(molecule) not in mols_and_num:
+                mols_and_num[str(molecule)] = 1
+            else:
+                mols_and_num[str(molecule)] += 1
+
+        # Rudimentary sort..
+        max_mol, max_num = None, 0
+        for mol, num in mols_and_num.items():
+            if num > max_num:
+                max_mol = mol
+
+        # Add the indexes of the most abundant molecules
+        curr_n_atoms = 0
+
+        for molecule in system.molecules:
+            if str(molecule) == max_mol:
+                idxs = range(curr_n_atoms, curr_n_atoms + molecule.n_atoms)
+                self.mol_idxs.append(list(idxs))
+
+            curr_n_atoms += molecule.n_atoms
+
+        return None
+
+    def __init__(self, name, system):
+        super().__init__(name, system, molecule=None)
+
+
+class SoluteIntraGAP(IntraGAP):
+    pass
 
 
 class Parameters:
@@ -258,18 +331,35 @@ class Parameters:
 
     def _set_soap(self, atom_symbols):
         """Set the SOAP parameters"""
+        added_pairs = []
 
         for symbol in set(atom_symbols):
+
+            if symbol == 'H':
+                logger.warning('Not adding SOAP on H')
+                continue
+
             params = GTConfig.gap_default_soap_params.copy()
 
-            # Add all the atomic symbols that aren't this one
-            params["other"] = [s for s in set(atom_symbols) if s != symbol]
+            # Add all the atomic symbols that aren't this one, the neighbour
+            # density for which also hasn't been added already
+            params["other"] = [s for s in set(atom_symbols)
+                               if s+symbol not in added_pairs
+                               and symbol+s not in added_pairs]
+
+            # If there are no other atoms of this type then remove the self
+            # pair
+            if atom_symbols.count(symbol) == 1:
+                params["other"].remove(symbol)
+
+            for other_symbol in params["other"]:
+                added_pairs.append(symbol+other_symbol)
+
+            if len(params["other"]) == 0:
+                logger.info(f'Not adding SOAP to {symbol} - should be covered')
+                continue
 
             self.soap[symbol] = params
-
-        if 'H' in self.soap:
-            logger.warning('H found in SOAP descriptor  - removing')
-            self.soap.pop('H')
 
         return None
 
@@ -284,10 +374,7 @@ class Parameters:
         self.general = GTConfig.gap_default_params
 
         self.pairwise = {}
-        self._set_pairs(atom_symbols)
-
         self.angle = {}
-
         self.soap = {}
         self._set_soap(atom_symbols)
 
@@ -470,6 +557,16 @@ class AdditiveGAP:
 class IIGAP:
     """Inter+intra GAP where the inter is evaluated in a different box"""
 
+    def train(self, data):
+        """Train the inter-component of the GAP"""
+        logger.info('Training the intermolecular component of the potential. '
+                    'Expecting data that is free from intra energy and force')
+
+        if not os.path.exists(f'{self.intra.name}.xml'):
+            raise RuntimeError('Intra must be already trained')
+
+        return self.inter.train(data)
+
     def ase_gap_potential_str(self,
                               calc_str='IICalculator(intra_gap, inter_gap)'):
         """Generate the quippy/ASE string to run the potential"""
@@ -479,7 +576,7 @@ class IIGAP:
             raise IOError(f'GAP parameter files did not exist')
 
         # Custom calculator to calculate the intra component of the energy in
-        # a larger box; in a file for neatness; first line is numpy import
+        # a larger box; in a file for neatness
         here = os.path.abspath(os.path.dirname(__file__))
         pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
 
@@ -516,8 +613,17 @@ class IIGAP:
         if self.inter is None or self.intra is None:
             raise AssertionError('Must have both an inter+intra GAP')
 
+        self.name = f'{self.intra.name}_{self.inter.name}'
+
 
 class SSGAP(IIGAP):
+
+    def train(self, data):
+        """Train the inter component of a solute-solvent GAP """
+        if not os.path.exists(f'{self.solute_intra.name}.xml'):
+            raise RuntimeError('Solute intra must be already trained')
+
+        return super().train(data)
 
     def ase_gap_potential_str(self, calc_str=None):
         """Generate the quippy/ASE potential string with three calculators"""

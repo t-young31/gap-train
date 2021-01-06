@@ -5,16 +5,14 @@ from gaptrain.box import Box
 from gaptrain.data import Data
 from gaptrain.gtconfig import GTConfig
 from gaptrain.trajectories import Trajectory
-from gaptrain.loss import RMSE
+from gaptrain.loss import RMSE, Tau
 from gaptrain import md
 from gaptrain import descriptors
 from gaptrain import cur
-from gaptrain.gap import (GAP,
-                          GAPEnsemble,
-                          AdditiveGAP,
-                          IntraGAP,
-                          InterGAP,
-                          IIGAP)
+from gaptrain import active
+from gaptrain import gap
+from gaptrain import solvents
+from gaptrain.gap import GAP, IntraGAP, InterGAP, IIGAP
 
 __all__ = ['System',
            'Configuration',
@@ -22,8 +20,6 @@ __all__ = ['System',
            'Molecule',
            'Ion',
            'GAP',
-           'GAPEnsemble',
-           'AdditiveGAP',
            'IntraGAP',
            'InterGAP',
            'IIGAP',
@@ -31,7 +27,10 @@ __all__ = ['System',
            'GTConfig',
            'Trajectory',
            'RMSE',
+           'Tau',
            'Box',
+           'gap',
            'md',
            'descriptors',
-           'cur']
+           'cur',
+           'solvents']
