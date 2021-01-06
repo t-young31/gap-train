@@ -184,10 +184,8 @@ class Configuration:
 
             n = 0
             for i, molecule in enumerate(system.molecules):
-                atom_list = []
                 for atom in molecule.atoms:
                     x, y, z = self.atoms[n].coord / 10
-                    atom_list.append(atom.label)
                     print(f'{i+1:>5}'
                           f'{molecule.name:<5}'
                           f'{atom.mm_type.strip():>5}'
@@ -386,6 +384,7 @@ class Configuration:
         self.box = system.box if system is not None else box
         self.charge = system.charge if system is not None else charge
         self.mult = system.mult if system is not None else mult
+        self.partial_charges = None                         # e
 
         self.n_wraps = 0
 
