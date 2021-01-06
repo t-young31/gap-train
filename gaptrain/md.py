@@ -1,5 +1,5 @@
 from gaptrain.trajectories import Trajectory
-from gaptrain.calculators import DFTB, ase_gap_potential_str
+from gaptrain.calculators import DFTB
 from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
 from gaptrain.gtconfig import GTConfig
