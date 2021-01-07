@@ -31,25 +31,6 @@ def test_grid_positions():
     os.remove('test_random.xyz')
 
 
-def test_grid_positions():
-
-    n_molecules = 10
-    density = 0.786  # g cm-3
-    mw = 3 * 1.01 + 2 * 12.01 + 14.01
-    length = ((mw * n_molecules / (6.022E23 * density)) / 1E6) ** (1/3) * 1E10
-
-    system = System(box_size=[length, length, length])
-    system.add_molecules(Molecule(os.path.join(here, 'data', 'mecn.xyz')),
-                         n=n_molecules)
-
-    config = system.grid(min_dist_threshold=1.7)
-    config.save(filename='test_random.xyz')
-
-    assert os.path.exists('test_random.xyz')
-
-    os.remove('test_random.xyz')
-
-
 def test_random_distance():
 
     system = System(box_size=[10, 10, 10])
