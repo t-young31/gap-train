@@ -163,6 +163,14 @@ class Configuration:
         return run_orca(self, n_cores=n_cores if n_cores is not None
                         else GTConfig.n_cores)
 
+    def run_xtb(self, max_force=None, n_cores=None):
+        """Run an XTB calculation on this configuration"""
+        from gaptrain.calculators import run_xtb, GTConfig
+        assert max_force is None
+
+        return run_xtb(self, n_cores=n_cores if n_cores is not None
+                       else GTConfig.n_cores)
+
     def optimise(self, method_name, max_force, n_cores=None):
         """Optimise this configuration to a force threshold:
          |F_i| < max_force eV / A  for all atoms i"""
@@ -384,6 +392,7 @@ class Configuration:
         self.box = system.box if system is not None else box
         self.charge = system.charge if system is not None else charge
         self.mult = system.mult if system is not None else mult
+        self.partial_charges = None                         # e
 
         self.n_wraps = 0
 
@@ -573,6 +582,11 @@ class ConfigurationSet:
         """Run parallel ORCA on these configurations"""
         from gaptrain.calculators import run_orca
         return self._run_parallel_method(run_orca, max_force=None, n_cores=1)
+
+    def parallel_xtb(self):
+        """Run parallel XTB on these configurations"""
+        from gaptrain.calculators import run_xtb
+        return self._run_parallel_method(run_xtb, max_force=None, n_cores=1)
 
     def optimise(self, method_name, max_force):
         """Run parallel optimisations"""

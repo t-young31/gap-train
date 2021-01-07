@@ -82,6 +82,48 @@ def run_orca(configuration, max_force=None, n_cores=1):
     return configuration
 
 
+@work_in_tmp_dir()
+def run_xtb(configuration, max_force=None, n_cores=1):
+    """
+    Run an xtb calculation
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
+    from autode.species import Species
+    from autode.calculation import Calculation
+    from autode.methods import XTB
+    from autode.exceptions import CouldNotGetProperty
+
+    xtb = XTB()
+
+    assert max_force is None
+
+    species = Species(name=configuration.name,
+                      atoms=configuration.atoms,
+                      charge=configuration.charge,
+                      mult=configuration.mult)
+    calc = Calculation(name='tmp',
+                       molecule=species,
+                       method=xtb,
+                       keywords=xtb.keywords.grad,
+                       n_cores=n_cores)
+    calc.run()
+    ha_to_ev = 27.2114
+    try:
+        configuration.forces = -ha_to_ev * calc.get_gradients()
+    except CouldNotGetProperty:
+        logger.error('Failed to set forces')
+
+    configuration.energy = ha_to_ev * calc.get_energy()
+
+    configuration.partial_charges = calc.get_atomic_charges()
+
+    return configuration
+
+
 @work_in_tmp_dir(kept_exts=['.traj'])
 def run_gpaw(configuration, max_force):
     """Run a periodic DFT calculation using GPAW. Will set configuration.energy
