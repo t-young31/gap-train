@@ -101,6 +101,7 @@ set the $GT_DFTB, $GT_GAP, $GT_GMX environment variables to True as appropriate 
 
 ```bash
 export GT_DFTB=True
+export GT_ORCA=True
 export GT_XTB=True
 export GT_GAP=True
 export GT_GMX=True

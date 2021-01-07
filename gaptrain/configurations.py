@@ -149,19 +149,26 @@ class Configuration:
         set_threads(n_cores)
 
         return run_gpaw(self, max_force)
-
+    
     def run_orca(self, max_force=None, n_cores=None):
         """Run an ORCA calculation on this configuration"""
-        from gaptrain.calculators import run_orca, GTConfig
+        from gaptrain.calculators import run_autode, GTConfig
+        from autode.methods import ORCA
         assert max_force is None
 
-        if gt.GTConfig.orca_keywords is None:
-            raise ValueError("For ORCA training GTConfig.orca_keywords must be"
-                             " set. e.g. "
-                             "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
+        n_cores = n_cores if n_cores is not None else GTConfig.n_cores
 
-        return run_orca(self, n_cores=n_cores if n_cores is not None
-                        else GTConfig.n_cores)
+        return run_autode(self, method=ORCA(), n_cores=n_cores)
+
+    def run_xtb(self, max_force=None, n_cores=None):
+        """Run an XTB calculation on this configuration"""
+        from gaptrain.calculators import run_autode, GTConfig
+        from autode.methods import XTB
+        assert max_force is None
+
+        n_cores = n_cores if n_cores is not None else GTConfig.n_cores
+
+        return run_autode(self, method=XTB(), n_cores=n_cores)
 
     def optimise(self, method_name, max_force, n_cores=None):
         """Optimise this configuration to a force threshold:
@@ -173,7 +180,7 @@ class Configuration:
 
     def single_point(self, method_name, n_cores=None):
         """Run a single point energy/force evaluation on this configuration"""
-        assert method_name in ('dftb', 'gpaw', 'orca')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb')
         return getattr(self, f'run_{method_name.lower()}')(n_cores=n_cores)
 
     def print_gro_file(self, system):
@@ -518,7 +525,7 @@ class ConfigurationSet:
 
         return None
 
-    def _run_parallel_method(self, method, max_force, **kwargs):
+    def _run_parallel_method(self, function, max_force, **kwargs):
         """Run a set of electronic structure calculations on this set
         in parallel
 
@@ -541,7 +548,7 @@ class ConfigurationSet:
 
             # Apply the method to each configuration in this set
             for i, config in enumerate(self._list):
-                result = pool.apply_async(func=method,
+                result = pool.apply_async(func=function,
                                           args=(config, max_force),
                                           kwds=kwargs)
                 results.append(result)
@@ -572,8 +579,17 @@ class ConfigurationSet:
 
     def parallel_orca(self):
         """Run parallel ORCA on these configurations"""
-        from gaptrain.calculators import run_orca
-        return self._run_parallel_method(run_orca, max_force=None, n_cores=1)
+        from gaptrain.calculators import run_autode
+        from autode.methods import ORCA
+        return self._run_parallel_method(run_autode, max_force=None,
+                                         n_cores=1, method=ORCA())
+    
+    def parallel_xtb(self):
+        """Run parallel XTB on these configurations"""
+        from gaptrain.calculators import run_autode
+        from autode.methods import XTB
+        return self._run_parallel_method(run_autode, max_force=None,
+                                         n_cores=1, method=XTB())
 
     def optimise(self, method_name, max_force):
         """Run parallel optimisations"""
@@ -583,7 +599,7 @@ class ConfigurationSet:
 
     def single_point(self, method_name):
         """Run parallel single points"""
-        assert method_name in ('dftb', 'gpaw', 'orca')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb')
         return getattr(self, f'parallel_{method_name.lower()}')()
 
     def remove_first(self, n):
