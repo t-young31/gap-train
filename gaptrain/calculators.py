@@ -68,12 +68,15 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1):
                       atoms=configuration.atoms,
                       charge=configuration.charge,
                       mult=configuration.mult)
+
+    # allow for an ORCA calculation to have non-default keywords.. not the
+    # cleanest implementation..
+    kwds = GTConfig.orca_keywords if method.name == 'orca' else method.keywords.grad
     calc = Calculation(name='tmp',
                        molecule=species,
                        method=method,
-                       keywords=method.keywords.grad,
+                       keywords=kwds,
                        n_cores=n_cores)
-
     calc.run()
     ha_to_ev = 27.2114
     try:
