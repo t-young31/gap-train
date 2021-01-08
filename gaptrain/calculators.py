@@ -41,34 +41,41 @@ class DFTB(Dftb):
 
 
 @work_in_tmp_dir()
-def run_orca(configuration, max_force=None, n_cores=1):
+def run_autode(configuration, max_force=None, method=None, n_cores=1):
     """
-    Run an orca calculation
+    Run an orca or xtb calculation
 
     --------------------------------------------------------------------------
     :param configuration: (gaptrain.configurations.Configuration)
 
     :param max_force: (float) or None
+
+    :param method: (autode.wrappers.base.ElectronicStructureMethod)
     """
     from autode.species import Species
     from autode.calculation import Calculation
-    from autode.methods import ORCA
     from autode.exceptions import CouldNotGetProperty
-    from autode.wrappers.keywords import GradientKeywords
+    
+    if method.name == 'orca' and GTConfig.orca_keywords is None:
+        raise ValueError("For ORCA training GTConfig.orca_keywords must be"
+                         " set. e.g. "
+                         "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
 
-    assert max_force is None
-
-    if not isinstance(GTConfig.orca_keywords, GradientKeywords):
-        raise AssertionError('ORCA requires a set of autodE GradientKeywords')
+    # optimisation is not implemented, needs a method to run
+    assert max_force is None and method is not None
 
     species = Species(name=configuration.name,
                       atoms=configuration.atoms,
                       charge=configuration.charge,
                       mult=configuration.mult)
+
+    # allow for an ORCA calculation to have non-default keywords.. not the
+    # cleanest implementation..
+    kwds = GTConfig.orca_keywords if method.name == 'orca' else method.keywords.grad
     calc = Calculation(name='tmp',
                        molecule=species,
-                       method=ORCA(),
-                       keywords=GTConfig.orca_keywords,
+                       method=method,
+                       keywords=kwds,
                        n_cores=n_cores)
     calc.run()
     ha_to_ev = 27.2114
@@ -78,6 +85,8 @@ def run_orca(configuration, max_force=None, n_cores=1):
         logger.error('Failed to set forces')
 
     configuration.energy = ha_to_ev * calc.get_energy()
+
+    configuration.partial_charges = calc.get_atomic_charges()
 
     return configuration
 
