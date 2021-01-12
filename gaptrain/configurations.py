@@ -149,7 +149,17 @@ class Configuration:
         set_threads(n_cores)
 
         return run_gpaw(self, max_force)
-    
+
+    def run_cp2k(self, max_force=None, n_cores=1):
+        """Run a CP2K DFT calculation, either a minimisation or optimisation
+
+        :param max_force:
+        """
+        assert n_cores == 1
+        from gaptrain.calculators import run_cp2k
+
+        return run_cp2k(self, max_force)
+
     def run_orca(self, max_force=None, n_cores=None):
         """Run an ORCA calculation on this configuration"""
         from gaptrain.calculators import run_autode, GTConfig
@@ -180,7 +190,7 @@ class Configuration:
 
     def single_point(self, method_name, n_cores=None):
         """Run a single point energy/force evaluation on this configuration"""
-        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k')
         return getattr(self, f'run_{method_name.lower()}')(n_cores=n_cores)
 
     def print_gro_file(self, system):
@@ -544,6 +554,7 @@ class ConfigurationSet:
         start_time = time()
         results = []
 
+        print(f'Running calculations over {gt.GTConfig.n_cores} cores')
         with Pool(processes=gt.GTConfig.n_cores) as pool:
 
             # Apply the method to each configuration in this set
@@ -591,6 +602,11 @@ class ConfigurationSet:
         return self._run_parallel_method(run_autode, max_force=None,
                                          n_cores=1, method=XTB())
 
+    def parallel_cp2k(self):
+        """Run parallel XTB on these configurations"""
+        from gaptrain.calculators import run_cp2k
+        return self._run_parallel_method(run_cp2k, max_force=None)
+
     def optimise(self, method_name, max_force):
         """Run parallel optimisations"""
         assert max_force > 0 and method_name in ('dftb', 'gpaw', 'orca')
@@ -599,7 +615,7 @@ class ConfigurationSet:
 
     def single_point(self, method_name):
         """Run parallel single points"""
-        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k')
         return getattr(self, f'parallel_{method_name.lower()}')()
 
     def remove_first(self, n):
