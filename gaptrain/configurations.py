@@ -514,8 +514,8 @@ class ConfigurationSet:
                     n += 1
                 filename = f'{self.name}{n}.xyz'
 
-            if override:  # Empty the file
-                open(f'{self.name}.xyz', 'w').close()
+        if override:  # Empty the file
+            open(filename, 'w').close()
 
         # Add all of the configurations to the extended xyz file
         logger.info(f'Saving {len(self._list)} configurations to {filename}')
