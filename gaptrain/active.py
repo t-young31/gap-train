@@ -108,9 +108,13 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
     # Evaluate the error on the final frame
     error = calc_error(frame=gap_traj[-1], gap=gap, method_name=method_name)
 
+    # And the number of ground truth evaluations for this configuration
+    n_evals = n_calls + 1
+
     if error > 100 * e_thresh:
         logger.error('Huge error: 100x threshold, returning the first frame')
         gap_traj[0].single_point(method_name=method_name, n_cores=1)
+        gap_traj[0].n_evals = n_evals + 1
         return gap_traj[0]
 
     if error > 10 * e_thresh:
@@ -118,12 +122,15 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
                        '10x the threshold')
         # Stride through only 10 frames to prevent very slow backtracking
         for frame in reversed(gap_traj[::max(1, len(gap_traj)//10)]):
-
             error = calc_error(frame, gap=gap, method_name=method_name)
+            n_evals += 1
+
             if e_thresh < error < 10 * e_thresh:
+                frame.n_evals = n_evals
                 return frame
 
     if error > e_thresh:
+        gap_traj[-1].n_evals = n_evals
         return gap_traj[-1]
 
     if curr_time_fs + md_time_fs > max_time_fs:
@@ -277,6 +284,7 @@ def train(system,
           max_active_iters=50,
           n_init_configs=10,
           init_configs=None,
+          remove_intra_init_configs=True,
           fix_init_config=False):
     """
     Train a system using active learning, by propagating dynamics using ML
@@ -353,6 +361,12 @@ def train(system,
     :param init_configs: (gt.ConfigurationSet) A set of configurations from
                          which to start the active learning from
 
+    :param remove_intra_init_configs: (bool) Whether the intramolecular
+                                      component of the energy/force needs to
+                                      be removed prior to training with
+                                      init_configs. only applies for IIGAP
+                                      and init_configs != None
+
     :param fix_init_config: (bool) Always start from the same initial
                             configuration for the active learning loop, if
                             False then the minimum energy structure is used.
@@ -368,7 +382,7 @@ def train(system,
     # Remove the intra-molecular energy if an intra+inter (II) GAP is being
     # trained
     do_remove_intra = isinstance(gap, gt.IIGAP)
-    if do_remove_intra:
+    if do_remove_intra and remove_intra_init_configs:
         remove_intra(init_configs, gap=gap)
 
     # Initial configuration must have energies
@@ -383,7 +397,7 @@ def train(system,
 
     # Default to validating 10 times through the training
     if validate and val_interval is None:
-        val_interval = max_active_iters // 10
+        val_interval = max(max_active_iters // 10, 1)
 
     # Initialise training data
     train_data = gt.Data(name=gap.name)
