@@ -3,7 +3,7 @@
 ## Introduction
 
 This repository contains the _gaptrain_ module for generating datasets, training
-GAPs and running simulations – it is currently under active development!
+GAPs and running simulations.
 
 
 ## Installation
@@ -23,6 +23,10 @@ conda install ase coloredlogs dscribe
     b. [DFTB+](https://dftbplus.org) and the appropriate [parameters](https://dftb.org/parameters/download)
 
     c. [GROMACS](http://www.gromacs.org)
+
+    d. [XTB](https://github.com/grimme-lab/xtb)
+
+    e. [ORCA](https://sites.google.com/site/orcainputlibrary/)
 
 4. Install [QUIP](https://github.com/libAtoms/QUIP) with [GAP](http://www.libatoms.org/gap/gap_download.html).
 the easiest way to install these is to use the Docker or Singularity containers
