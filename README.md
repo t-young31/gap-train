@@ -41,14 +41,14 @@ python setup.py install
 
 ## Usage
 
-See _examples_ for example usage. A minimal example to train a GAP on
+See _examples_ for a few simple examples. A minimal example to train a GAP on
 10 random configurations of a water box:
 
 ```python
 import gaptrain as gt
 
 system = gt.System(box_size=[10, 10, 10])
-system.add_solvent('h2o', n=30)
+system.add_solvent('h2o', n=20)
 
 training_data = gt.Data()
 for i in range(10):
@@ -58,7 +58,6 @@ training_data.parallel_dftb()
 gap = gt.GAP(name='random', system=system)
 gap.train(training_data)
 ```
-
 
 ## Configuration
 
