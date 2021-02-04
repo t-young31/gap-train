@@ -143,6 +143,10 @@ class GAP:
         assert all(config.energy is not None for config in data)
         assert self.params is not None
 
+        if all(len(params) == 0 for params in
+               (self.params.soap, self.params.pairwise, self.params.angle)):
+            raise AssertionError('Must have some GAP parameters!')
+
         logger.info('Training a Gaussian Approximation potential on '
                     f'*{len(data)}* training data points')
 
