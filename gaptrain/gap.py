@@ -165,7 +165,10 @@ class GAP:
         delta_time = time() - start_time
         print(f'GAP training ran in {delta_time/60:.1f} m')
 
-        if delta_time < 0.05 or b'SYSTEM ABORT' in err:
+        if any((delta_time < 0.05,
+                b'SYSTEM ABORT' in err,
+                not os.path.exists(f'{self.name}.xml'))):
+
             raise GAPFailed(f'GAP train errored with:\n '
                             f'{err.decode()}\n'
                             f'{" ".join(self.train_command())}')

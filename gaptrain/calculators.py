@@ -7,6 +7,9 @@ from gaptrain.gtconfig import GTConfig
 from subprocess import Popen, PIPE
 import os
 
+ha_to_ev = 27.2114
+a0_to_ang = 0.52917829614246
+
 
 def set_threads(n_cores):
     """Set the number of threads to use"""
@@ -240,6 +243,196 @@ def run_dftb(configuration, max_force, traj_name=None):
 
     # Return self to allow for multiprocessing
     return configuration
+
+
+@work_in_tmp_dir(kept_exts=['.traj'])
+def run_cp2k(configuration, max_force):
+    """Run periodic CP2K on this configuration. Will set configuration.energy
+    and configuration.forces as their calculated values at the DFT level.
+
+    --------------------------------------------------------------------------
+    :param configuration: (gaptrain.configurations.Configuration)
+
+    :param max_force: (float) or None
+    """
+    assert max_force is None
+
+    if 'CP2K_BASIS_FOLDER' not in os.environ:
+        raise RuntimeError('Could not execute CP2K. Set the environment '
+                           'variable for the directory containing basis sets '
+                           '$CP2K_BASIS_FOLDER')
+
+    if set([atom.label for atom in configuration.atoms]) != {'O', 'H'}:
+        raise NotImplementedError('CP2K input files only built for O/H '
+                                  'containing configurations')
+
+    basis_dir = os.environ['CP2K_BASIS_FOLDER']
+    if not basis_dir.endswith('/'):
+        basis_dir += '/'
+
+    configuration.save(filename='init.xyz')
+
+    a, b, c = configuration.box.size
+    with open('cp2k.inp', 'w') as inp_file:
+        print("&GLOBAL",
+              "  PROJECT name",
+              "  RUN_TYPE ENERGY_FORCE",
+              "  PRINT_LEVEL LOW",
+              "&END GLOBAL",
+              "",
+              "&FORCE_EVAL",
+              "  &DFT",
+              f"    BASIS_SET_FILE_NAME {basis_dir}GTH_BASIS_SETS",
+              f"    BASIS_SET_FILE_NAME {basis_dir}BASIS_ADMM",
+              f"    POTENTIAL_FILE_NAME {basis_dir}POTENTIAL",
+              "    &MGRID",
+              "      CUTOFF 400",
+              "    &END MGRID",
+              "    &SCF",
+              "      SCF_GUESS ATOMIC",
+              "      MAX_SCF 20",
+              "      EPS_SCF 5.0E-7",
+              "      &OT",
+              "        MINIMIZER DIIS",
+              "        PRECONDITIONER FULL_ALL",
+              "      &END OT",
+              "      &OUTER_SCF",
+              "        MAX_SCF 20",
+              "        EPS_SCF 5.0E-7",
+              "      &END OUTER_SCF",
+              "    &END SCF",
+              "    &QS",
+              "      EPS_DEFAULT 1.0E-12",
+              "      EPS_PGF_ORB 1.0E-14",
+              "      EXTRAPOLATION_ORDER 5",
+              "    &END QS",
+              "    &XC # revPBE0-TC-D3",
+              "      &XC_FUNCTIONAL",
+              "        &PBE",
+              "          PARAMETRIZATION REVPBE",
+              "          SCALE_X 0.75",
+              "          SCALE_C 1.0",
+              "        &END",
+              "      &END XC_FUNCTIONAL",
+              "      &HF",
+              "        FRACTION 0.25",
+              "        &SCREENING",
+              "          EPS_SCHWARZ 1.0E-6",
+              "          SCREEN_ON_INITIAL_P FALSE",
+              "        &END",
+              "        &MEMORY",
+              "          MAX_MEMORY 37000",
+              "          EPS_STORAGE_SCALING 0.1",
+              "        &END",
+              "        &INTERACTION_POTENTIAL",
+              "          POTENTIAL_TYPE TRUNCATED",
+              "          CUTOFF_RADIUS 6.0",
+              f"          T_C_G_DATA {basis_dir}t_c_g.dat",
+              "        &END",
+              "        &HF_INFO",
+              "        &END HF_INFO",
+              "      &END",
+              "      &VDW_POTENTIAL",
+              "         POTENTIAL_TYPE PAIR_POTENTIAL",
+              "         &PAIR_POTENTIAL",
+              "            TYPE DFTD3",
+              "            R_CUTOFF 15",
+              "            LONG_RANGE_CORRECTION TRUE",
+              "            REFERENCE_FUNCTIONAL revPBE0",
+              f"           PARAMETER_FILE_NAME {basis_dir}dftd3.dat",
+              "         &END",
+              "      &END",
+              "      &XC_GRID",
+              "        XC_DERIV SPLINE2",
+              "      &END",
+              "    &END XC",
+              "    &AUXILIARY_DENSITY_MATRIX_METHOD",
+              "      METHOD BASIS_PROJECTION",
+              "      ADMM_PURIFICATION_METHOD MO_DIAG",
+              "    &END AUXILIARY_DENSITY_MATRIX_METHOD",
+              "  &END DFT",
+              "  &SUBSYS",
+              "    &TOPOLOGY",
+              "      COORD_FILE_NAME init.xyz",
+              "      COORD_FILE_FORMAT XYZ",
+              "      CONN_FILE_FORMAT GENERATE",
+              "    &END TOPOLOGY",
+              "    &CELL",
+              f"      ABC [angstrom] {a:.2f} {b:.2f} {c:.2f}",
+              "    &END CELL",
+              "    &KIND H",
+              "      BASIS_SET TZV2P-GTH",
+              "      BASIS_SET AUX_FIT cpFIT3",
+              "      POTENTIAL GTH-PBE-q1",
+              "    &END KIND",
+              "    &KIND O",
+              "      BASIS_SET TZV2P-GTH",
+              "      BASIS_SET AUX_FIT cpFIT3",
+              "      POTENTIAL GTH-PBE-q6",
+              "    &END KIND",
+              "  &END SUBSYS",
+              "  &PRINT",
+              "    &FORCES ON",
+              "    &END FORCES",
+              "  &END PRINT",
+              "&END FORCE_EVAL",
+              "",
+              sep='\n', file=inp_file)
+
+    # Run the calculation
+    calc = Popen(GTConfig.cp2k_command + ['-o', 'cp2k.out',  'cp2k.inp'],
+                 shell=False)
+    calc.communicate()
+
+    if not os.path.exists('cp2k.out'):
+        raise RuntimeError('CP2K failed')
+
+    set_energy_forces_cp2k_out(configuration, out_filename='cp2k.out')
+    return configuration
+
+
+def set_energy_forces_cp2k_out(configuration, out_filename='cp2k.out'):
+    """
+    Set the
+
+    :param configuration:
+    :param out_filename:
+    :return:
+    """
+    n_atoms = len(configuration.atoms)
+    forces = []
+
+    out_lines = open(out_filename, 'r').readlines()
+    for i, line in enumerate(out_lines):
+        """
+        Total energy:                                      -17.23430883483457
+        """
+        if 'Total energy:' in line:
+            # Convert from Ha to eV
+            configuration.energy = ha_to_ev * float(line.split()[-1])
+
+        # And grab the first set of atomic forces
+        if 'ATOMIC FORCES' in line:
+            logger.info('Found CP2K forces')
+            """
+            Format e.g.:
+            
+            ATOMIC FORCES in [a.u.]
+
+            # Atom   Kind   Element          X              Y              Z
+              1      1      O           0.02872261     0.00136975     0.02168759
+              2      2      H          -0.00988376     0.02251862    -0.01740272
+              3      2      H          -0.01791165    -0.02390685    -0.00393702
+            """
+
+            for f_line in out_lines[i+3:i+3+n_atoms]:
+                fx, fy, fz = f_line.split()[3:]
+                forces.append([float(fx), float(fy), float(fz)])
+            break
+
+    # Convert from atomic units to eV Å-1
+    configuration.forces = np.array(forces) * (ha_to_ev / a0_to_ang)
+    return None
 
 
 def set_configuration_atoms_from_ase(config, ase_atoms):

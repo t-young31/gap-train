@@ -509,6 +509,9 @@ def train_ii(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
                           temp=intra_temp,
                           **kwargs)
 
+    if len(intra_data) == 0:
+        raise RuntimeError('Failed to train the intra-system')
+
     # Now create an intra GAP that has the molecule indexes
     intra_gap = gt.gap.IntraGAP(name=f'intra_{molecule.name}',
                                 system=system,
