@@ -1,3 +1,6 @@
+"""
+Train a GAP for a single molecule in the gas phase, here benzene
+"""
 import gaptrain as gt
 gt.GTConfig.n_cores = 4
 
