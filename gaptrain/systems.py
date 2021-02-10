@@ -75,7 +75,7 @@ class System:
 
         return self
 
-    def random(self, min_dist_threshold=1.5, with_intra=False, on_grid=False,
+    def random(self, min_dist_threshold=1.7, with_intra=False, on_grid=False,
                max_attempts=10000, **kwargs):
         """Randomise the configuration
 
@@ -138,7 +138,7 @@ class System:
                     raise ex.RandomiseFailed('Maximum attempts exceeded')
 
             # Add the coordinates to the full set
-            coords = np.vstack((coords, molecule.get_coordinates()))
+            coords = np.vstack((coords, molecule.coordinates))
 
         logger.info('Randomised all molecules in the system')
         config = system.configuration()
@@ -194,7 +194,7 @@ class System:
 
             if i == 0:
                 random_rotate(vec=grid_points[point_idx])
-                coords = np.vstack((coords, molecule.get_coordinates()))
+                coords = np.vstack((coords, molecule.coordinates))
                 continue
 
             # Try to add the remaining molecules
@@ -209,7 +209,7 @@ class System:
                     raise ex.RandomiseFailed('Maximum attempts exceeded')
 
             # Add the coordinates to the full set
-            coords = np.vstack((coords, molecule.get_coordinates()))
+            coords = np.vstack((coords, molecule.coordinates))
             grid_points.pop(point_idx)
 
         config = system.configuration()

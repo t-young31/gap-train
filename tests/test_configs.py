@@ -72,7 +72,7 @@ def test_wrap():
     # Wrapping should do nothing if all the atoms are already in the box
     assert np.linalg.norm(coords - wrapped_corods) < 1E-6
 
-    config = system.random(on_grid=True)
+    config = system.random(on_grid=True, min_dist_threshold=1)
     for atom in config.atoms[:3]:
         atom.translate(vec=np.array([10.0, 0, 0]))
 

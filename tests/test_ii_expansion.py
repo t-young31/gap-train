@@ -27,6 +27,6 @@ def test_box_expansion():
     write('tmp.xyz', new_atoms)
 
     ade_mol = ade.Molecule('tmp.xyz')
-    assert ade_mol.get_distance(0, 1) < 2           # Å
-    assert ade_mol.get_distance(0, 3) > 5           # Å
+    assert ade_mol.distance(0, 1) < 2           # Å
+    assert ade_mol.distance(0, 3) > 5           # Å
     os.remove('tmp.xyz')

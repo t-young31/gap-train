@@ -38,7 +38,7 @@ class Species(ade.species.Species):
 
         :param box: (gaptrain.box.Box)
         """
-        coords = self.get_coordinates()
+        coords = self.coordinates
 
         if np.min(coords) < 0.0:
             return False
@@ -60,7 +60,7 @@ class Species(ade.species.Species):
         if len(coords) == 0:
             return np.inf
 
-        return np.min(cdist(coords, self.get_coordinates()))
+        return np.min(cdist(coords, self.coordinates))
 
     def centroid(self):
         """
@@ -68,7 +68,7 @@ class Species(ade.species.Species):
 
         :return: (np.ndarray) shape = (3,)
         """
-        return np.average(self.get_coordinates(), axis=0)
+        return np.average(self.coordinates, axis=0)
 
     def calculate_radius(self):
         """
@@ -81,7 +81,7 @@ class Species(ade.species.Species):
         if self.n_atoms == 1:
             return get_vdw_radius(atom_label=self.atoms[0].label)
 
-        coords = self.get_coordinates()
+        coords = self.coordinates
         max_distance = np.max(distance_matrix(coords, coords))
 
         logger.warning('Assuming hydrogen on the exterior in calculating the '

@@ -6,7 +6,7 @@ import os
 from autode.wrappers.keywords import GradientKeywords
 
 here = os.path.abspath(os.path.dirname(__file__))
-h2o = Molecule(os.path.join(here, 'data', 'h2co.xyz'))
+h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 GTConfig.orca_keywords = GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])
 
 
