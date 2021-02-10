@@ -3,7 +3,8 @@
 ## Introduction
 
 This repository contains the _gaptrain_ module for generating datasets, training
-GAPs and running simulations using ASE to drive dynamics.
+GAPs and running simulations using Atomic Simulation Environment (ASE) to 
+drive dynamics.
 
 
 ## Installation
