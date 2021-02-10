@@ -41,8 +41,8 @@ python setup.py install
 
 ## Usage
 
-See _examples_ for a few simple examples. A minimal example to train a GAP on
-10 random configurations of a water box:
+See _examples_ for a selection of examples using active learning. A minimal 
+example to train a GAP on 10 random configurations of a water box:
 
 ```python
 import gaptrain as gt

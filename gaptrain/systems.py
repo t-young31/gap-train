@@ -75,7 +75,7 @@ class System:
 
         return self
 
-    def random(self, min_dist_threshold=1.5, with_intra=False, on_grid=False,
+    def random(self, min_dist_threshold=1.7, with_intra=False, on_grid=False,
                max_attempts=10000, **kwargs):
         """Randomise the configuration
 
