@@ -70,4 +70,4 @@ if __name__ == '__main__':
                            n_cores=4)
 
     # save data.xyz in the current directory
-    traj.save()
+    traj.save(filename='water_methae_traj.xyz')

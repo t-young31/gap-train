@@ -7,7 +7,7 @@ h2o.add_solvent('h2o', n=1)
 
 _, _ = gt.active.train(h2o, method_name='dftb', validate=False, temp=1000)
 
-h2o.add_solvent('h2o', n=9)
+h2o.add_solvent('h2o', n=20)
 
 intra_gap = gt.IntraGAP(name='active_gap_h2o',
                         system=h2o,
