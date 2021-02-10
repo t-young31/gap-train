@@ -2,7 +2,7 @@ import gaptrain as gt
 gt.GTConfig.n_cores = 10
 
 # Initialise a box of water and methane
-system = gt.System(box_size=[8, 8, 8])
+system = gt.System(box_size=[10, 10, 10])
 system.add_molecules(gt.Molecule('methane.xyz'))
 system.add_solvent('h2o', n=20)
 
