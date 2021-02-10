@@ -141,5 +141,4 @@ plt.legend()
 plt.savefig('energies_vs_time_methane.png', dpi=300)
 ```
 
-
-![water](common/energies_vs_time_methane.png | width=640)
+<img src="common/energies_vs_time_methane.png" width="640">
