@@ -3,7 +3,7 @@
 ## Introduction
 
 This repository contains the _gaptrain_ module for generating datasets, training
-GAPs and running simulations.
+GAPs and running simulations using ASE to drive dynamics.
 
 
 ## Installation
@@ -12,7 +12,7 @@ To install _gaptrain_ first satisfy the Python dependencies, install electronic
 structure methods and QUIP, then install the module:
 
 1. Install [autode](https://github.com/duartegroup/autodE)
-2. Install remaining Pyhton dependencies
+2. Install remaining Python dependencies
 ```
 conda install ase coloredlogs dscribe
 ```
@@ -59,9 +59,11 @@ gap = gt.GAP(name='random', system=system)
 gap.train(training_data)
 ```
 
+> **_NOTE:_**  This will not be a stable water potential!
+
 ## Configuration
 
-Different environments handled with gt.GTConfig and/or environment variables.
+Different environments are handled with `gt.GTConfig` and/or environment variables.
 DFTB+ requires an executable path and a parameter path, which can be set (in bash) with:
 
 ```bash
