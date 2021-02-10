@@ -58,8 +58,9 @@ traj = gt.md.run_gapmd(configuration=h2o.random(),
 traj.save(filename='traj.xyz')
 ```
 
-where the configuration is generated randomly from the system by placing molecules
-at random positions and orientations with a minimum distance between them of 1.7 Å.
+where the configuration is generated from the system by placing molecules
+at random positions and orientations with a minimum intermolecular distance of
+ 1.7 Å.
 
 
 ![water](common/dftb_water.gif)

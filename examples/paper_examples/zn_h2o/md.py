@@ -12,8 +12,9 @@ if __name__ == '__main__':
                                            system=system)
 
     intra_znh2o6_gap = gt.gap.SoluteIntraGAP(name='intra_znh2o6',
-                                              system=system,
-                                              molecule=gt.Molecule('znh2o6.xyz'))
+                                             system=system,
+                                             molecule=gt.Molecule(
+                                                 'znh2o6.xyz'))
     inter_gap = gt.InterGAP(name='inter', system=system, default_params=False)
 
     # Run 30 ps of dynamics from an equilibrated point

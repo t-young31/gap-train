@@ -25,7 +25,8 @@ def train_inter():
 
     intra_methane_gap = gt.gap.SoluteIntraGAP(name='intra_znh2o6',
                                               system=system,
-                                              molecule=gt.Molecule('znh2o6.xyz'))
+                                              molecule=gt.Molecule(
+                                                  'znh2o6.xyz'))
 
     inter_gap = gt.InterGAP(name='inter', system=system, default_params={})
     inter_gap.params.soap['O'] = gt.GTConfig.gap_default_soap_params
