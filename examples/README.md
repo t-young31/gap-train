@@ -5,17 +5,17 @@ from scratch in a few hours. Several other minimal examples are also in
 
 #### Contents 
 ***
-(1) benzene.py, single benzene molecule at DFTB (DFTB+)
+- benzene.py, single benzene molecule at DFTB (DFTB+)
 
-(2) methane.py, single methane molecule using a PBE/def2-SVP ground truth (ORCA)
+- methane.py, single methane molecule using a PBE/def2-SVP ground truth (ORCA)
 
-(3) diels_ader.py, MP2/TZ quality GAP around the TS for reactive dynamics (ORCA)
+- diels_ader.py, MP2/TZ quality GAP around the TS for reactive dynamics (ORCA)
 
-(2) water.py, bulk water (DFTB+)
+- water.py, bulk water (DFTB+)
 
-(3) water_methane.py, training a 'solute-solvent' GAP for methane in water (DFTB+)
+- water_methane.py, training a 'solute-solvent' GAP for methane in water (DFTB+)
 
-(4) water_methane_md.py, running molecular dynamics with the water_methane model
+- water_methane_md.py, running molecular dynamics with the water_methane model
 
 
 > **_NOTE:_**  These examples require a working DFTB+ and/or ORCA installation
