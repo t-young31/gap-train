@@ -20,7 +20,7 @@ from scratch in a few hours. Several other minimal examples are also in
 
 > **_NOTE:_**  These examples require a working DFTB+ and/or ORCA installation
 
-### Water
+### Water (~1h)
 ***
 
 First import `gaptrian` and set the number of available processing cores for
@@ -70,7 +70,7 @@ at random positions and orientations with a minimum intermolecular distance of
 ![water](common/dftb_water.gif)
 
 
-### Methane
+### Methane (~1h)
 ***
 
 To train a GAP for a single methane molecule in the gas phase at the PBE/def2-SVP
@@ -146,11 +146,11 @@ plt.savefig('energies_vs_time_methane.png', dpi=300)
 <img src="common/energies_vs_time_methane.png" width="640">
 
 
-### Diels-Alder
+### Diels-Alder (~8h)
 ***
 
 To train a GAP to an MP2/TZ ground truth over a transition state is relatively 
-straightforward. First finding the TS for the Diels-Alder reaction between 
+straightforward. First find the TS for the Diels-Alder reaction between 
 ethene and butadiene with `autodE`
 
 ```python
@@ -174,9 +174,9 @@ da_ts.add_molecules(gt.Molecule('ts.xyz'))
 
 data, gap = gt.active.train(da_ts,
                             method_name='orca',
-                            temp=500,
-                            active_e_thresh=0.1,
-                            max_time_active_fs=200,
+                            temp=500,                 # Kelvin
+                            active_e_thresh=0.1,      # eV
+                            max_time_active_fs=200,   # femtoseconds
                             fix_init_config=True)
 ```
 
@@ -196,15 +196,13 @@ finally to run and save a short GAP-MD trajectory
 ```python
 traj = gt.md.run_gapmd(configuration=da_ts.random(),
                        gap=gap,
-                       temp=50,
-                       dt=0.5,
-                       interval=1,
-                       fs=400,
+                       temp=50,      # Kelvin
+                       dt=0.5,       # femtoseconds
+                       interval=1,   # frames
+                       fs=400,       # femtoseconds
                        n_cores=4)
 
 traj.save('da_mp2_traj.xyz')
 ```
 
 ![da](common/da_mp2.gif)
-
-
