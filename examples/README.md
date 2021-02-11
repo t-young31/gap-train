@@ -1,6 +1,6 @@
 ## Examples
-Here we'll walk through how to generate a GAP potential for bulk water, and for methane 
-from scratch in just an of hour or so. A few other minimal examples are also in
+Here we'll walk through how to generate a GAP potential for a few examples
+from scratch in a few hours. Several other minimal examples are also in
  this directory
 
 #### Contents 
@@ -8,6 +8,8 @@ from scratch in just an of hour or so. A few other minimal examples are also in
 (1) benzene.py, single benzene molecule at DFTB (DFTB+)
 
 (2) methane.py, single methane molecule using a PBE/def2-SVP ground truth (ORCA)
+
+(3) diels_ader.py, MP2/TZ quality GAP around the TS for reactive dynamics (ORCA)
 
 (2) water.py, bulk water (DFTB+)
 
@@ -142,3 +144,67 @@ plt.savefig('energies_vs_time_methane.png', dpi=300)
 ```
 
 <img src="common/energies_vs_time_methane.png" width="640">
+
+
+### Diels-Alder
+***
+
+To train a GAP to an MP2/TZ ground truth over a transition state is relatively 
+straightforward. First finding the TS for the Diels-Alder reaction between 
+ethene and butadiene with `autodE`
+
+```python
+import autode as ade
+ade.Config.n_cores = 8
+ade.Config.ORCA.keywords.set_functional('PBE')
+
+rxn = ade.Reaction('C=CC=C.C=C>>C1=CCCCC1')
+rxn.locate_transition_state()
+rxn.ts.print_xyz_file(filename='ts.xyz')
+```
+
+then use the transition state geometry to train from, using a fast to evaluate
+PBE/DZ ground truth and a ~2 kcal mol-1 (~0.1 eV) threshold for adding configurations
+
+```python
+gt.GTConfig.orca_keywords = GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])
+
+da_ts = gt.System(box_size=[10, 10, 10])
+da_ts.add_molecules(gt.Molecule('ts.xyz'))
+
+data, gap = gt.active.train(da_ts,
+                            method_name='orca',
+                            temp=500,
+                            active_e_thresh=0.1,
+                            max_time_active_fs=200,
+                            fix_init_config=True)
+```
+
+once the GAP has been trained the PBE/DZ data can be 'uplifted' to MP2/TZ by
+re-evaluating energies and forces at the new level and retraining the GAP
+
+```python
+gt.GTConfig.orca_keywords = GradientKeywords(['RI-MP2', 'def2-TZVP', 'TightSCF',
+                                              'AutoAux', 'NoFrozenCore', 'EnGrad'])
+data.parallel_orca()
+
+gap.train(data)
+```
+
+finally to run and save a short GAP-MD trajectory
+
+```python
+traj = gt.md.run_gapmd(configuration=da_ts.random(),
+                       gap=gap,
+                       temp=50,
+                       dt=0.5,
+                       interval=1,
+                       fs=400,
+                       n_cores=4)
+
+traj.save('da_mp2_traj.xyz')
+```
+
+![da](common/da_mp2.gif)
+
+
