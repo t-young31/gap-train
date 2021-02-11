@@ -23,7 +23,7 @@ from scratch in a few hours. Several other minimal examples are also in
 ### Water (~1h)
 ***
 
-First import `gaptrian` and set the number of available processing cores for
+First import `gaptrain` and set the number of available processing cores for
 training. For such a fast ground truth method four cores is sufficent
 
 ```python
@@ -41,7 +41,7 @@ h2o.add_solvent('h2o', n=20)
 
 and train using intra+inter molecular decomposition using active learning with 
 all the defaults, which comprise a 1 ps maximum active learning time, a 1 kcal 
-mol-1 per molecule energy threshold for adding a configuration among others.
+mol<sup>-1</sup> per molecule energy threshold for adding a configuration among others.
 
 ```python
 data, gap = gt.active.train_ii(h2o, method_name='dftb')
@@ -164,7 +164,7 @@ rxn.ts.print_xyz_file(filename='ts.xyz')
 ```
 
 then use the transition state geometry to train from, using a fast to evaluate
-PBE/DZ ground truth and a ~2 kcal mol-1 (~0.1 eV) threshold for adding configurations
+PBE/DZ ground truth and a ~2 kcal mol<sup>-1</sup> (~0.1 eV) threshold for adding configurations
 
 ```python
 gt.GTConfig.orca_keywords = GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])
