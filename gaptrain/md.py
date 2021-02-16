@@ -271,7 +271,7 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
     return Trajectory('geo_end.xyz', init_configuration=configuration)
 
 
-# @work_in_tmp_dir(copied_exts=['.xml'])
+@work_in_tmp_dir(copied_exts=['.xml'])
 def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
               fbond_energy=None, **kwargs):
     """
