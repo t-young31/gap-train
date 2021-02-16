@@ -36,6 +36,62 @@ def simulation_steps(dt, kwargs):
     return max(int(time_fs / dt), 1)
 
 
+def ase_momenta_string(configuration, temp, bbond_energy, fbond_energy):
+    """Generate a string to set the initial momenta"""
+
+    string = ''
+
+    if temp > 0:
+        logger.info(f'Initialising temperature velocities for a temperature '
+                    f'{temp} K')
+        string += f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)\n'
+
+    else:
+        # Set the momenta to zero
+        string += f"system.arrays['momenta'] = np.zeros((len(system), 3))\n"
+
+    def momenta(idx, vector, energy):
+        return (f"system.arrays['momenta'][{int(idx)}] = " 
+                f"np.sqrt(system.get_masses()[{int(idx)}] * {energy})"
+                f" * np.array({vector.tolist()})\n")
+
+    coords = configuration.coordinates()
+    if bbond_energy is not None:
+        assert type(bbond_energy) is dict
+        logger.info('Adding breaking bond momenta')
+
+        for atom_idxs, energy in bbond_energy.items():
+            i, j = atom_idxs
+            logger.info(f'Adding {energy} eV to break bond: {i}-{j}')
+
+            #    vec
+            #   <---   i--j         where i and j are two atoms
+            #
+            vec = coords[i] - coords[j]
+            vec /= np.linalg.norm(vec)    # normalise
+
+            string += momenta(idx=i, vector=vec, energy=energy)
+            string += momenta(idx=j, vector=-vec, energy=energy)
+
+    if fbond_energy is not None:
+        assert type(fbond_energy) is dict
+
+        for atom_idxs, energy in fbond_energy.items():
+            i, j = atom_idxs
+            logger.info(f'Adding {energy} eV to form bond: {i}-{j}')
+
+            #    vec
+            #   --->   i--j         where i and j are two atoms
+            #
+            vec = coords[j] - coords[i]
+            vec /= np.linalg.norm(vec)  # normalise
+
+            string += momenta(idx=i, vector=vec, energy=energy)
+            string += momenta(idx=j, vector=-vec, energy=energy)
+
+    return string
+
+
 def run_mmmd(system, config, temp, dt, interval, **kwargs):
     """
     Generate topology and input gro files.
@@ -215,8 +271,9 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
     return Trajectory('geo_end.xyz', init_configuration=configuration)
 
 
-@work_in_tmp_dir(copied_exts=['.xml'])
-def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
+# @work_in_tmp_dir(copied_exts=['.xml'])
+def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
+              fbond_energy=None, **kwargs):
     """
     Run molecular dynamics on a system using a GAP to predict energies and
     forces
@@ -226,11 +283,20 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
 
     :param gap: (gaptrain.gap.GAP | gaptrain.gap.AdditiveGAP)
 
-    :param temp: (float) Temperature in K to use
+    :param temp: (float) Temperature in K to initialise velocities and to run
+                 NVT MD, if temp=0 then will run NVE
 
     :param dt: (float) Timestep in fs
 
     :param interval: (int) Interval between printing the geometry
+
+    :param bbond_energy: (dict | None) Additional energy to add to a breaking
+                         bond. e.g. bbond_energy={(0, 1), 0.1} Adds 0.1 eV
+                         to the 'bond' between atoms 0 and 1 as velocities
+                         shared between the atoms in the breaking bond direction
+
+    :param fbond_energy: (dict | None) As bbond_energy but in the direction to
+                         form a bond
 
     :param kwargs: {fs, ps, ns} Simulation time in some units
     """
@@ -248,6 +314,14 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
     os.environ['OMP_NUM_THREADS'] = str(n_cores)
     logger.info(f'Using {n_cores} cores for GAP MD')
 
+    def dynamics_string():
+        if temp > 0:
+            # default to Langevin NVT
+            return f'Langevin(system, {dt:.1f} * units.fs, {temp} * units.kB, 0.02)',
+
+        # Otherwise velocity verlet NVE
+        return f'VelocityVerlet(system, {dt:.1f} * units.fs)'
+
     # Print a Python script to execute quippy and use ASE to drive the dynamics
     with open(f'gap.py', 'w') as quippy_script:
         print('from __future__ import print_function',
@@ -258,15 +332,16 @@ def run_gapmd(configuration, gap, temp, dt, interval, **kwargs):
               'from ase.md.velocitydistribution import MaxwellBoltzmannDistribution',
               'from ase import units',
               'from ase.md.langevin import Langevin',
+              'from ase.md.verlet import VelocityVerlet',
               'system = read("config.xyz")',
               f'system.cell = [{a}, {b}, {c}]',
               'system.pbc = True',
               'system.center()',
               f'{gap.ase_gap_potential_str()}',
               'system.set_calculator(pot)',
-              f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)',
-              'traj = Trajectory("tmp.traj", \'w\', system)\n'
-              f'dyn = Langevin(system, {dt:.1f} * units.fs, {temp} * units.kB, 0.02)',
+              ase_momenta_string(configuration, temp, bbond_energy, fbond_energy),
+              'traj = Trajectory("tmp.traj", \'w\', system)\n',
+              f'dyn = {dynamics_string()}',
               f'dyn.attach(traj.write, interval={interval})',
               f'dyn.run(steps={n_steps})',
               sep='\n', file=quippy_script)

@@ -1,0 +1,1 @@
+Currently (02/2021) this example needs to be run with the cp2k_calc branch of this repository
