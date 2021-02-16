@@ -317,7 +317,7 @@ def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
     def dynamics_string():
         if temp > 0:
             # default to Langevin NVT
-            return f'Langevin(system, {dt:.1f} * units.fs, {temp} * units.kB, 0.02)',
+            return f'Langevin(system, {dt:.1f} * units.fs, {temp} * units.kB, 0.02)'
 
         # Otherwise velocity verlet NVE
         return f'VelocityVerlet(system, {dt:.1f} * units.fs)'
