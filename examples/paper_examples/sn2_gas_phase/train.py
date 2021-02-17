@@ -38,4 +38,4 @@ if __name__ == '__main__':
                            fs=400,
                            n_cores=4)
 
-    traj.save('da_mp2_traj.xyz')
+    traj.save('sn2_example_traj.xyz')
