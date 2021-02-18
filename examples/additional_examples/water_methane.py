@@ -23,11 +23,7 @@ def train_methane():
 
 
 def train_inter():
-    init_configs = gt.Data()
-    init_configs.load('init_configs.xyz')
-
     data, gap = gt.active.train(system,
-                                init_configs=init_configs,
                                 method_name='dftb',
 
                                 validate=False,
@@ -69,5 +65,4 @@ if __name__ == '__main__':
                            fs=500,
                            n_cores=4)
 
-    # save data.xyz in the current directory
     traj.save(filename='water_methae_traj.xyz')
