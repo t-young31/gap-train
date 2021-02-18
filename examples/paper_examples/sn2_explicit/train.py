@@ -18,6 +18,7 @@ def train_sn2():
                            gap=gt.GAP(name='intra_sn2', system=sn2),
                            active_e_thresh=0.1,
                            max_time_active_fs=500,
+                           fix_init_config=True,
                            method_name='gpaw',
                            validate=False,
                            temp=500)
@@ -31,6 +32,7 @@ def train_inter():
                            validate=False,
                            fix_init_config=True,
                            active_e_thresh=0.5,
+                           max_time_active_fs=500,
                            gap=gt.gap.SSGAP(solute_intra=intra_sn2_gap,
                                             solvent_intra=intra_h2o_gap,
                                             inter=inter_gap))
@@ -44,7 +46,7 @@ if __name__ == '__main__':
     train_h2o()
 
     sn2 = gt.System(box_size=[10, 10, 10])
-    sn2.add_molecules(gt.Molecule('ts.xyz'))
+    sn2.add_molecules(gt.Molecule('ts.xyz', charge=-1))
     train_sn2()
 
     system = gt.System(box_size=[10, 10, 10])
