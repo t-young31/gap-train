@@ -347,9 +347,14 @@ def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
               'system.set_calculator(pot)',
               ase_momenta_string(configuration, init_temp, bbond_energy, fbond_energy),
               'traj = Trajectory("tmp.traj", \'w\', system)\n',
+              'energy_file = open("tmp_energies.txt", "w")',
+              'def print_energy(atoms=system):',
+              '    energy_file.write(str(atoms.get_potential_energy())+"\\n")\n',
               f'dyn = {dynamics_string()}',
+              f'dyn.attach(print_energy, interval={interval})',
               f'dyn.attach(traj.write, interval={interval})',
               f'dyn.run(steps={n_steps})',
+              'energy_file.close()',
               sep='\n', file=quippy_script)
 
     # Run the process
