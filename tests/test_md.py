@@ -1,3 +1,4 @@
+import gaptrain as gt
 from gaptrain.systems import MMSystem
 from gaptrain.md import run_mmmd
 from gaptrain.molecules import Ion
@@ -22,3 +23,23 @@ def test_run_mmmd():
         return
 
     run_mmmd(water_box, config, temp=300, dt=1, interval=100, ps=10)
+
+    return None
+
+
+def test_ase_momenta_string():
+
+    system = gt.System(box_size=[10, 10, 10])
+    system.add_solvent('h2o', n=1)
+
+    configuration = system.configuration()
+
+    bbond_energy = {(1, 2): 0.1}
+    fbond_energy = {(1, 2): 0.1}
+
+    momenta_string = gt.md.ase_momenta_string(configuration, 300, bbond_energy,
+                                              fbond_energy)
+
+    assert type(momenta_string) is str
+
+    return None

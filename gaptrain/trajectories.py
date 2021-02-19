@@ -70,6 +70,17 @@ class Trajectory(gt.ConfigurationSet):
 
             self._list.append(config)
 
+        # Set the energies from the trajectory if possible
+        if os.path.exists('tmp_energies.txt'):
+            for i, line in enumerate(open('tmp_energies.txt', 'r')):
+                try:
+                    self[i].energy = float(line.split()[0])
+
+                except (TypeError, ValueError, IndexError):
+                    logger.warning('Could not set the energy')
+
+            os.remove('tmp_energies.txt')
+
         return None
 
     def extract_from_gmx(self, filename, init_config):
