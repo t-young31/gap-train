@@ -404,6 +404,7 @@ class Configuration:
         self.partial_charges = None                         # e
 
         self.n_wraps = 0
+        self.n_evals = 0     # Number of reference evaluations used to generate
 
         if filename is not None:
 
@@ -568,6 +569,7 @@ class ConfigurationSet:
             # and forces (each with .true)
             for i, result in enumerate(results):
                 self._list[i] = result.get(timeout=None)
+                self._list[i].n_evals += 1
 
         logger.info(f'Calculations done in {(time() - start_time)/60:.1f} m')
         return None
