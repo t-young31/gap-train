@@ -273,7 +273,7 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
 
 @work_in_tmp_dir(copied_exts=['.xml'])
 def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
-              fbond_energy=None, **kwargs):
+              fbond_energy=None, init_temp=None, **kwargs):
     """
     Run molecular dynamics on a system using a GAP to predict energies and
     forces
@@ -285,6 +285,9 @@ def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
 
     :param temp: (float) Temperature in K to initialise velocities and to run
                  NVT MD, if temp=0 then will run NVE
+
+    :param init_temp: (float | None) Initial temperature to initialise momenta
+                      with. If None then will be set at temp
 
     :param dt: (float) Timestep in fs
 
@@ -322,6 +325,9 @@ def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
         # Otherwise velocity verlet NVE
         return f'VelocityVerlet(system, {dt:.1f} * units.fs)'
 
+    if init_temp is None:
+        init_temp = temp
+
     # Print a Python script to execute quippy and use ASE to drive the dynamics
     with open(f'gap.py', 'w') as quippy_script:
         print('from __future__ import print_function',
@@ -339,11 +345,16 @@ def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
               'system.center()',
               f'{gap.ase_gap_potential_str()}',
               'system.set_calculator(pot)',
-              ase_momenta_string(configuration, temp, bbond_energy, fbond_energy),
+              ase_momenta_string(configuration, init_temp, bbond_energy, fbond_energy),
               'traj = Trajectory("tmp.traj", \'w\', system)\n',
+              'energy_file = open("tmp_energies.txt", "w")',
+              'def print_energy(atoms=system):',
+              '    energy_file.write(str(atoms.get_potential_energy())+"\\n")\n',
               f'dyn = {dynamics_string()}',
+              f'dyn.attach(print_energy, interval={interval})',
               f'dyn.attach(traj.write, interval={interval})',
               f'dyn.run(steps={n_steps})',
+              'energy_file.close()',
               sep='\n', file=quippy_script)
 
     # Run the process
