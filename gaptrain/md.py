@@ -37,7 +37,13 @@ def simulation_steps(dt, kwargs):
 
 
 def ase_momenta_string(configuration, temp, bbond_energy, fbond_energy):
-    """Generate a string to set the initial momenta"""
+    """Generate a string to set the initial momenta
+
+    :param configuration: (gt.Configuration)
+    :param temp: (float)
+    :param bbond_energy: (dict | None) Breaking bond energy
+    :param fbond_energy: (dict | None) Forming bond energy
+    """
 
     string = ''
 
