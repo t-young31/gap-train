@@ -3,7 +3,7 @@ gt.GTConfig.n_cores = 20
 
 
 def train_intra_zn():
-    gap = gt.GAP(name='intra_znh2o6', system=znh2o6, default_params={})
+    gap = gt.GAP(name='intra_znh2o6', system=znh2o6, default_params=False)
     gap.params.soap['O'] = gt.GTConfig.gap_default_soap_params
     gap.params.soap['O']['cutoff'] = 3.0
     gap.params.soap['O']['other'] = ['Zn', 'H', 'O']
@@ -28,7 +28,7 @@ def train_inter():
                                               molecule=gt.Molecule(
                                                   'znh2o6.xyz'))
 
-    inter_gap = gt.InterGAP(name='inter', system=system, default_params={})
+    inter_gap = gt.InterGAP(name='inter', system=system, default_params=False)
     inter_gap.params.soap['O'] = gt.GTConfig.gap_default_soap_params
     inter_gap.params.soap['O']['cutoff'] = 4.0
     inter_gap.params.soap['O']['other'] = ['Zn', 'H', 'O']
