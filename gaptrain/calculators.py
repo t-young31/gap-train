@@ -391,6 +391,52 @@ def run_cp2k(configuration, max_force):
     return configuration
 
 
+def get_gp_var_quip_out(configuration, out_filename='quip.out'):
+    """
+    Given a QUIP output file extract the list of atomic variances for each
+    set of atoms
+
+    :param configuration:
+    :param out_filename:
+    :return:
+    """
+    out_lines = [line for line in open(out_filename, 'r')
+                 if line.startswith('AT')]
+
+    # and grab the local GP variance per atom from the output
+    first_line_idx = None
+    for i, line in enumerate(out_lines):
+        try:
+            if int(line.split()[-1]) == len(configuration.atoms):
+                first_line_idx = i
+                break
+
+        except ValueError:
+            continue
+
+    if first_line_idx is None:
+        raise RuntimeError('Could not extract the first line')
+
+    gp_vars = []
+    n_atoms = len(configuration.atoms)
+    for i, line in enumerate(out_lines[first_line_idx:][::n_atoms+4]):
+        atom_vars = []
+
+        # Go through each xyz section and grab the predicted atomic variance
+        first_line = first_line_idx + i*(n_atoms+2) + 2
+        for xyz_line in out_lines[first_line:first_line+n_atoms]:
+            try:
+                atom_var = float(xyz_line.split()[-4])
+                atom_vars.append(atom_var)
+
+            except (ValueError, IndexError):
+                raise RuntimeError('Could not extract the atomic var')
+
+        gp_vars.append(np.array(atom_vars))
+
+    return gp_vars
+
+
 def set_energy_forces_cp2k_out(configuration, out_filename='cp2k.out'):
     """
     Set the
