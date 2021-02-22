@@ -548,7 +548,9 @@ def train(system,
 
     # Initialise a τ metric with default parameters
     if validate and tau is None:
-        tau = gt.loss.Tau(configs=get_init_configs(system, n=5))
+        # 1 ps default maximum tau
+        tau = gt.loss.Tau(configs=get_init_configs(system, n=5),
+                          max_fs=tau_max if tau_max is not None else 10000)
 
     # Default to validating 10 times through the training
     if validate and val_interval is None:
@@ -622,7 +624,7 @@ def train(system,
                   f'{sum(config.n_evals for config in train_data):<13g}'
                   f'{tau.value}', sep='\t', file=tau_file)
 
-            if tau_max is not None and np.abs(tau.value - tau_max) < 1:
+            if np.abs(tau.value - tau.max_time) < 1:
                 logger.info('Reached the maximum tau. Active learning = DONE')
                 break
 
