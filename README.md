@@ -18,15 +18,10 @@ year={2021}, month={Feb}}
 
 ## Installation
 
-To install _gaptrain_ first satisfy the Python dependencies, install electronic
-structure methods and QUIP, then install the module:
+To install _gaptrain_ first ensure at least one electronic structure method is
+available, install and QUIP, then install the module:
 
-1. Install [autode](https://github.com/duartegroup/autodE)
-2. Install remaining Python dependencies
-```
-conda install ase coloredlogs dscribe
-```
-3. If required install:
+1. If required install:
 
     a. [GPAW](https://wiki.fysik.dtu.dk/gpaw/install.html)
 
@@ -38,13 +33,14 @@ conda install ase coloredlogs dscribe
 
     e. [ORCA](https://sites.google.com/site/orcainputlibrary/)
 
-4. Install [QUIP](https://github.com/libAtoms/QUIP) with [GAP](http://www.libatoms.org/gap/gap_download.html).
+2. Install [QUIP](https://github.com/libAtoms/QUIP) with [GAP](http://www.libatoms.org/gap/gap_download.html).
 the easiest way to install these is to use the Docker or Singularity containers
 
-5. Install _gaptrain_
+3. Install _gaptrain_
 ```
 git clone https://github.com/t-young31/gap-train.git
 cd gap-train
+conda install --file requirements.txt -c conda-forge
 python setup.py install
 ```
 
