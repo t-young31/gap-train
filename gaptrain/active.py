@@ -158,10 +158,18 @@ def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
 
     ------------------------------------------------------------------------
     :param config: (gt.Configuration)
-    :param gap: (gt.GAPEnsemble)
-    :param temp: (float)
-    :param std_e_thresh: (float) eV
+
+    :param gap: (gt.GAPEnsemble) An 'ensemble' of GAPs trained on the same/
+                similar data to make predictions with
+
+    :param temp: (float) Temperature for the GAP-MD
+
+    :param std_e_thresh: (float) Threshold for the maximum standard deviation
+                         between the GAP predictions (on the whole system),
+                         above which a frame is added
+
     :param max_time_fs: (float)
+
     :return: (gt.Configuration)
     """
     n_iters, curr_time = 0, 0.0
