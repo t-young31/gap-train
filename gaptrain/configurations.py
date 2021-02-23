@@ -405,6 +405,7 @@ class Configuration:
 
         self.n_wraps = 0
         self.n_evals = 0     # Number of reference evaluations used to generate
+        self.t0 = 0          # Time from initial configuration
 
         if filename is not None:
 

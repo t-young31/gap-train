@@ -187,7 +187,6 @@ def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
             # is larger than a threshold
             std_e = np.std(np.array(pred_es))
             if std_e > std_e_thresh:
-                frame.t0 = 0                # TODO - something better here
                 return frame
 
             logger.info(f'σ(t={curr_time:.1f}) = {std_e:.6f}')
@@ -195,8 +194,7 @@ def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
         n_iters += 1
         curr_time += 2 + n_iters**3
 
-    gap_traj[-1].t0 = curr_time
-    return gap_traj[-1]
+    return None
 
 
 @work_in_tmp_dir(kept_exts=[], copied_exts=['.xml'])
@@ -247,15 +245,14 @@ def get_active_config_gp_var(config, gap, temp, var_e_thresh, max_time_fs):
         # Enumerate all the frames and return one that has a variance above the
         # threshold
         for frame, var in zip(gap_traj, gp_vars):
-            frame.t0 = 0
 
-            logger.info(f'var(GAP pred, t={curr_time})={np.max(var):.4f} eV')
+            logger.info(f'var(GAP pred, t={curr_time})={np.max(var):.5f} eV')
             if np.max(var) > var_e_thresh:
                 return frame
 
         n_iters += 1
 
-    return gap_traj[-1]
+    return None
 
 
 def get_active_configs(config, gap, ref_method_name, method='true',
@@ -301,6 +298,8 @@ def get_active_configs(config, gap, ref_method_name, method='true',
                                   'n_configs >= gt.GTConfig.n_cores')
     results = []
     configs = gt.Data()
+    logger.info('Searching for "active" configurations with a threshold of '
+                f'{e_thresh:.6f} eV')
 
     if method.lower() == 'true':
         function = get_active_config_true
@@ -564,8 +563,17 @@ def train(system,
     gap.train(init_configs)
 
     if active_e_thresh is None:
-        #                 1 kcal mol-1 molecule-1
-        active_e_thresh = 0.043363 * len(system.molecules)
+        if active_method.lower() == 'true':
+            #                 1 kcal mol-1 molecule-1
+            active_e_thresh = 0.043363 * len(system.molecules)
+
+        if active_method.lower() == 'qbc':
+            # optimised on a small box of water. std dev. for total energy
+            active_e_thresh = 1E-6 * len(system.molecules)
+
+        if active_method.lower() == 'gp_var':
+            # Threshold for maximum per-atom GP variance (eV atom^-1)
+            active_e_thresh = 5E-5
 
     # Initialise the validation output file
     if validate:
