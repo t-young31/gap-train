@@ -151,10 +151,10 @@ def get_active_config_true(config, gap, temp, e_thresh, max_time_fs,
 
 def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
     """
-    Generate an 'active' configuration i.e. a configuration to be added to the
-    training set by active learning using a query-by-committee model where
-    above some standard deviation in the prediction between different models
-    exceeds a threshold (std_e_thresh)
+    Generate an 'active' configuration, i.e. a configuration to be added to the
+    training set by active learning, using a query-by-committee model, where
+    the prediction between different models (standard deviation) exceeds a
+    threshold (std_e_thresh)
 
     ------------------------------------------------------------------------
     :param config: (gt.Configuration)
@@ -741,7 +741,6 @@ def train_ss(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
                                       gap=gt.GAP(name=f'intra_{molecule.name}',
                                                  system=intra_system),
                                       method_name=method_name,
-                                      validate=False,
                                       temp=intra_temp,
                                       **kwargs)
         data.append(mol_data)
