@@ -549,7 +549,8 @@ def train(system,
     if validate and tau is None:
         # 1 ps default maximum tau
         tau = gt.loss.Tau(configs=get_init_configs(system, n=5),
-                          max_fs=tau_max if tau_max is not None else 10000)
+                          e_lower=0.043363 * len(system.molecules),
+                          max_fs=tau_max if tau_max is not None else 1000)
 
     # Default to validating 10 times through the training
     if validate and val_interval is None:
