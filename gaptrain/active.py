@@ -52,7 +52,7 @@ def remove_intra(configs, gap):
     return configs
 
 
-def get_active_config_true(config, gap, temp, e_thresh, max_time_fs,
+def get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
                            ref_method_name='dftb', curr_time_fs=0, n_calls=0,
                            extra_time_fs=0):
     """
@@ -143,7 +143,7 @@ def get_active_config_true(config, gap, temp, e_thresh, max_time_fs,
     curr_time_fs += md_time_fs
 
     # If the prediction is within the threshold then call this function again
-    return get_active_config_true(config, gap, temp, e_thresh, max_time_fs,
+    return get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
                                   curr_time_fs=curr_time_fs,
                                   ref_method_name=ref_method_name,
                                   n_calls=n_calls+1)
@@ -203,12 +203,19 @@ def get_active_config_gp_var(config, gap, temp, var_e_thresh, max_time_fs):
     Generate an active configuration by calculating the predicted variance
     on a configuration using the trained gap
 
-    :param config:
-    :param gap:
-    :param temp:
-    :param var_e_thresh:
-    :param max_time_fs:
-    :return:
+    :param config: (gt.Configuration) Initial configuration to propagate GAP-MD
+                   from
+
+    :param gap: (gt.GAP)
+
+    :param temp: (float) Temperature for the GAP-MD
+
+    :param var_e_thresh: (float) Threshold for the maximum atomic variance in
+                         the GAP predicted energy
+
+    :param max_time_fs: (float)
+
+    :return: (gt.Configuration)
     """
     # Needs a single gap to calculate the variance simply, if this is a II or
     # SS GAP then assume the intra is well trained and use inter prediction
@@ -299,7 +306,7 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
                 f'{e_thresh:.6f} eV')
 
     if method.lower() == 'diff':
-        function = get_active_config_true
+        function = get_active_config_diff
         args = (config, gap, temp, e_thresh, max_time_fs, ref_method_name,
                 0, 0, min_time_fs)
 
