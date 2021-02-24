@@ -8,11 +8,13 @@ drive dynamics. Methods are described in the [preprint](https://chemrxiv.org/art
 
 ```
 @misc{Young2021, 
-title={A Transferable Active-Learning Strategy for Reactive Molecular Force Fields}, 
-DOI={10.26434/chemrxiv.13856123.v1}, 
-publisher={ChemRxiv}
-author={Young, Tom and Johnston-Wood, Tristan and Deringer, Volker and Duarte, Fernanda}
-year={2021}, month={Feb}} 
+  title={A Transferable Active-Learning Strategy for Reactive Molecular Force Fields}, 
+  DOI={10.26434/chemrxiv.13856123.v1}, 
+  publisher={ChemRxiv}
+  author={Young, Tom and Johnston-Wood, Tristan and Deringer, Volker and Duarte, Fernanda}
+  year={2021}, 
+  month={Feb}
+} 
 ```
 
 
