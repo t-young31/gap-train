@@ -151,7 +151,7 @@ class Tau:
         logger.info(str(self))
         return None
 
-    def __init__(self, configs, e_lower=0.1, e_thresh=1, max_fs=1000,
+    def __init__(self, configs, e_lower=0.1, e_thresh=None, max_fs=1000,
                  interval_fs=20, temp=300, dt_fs=0.5):
         """
         τ_acc prospective error metric in fs
@@ -165,9 +165,10 @@ class Tau:
                         the error is zero-ed, i.e. the acceptable level of
                         error possible in the system
 
-        :param e_thresh: (float) E_t total cumulative error in eV. τ_acc is
-                         defined at the time in the simulation where this
-                         threshold is exceeded
+        :param e_thresh: (float | None) E_t total cumulative error in eV. τ_acc
+                         is defined at the time in the simulation where this
+                         threshold is exceeded. If None then:
+                         e_thresh = 10 * e_lower
 
         :param max_fs: (float) Maximum time in femto-seconds for τ_acc
 
@@ -197,7 +198,7 @@ class Tau:
         self.interval_time = float(interval_fs)
 
         self.e_l = float(e_lower)
-        self.e_t = float(e_thresh)
+        self.e_t = 10 * self.e_l if e_thresh is None else float(e_thresh)
 
         logger.info('Successfully initialised τ_acc, will do a maximum of '
                     f'{int(self.max_time // self.interval_time)} reference '

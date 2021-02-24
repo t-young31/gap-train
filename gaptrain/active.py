@@ -1,8 +1,9 @@
-import os
 import gaptrain as gt
 import numpy as np
 import gaptrain.exceptions as ex
-from gaptrain.utils import unique_name
+from subprocess import Popen, PIPE
+from gaptrain.utils import unique_name, work_in_tmp_dir
+from gaptrain.calculators import get_gp_var_quip_out
 from autode.atoms import get_vdw_radius
 from multiprocessing import Pool
 from gaptrain.log import logger
@@ -51,9 +52,9 @@ def remove_intra(configs, gap):
     return configs
 
 
-def get_active_config(config, gap, temp, e_thresh, max_time_fs,
-                      method_name='dftb', curr_time_fs=0, n_calls=0,
-                      extra_time_fs=0):
+def get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
+                           ref_method_name='dftb', curr_time_fs=0, n_calls=0,
+                           extra_time_fs=0):
     """
     Given a configuration run MD with a GAP until the absolute error between
     the predicted and true values is above a threshold
@@ -70,7 +71,7 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
 
     :param max_time_fs: (float)
 
-    :param method_name: (str)
+    :param ref_method_name: (str)
 
     :param curr_time_fs: (float)
 
@@ -106,14 +107,14 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
         frame.t0 = curr_time_fs + extra_time_fs
 
     # Evaluate the error on the final frame
-    error = calc_error(frame=gap_traj[-1], gap=gap, method_name=method_name)
+    error = calc_error(frame=gap_traj[-1], gap=gap, method_name=ref_method_name)
 
     # And the number of ground truth evaluations for this configuration
     n_evals = n_calls + 1
 
     if error > 100 * e_thresh:
         logger.error('Huge error: 100x threshold, returning the first frame')
-        gap_traj[0].single_point(method_name=method_name, n_cores=1)
+        gap_traj[0].single_point(method_name=ref_method_name, n_cores=1)
         gap_traj[0].n_evals = n_evals + 1
         return gap_traj[0]
 
@@ -122,7 +123,7 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
                        '10x the threshold')
         # Stride through only 10 frames to prevent very slow backtracking
         for frame in reversed(gap_traj[::max(1, len(gap_traj)//10)]):
-            error = calc_error(frame, gap=gap, method_name=method_name)
+            error = calc_error(frame, gap=gap, method_name=ref_method_name)
             n_evals += 1
 
             if e_thresh < error < 10 * e_thresh:
@@ -142,13 +143,134 @@ def get_active_config(config, gap, temp, e_thresh, max_time_fs,
     curr_time_fs += md_time_fs
 
     # If the prediction is within the threshold then call this function again
-    return get_active_config(config, gap, temp, e_thresh, max_time_fs,
-                             curr_time_fs=curr_time_fs,
-                             method_name=method_name,
-                             n_calls=n_calls+1)
+    return get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
+                                  curr_time_fs=curr_time_fs,
+                                  ref_method_name=ref_method_name,
+                                  n_calls=n_calls+1)
 
 
-def get_active_configs(config, gap, method_name,
+def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
+    """
+    Generate an 'active' configuration, i.e. a configuration to be added to the
+    training set by active learning, using a query-by-committee model, where
+    the prediction between different models (standard deviation) exceeds a
+    threshold (std_e_thresh)
+
+    ------------------------------------------------------------------------
+    :param config: (gt.Configuration)
+
+    :param gap: (gt.GAPEnsemble) An 'ensemble' of GAPs trained on the same/
+                similar data to make predictions with
+
+    :param temp: (float) Temperature for the GAP-MD
+
+    :param std_e_thresh: (float) Threshold for the maximum standard deviation
+                         between the GAP predictions (on the whole system),
+                         above which a frame is added
+
+    :param max_time_fs: (float)
+
+    :return: (gt.Configuration)
+    """
+    n_iters, curr_time = 0, 0.0
+
+    while curr_time < max_time_fs:
+
+        gap_traj = gt.md.run_gapmd(config,
+                                   gap=gap.gaps[0],
+                                   temp=float(temp),
+                                   dt=0.5,
+                                   interval=4,
+                                   fs=2 + n_iters**3,
+                                   n_cores=1)
+
+        for frame in gap_traj[::max(1, len(gap_traj)//10)]:
+            pred_es = []
+            # Calculated predicted energies in serial for all the gaps
+            for single_gap in gap.gaps:
+                frame.run_gap(gap=single_gap, n_cores=1)
+                pred_es.append(frame.energy)
+
+            # and return the frame if the standard deviation in the predictions
+            # is larger than a threshold
+            std_e = np.std(np.array(pred_es))
+            if std_e > std_e_thresh:
+                return frame
+
+            logger.info(f'σ(t={curr_time:.1f}) = {std_e:.6f}')
+
+        n_iters += 1
+        curr_time += 2 + n_iters**3
+
+    return None
+
+
+@work_in_tmp_dir(kept_exts=[], copied_exts=['.xml'])
+def get_active_config_gp_var(config, gap, temp, var_e_thresh, max_time_fs):
+    """
+    Generate an active configuration by calculating the predicted variance
+    on a configuration using the trained gap
+
+    :param config: (gt.Configuration) Initial configuration to propagate GAP-MD
+                   from
+
+    :param gap: (gt.GAP)
+
+    :param temp: (float) Temperature for the GAP-MD
+
+    :param var_e_thresh: (float) Threshold for the maximum atomic variance in
+                         the GAP predicted energy
+
+    :param max_time_fs: (float)
+
+    :return: (gt.Configuration)
+    """
+    # Needs a single gap to calculate the variance simply, if this is a II or
+    # SS GAP then assume the intra is well trained and use inter prediction
+    gap_name = gap.inter.name if hasattr(gap, 'inter') else gap.name
+
+    def run_quip():
+        """Use QUIP on a set of configurations to predict the variance"""
+        with open('quip.out', 'w') as tmp_out_file:
+            subprocess = Popen(gt.GTConfig.quip_command +
+                               ['calc_args=local_gap_variance', 'E=T', 'F=T',
+                                'atoms_filename=tmp_traj.xyz',
+                                f'param_filename={gap_name}.xml'],
+                               shell=False, stdout=tmp_out_file, stderr=PIPE)
+            subprocess.wait()
+
+        return None
+
+    n_iters, curr_time = 0, 0.0
+    while curr_time < max_time_fs:
+
+        gap_traj = gt.md.run_gapmd(config,
+                                   gap=gap,
+                                   temp=float(temp),
+                                   dt=0.5,
+                                   interval=max(1, (2 + n_iters**3)//20),
+                                   fs=2 + n_iters**3,
+                                   n_cores=1)
+        curr_time += 2 + n_iters**3
+
+        gap_traj.save('tmp_traj.xyz')
+        run_quip()
+        gp_vars = get_gp_var_quip_out(configuration=config)
+
+        # Enumerate all the frames and return one that has a variance above the
+        # threshold
+        for frame, var in zip(gap_traj, gp_vars):
+
+            logger.info(f'var(GAP pred, t={curr_time})={np.max(var):.5f} eV')
+            if np.max(var) > var_e_thresh:
+                return frame
+
+        n_iters += 1
+
+    return None
+
+
+def get_active_configs(config, gap, ref_method_name, method='diff',
                        max_time_fs=1000, n_configs=10, temp=300, e_thresh=0.1,
                        min_time_fs=0):
     """
@@ -160,7 +282,9 @@ def get_active_configs(config, gap, method_name,
 
     :param gap: (gt.gap.GAP) GAP to run MD with
 
-    :param method_name: (str) Name of the method to use as the ground truth
+    :param ref_method_name: (str) Name of the method to use as the ground truth
+
+    :param method: (str) Name of the strategy used to generate new configurations
 
     :param max_time_fs: (float) Maximum propagation time in the active learning
                         loop. Default = 1 ps
@@ -171,7 +295,7 @@ def get_active_configs(config, gap, method_name,
 
     :param e_thresh: (float) Energy threshold in eV above which the MD frame
                      is returned by the active learning function i.e
-                     E_t < |E_GAP - E_true|
+                     E_t < |E_GAP - E_true|  method='diff'
 
     :param min_time_fs: (float) Minimum propagation time in the active learning
                         loop. If non-zero then will run this amount of time
@@ -186,18 +310,38 @@ def get_active_configs(config, gap, method_name,
                                   'n_configs >= gt.GTConfig.n_cores')
     results = []
     configs = gt.Data()
+    logger.info('Searching for "active" configurations with a threshold of '
+                f'{e_thresh:.6f} eV')
+
+    if method.lower() == 'diff':
+        function = get_active_config_diff
+        args = (config, gap, temp, e_thresh, max_time_fs, ref_method_name,
+                0, 0, min_time_fs)
+
+    elif method.lower() == 'qbc':
+        function = get_active_config_qbc
+        # Train a few GAPs on the same data
+        gap = gt.gap.GAPEnsemble(name=f'{gap.name}_ensemble', gap=gap)
+        gap.train()
+
+        args = (config, gap, temp, e_thresh, max_time_fs)
+
+    elif method.lower() == 'gp_var':
+        function = get_active_config_gp_var
+        args = (config, gap, temp, e_thresh, max_time_fs)
+
+    else:
+        raise ValueError('Unsupported active method')
 
     logger.info(f'Using {gt.GTConfig.n_cores} processes')
     with Pool(processes=int(gt.GTConfig.n_cores)) as pool:
 
         for _ in range(n_configs):
-            result = pool.apply_async(func=get_active_config,
-                                      args=(config, gap, temp, e_thresh,
-                                            max_time_fs, method_name, 0, 0,
-                                            min_time_fs))
+            result = pool.apply_async(func=function, args=args)
             results.append(result)
 
         for result in results:
+
             try:
                 config = result.get(timeout=None)
                 if config is not None and config.energy is not None:
@@ -208,6 +352,15 @@ def get_active_configs(config, gap, method_name,
             except:
                 logger.error('Raised an exception in calculating the energy')
                 continue
+
+    if method.lower() != 'diff':
+        logger.info('Running reference calculations on configurations '
+                    f'generated by {method}')
+        configs.single_point(method_name=ref_method_name)
+
+        # Set the number of ground truth function calls for each iteration
+        for config in configs:
+            config.n_evals = 1
 
     return configs
 
@@ -244,6 +397,8 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
                 continue
 
         p_acc = n_generated_configs / 10
+        logger.info(f'Generated configurations with p={p_acc:.2f} with a '
+                    f'minimum distance of {dist:.2f}')
 
     init_configs = gt.Data(name='init_configs')
     # Finally generate the initial configurations
@@ -276,6 +431,7 @@ def train(system,
           n_configs_iter=10,
           temp=300,
           active_e_thresh=None,
+          active_method='diff',
           max_energy_threshold=None,
           validate=False,
           tau=None,
@@ -326,9 +482,19 @@ def train(system,
     :param temp: (float) Temperature in K to propagate active learning at -
                  higher is better for stability but requires more training
 
+
+    :param active_method: (str) Method used to generate active learnt
+                          configurations. One of ['diff', 'qbc', 'gp_var']
+
     :param active_e_thresh: (float) Threshold in eV (E_t) above which a
                             configuration is added to the potential. If None
                             then will use 1 kcal mol-1 molecule-1
+
+                            1. active_method='diff': |E_0 - E_GAP| > E_t
+
+                            2. active_method='qbc': σ(E_GAP1, E_GAP2...) > E_t
+
+                            3. active_method='gp_var': σ^2_GAP(predicted) > E_t
 
     :param max_energy_threshold: (float) Maximum relative energy threshold for
                                  configurations to be added to the training
@@ -393,7 +559,10 @@ def train(system,
 
     # Initialise a τ metric with default parameters
     if validate and tau is None:
-        tau = gt.loss.Tau(configs=get_init_configs(system, n=5))
+        # 1 ps default maximum tau
+        tau = gt.loss.Tau(configs=get_init_configs(system, n=5),
+                          e_lower=0.043363 * len(system.molecules),
+                          max_fs=tau_max if tau_max is not None else 1000)
 
     # Default to validating 10 times through the training
     if validate and val_interval is None:
@@ -407,13 +576,22 @@ def train(system,
     gap.train(init_configs)
 
     if active_e_thresh is None:
-        #                 1 kcal mol-1 molecule-1
-        active_e_thresh = 0.043363 * len(system.molecules)
+        if active_method.lower() == 'diff':
+            #                 1 kcal mol-1 molecule-1
+            active_e_thresh = 0.043363 * len(system.molecules)
+
+        if active_method.lower() == 'qbc':
+            # optimised on a small box of water. std dev. for total energy
+            active_e_thresh = 1E-6 * len(system.molecules)
+
+        if active_method.lower() == 'gp_var':
+            # Threshold for maximum per-atom GP variance (eV atom^-1)
+            active_e_thresh = 5E-5
 
     # Initialise the validation output file
     if validate:
         tau_file = open(f'{gap.name}_tau.txt', 'w')
-        print('Iteration  τ_acc / fs', file=tau_file)
+        print('Iteration    n_evals      τ_acc / fs', file=tau_file)
 
     # Run the active learning loop, running iterative GAP-MD
     for iteration in range(max_active_iters):
@@ -424,7 +602,8 @@ def train(system,
 
         configs = get_active_configs(init_config,
                                      gap=gap,
-                                     method_name=method_name,
+                                     ref_method_name=method_name,
+                                     method=str(active_method),
                                      n_configs=n_configs_iter,
                                      temp=temp,
                                      e_thresh=active_e_thresh,
@@ -444,7 +623,7 @@ def train(system,
         min_time_active_fs = min(config.t0 for config in configs)
         logger.info(f'All active configurations reached t = '
                     f'{min_time_active_fs} fs before an error exceeded the '
-                    f'threshold of {active_e_thresh} eV')
+                    f'threshold of {active_e_thresh:.3f} eV')
 
         if do_remove_intra:
             remove_intra(configs, gap=gap)
@@ -460,10 +639,13 @@ def train(system,
 
         # Print the accuracy
         if validate and iteration % val_interval == 0:
-            tau.calculate(gap=gap, method_name=method_name)
-            print(iteration, tau.value, sep='\t\t\t', file=tau_file)
 
-            if tau_max is not None and np.abs(tau.value - tau_max) < 1:
+            tau.calculate(gap=gap, method_name=method_name)
+            print(f'{iteration:<13g}'
+                  f'{sum(config.n_evals for config in train_data):<13g}'
+                  f'{tau.value}', sep='\t', file=tau_file)
+
+            if np.abs(tau.value - tau.max_time) < 1:
                 logger.info('Reached the maximum tau. Active learning = DONE')
                 break
 
@@ -571,7 +753,6 @@ def train_ss(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
                                       gap=gt.GAP(name=f'intra_{molecule.name}',
                                                  system=intra_system),
                                       method_name=method_name,
-                                      validate=False,
                                       temp=intra_temp,
                                       **kwargs)
         data.append(mol_data)

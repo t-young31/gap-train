@@ -7,6 +7,7 @@ from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations_with_replacement
 from multiprocessing import Pool
+from copy import deepcopy
 import numpy as np
 import pickle
 from time import time
@@ -479,7 +480,7 @@ class GAPEnsemble:
 
         return sub_sampled_data
 
-    def train(self, data, sub_sample=True):
+    def train(self, data=None, sub_sample=False):
         """
         Train the ensemble of GAPS
 
@@ -487,6 +488,13 @@ class GAPEnsemble:
         :param sub_sample: (bool) Should the data be sub sampled or the full
                            set used?
         """
+
+        if data is None:
+            data = self.training_data
+
+        if data is None:
+            raise AssertionError('Could not train - no training data set')
+
         logger.info(f'Training an ensemble with a total of {len(data)} '
                     'configurations')
 
@@ -505,17 +513,28 @@ class GAPEnsemble:
 
         return None
 
-    def __init__(self, name, system, n=5):
+    def __init__(self, name, system=None, n=5, gap=None):
         """
         Ensemble of Gaussian approximation potentials allowing for error
         estimates by sub-sampling
 
-        :param name:
-        :param system:
+        :param name: (str)
+        :param system: (gt.System)
+        :param gap: (gt.GAP)
         """
         logger.info(f'Initialising a GAP ensemble with {int(n)} GAPs')
+        self.training_data = None
 
-        self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(n))]
+        if system and not gap:
+            self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(n))]
+
+        elif gap and not system:
+            self.gaps = [deepcopy(gap) for _ in range(int(n))]
+            self.training_data = gap.training_data
+
+        else:
+            raise AssertionError('Must initialise a GAP ensemble with either '
+                                 'a GAP or a System')
 
 
 class AdditiveGAP:
@@ -572,6 +591,7 @@ class IIGAP:
         if not os.path.exists(f'{self.intra.name}.xml'):
             raise RuntimeError('Intra must be already trained')
 
+        self.training_data = data
         return self.inter.train(data)
 
     def ase_gap_potential_str(self,
@@ -603,6 +623,7 @@ class IIGAP:
         :param args: (gt.gap.GAP)
         """
 
+        self.training_data = None   # inter training data
         self.inter = None
         self.intra = None
 

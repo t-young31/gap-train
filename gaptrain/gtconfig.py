@@ -57,6 +57,8 @@ class GTConfig:
     gap_fit_command = ['singularity', 'exec', os.environ['QUIP_CONT'],
                        'teach_sparse']
 
+    quip_command = ['singularity', 'exec', os.environ['QUIP_CONT'], 'quip']
+
     quippy_gap_command = ['singularity', 'exec',  os.environ['QUIP_CONT'],
                           '/usr/local/bin/python']
 
