@@ -393,12 +393,12 @@ def run_cp2k(configuration, max_force):
 
 def get_gp_var_quip_out(configuration, out_filename='quip.out'):
     """
-    Given a QUIP output file extract the list of atomic variances for each
-    set of atoms
+    Given a QUIP output file extract the numpy array of atomic variances for
+    each set of atoms in the output file
 
-    :param configuration:
-    :param out_filename:
-    :return:
+    :param configuration: (gt.Configuration)
+    :param out_filename: (str)
+    :return: (list(np.ndarray))
     """
     out_lines = [line for line in open(out_filename, 'r')
                  if line.startswith('AT')]
@@ -439,11 +439,10 @@ def get_gp_var_quip_out(configuration, out_filename='quip.out'):
 
 def set_energy_forces_cp2k_out(configuration, out_filename='cp2k.out'):
     """
-    Set the
+    Set the energy and forces of a configuration from a CP2K output file
 
-    :param configuration:
-    :param out_filename:
-    :return:
+    :param configuration: (gt.Configuration)
+    :param out_filename: (str)
     """
     n_atoms = len(configuration.atoms)
     forces = []
@@ -485,7 +484,7 @@ def set_configuration_atoms_from_ase(config, ase_atoms):
     """
     Set the atom positions of a configuration given a set of ASE atoms
 
-    :param config: (gaptrain.configurations.Configuration)
+    :param config: (gt.Configuration)
     :param ase_atoms: (ase.Atoms)
     """
 

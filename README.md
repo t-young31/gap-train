@@ -19,7 +19,7 @@ year={2021}, month={Feb}}
 ## Installation
 
 To install _gaptrain_ first ensure at least one electronic structure method is
-available, install and QUIP, then install the module:
+available, install QUIP, then install the module:
 
 1. If required install:
 
