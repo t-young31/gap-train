@@ -375,6 +375,9 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
                         f'all with defined energy')
             return init_configs
 
+    if len(system.molecules) == 0:
+        raise ValueError('Cannot train a system with no molecules!')
+
     # Initial configurations are not defined, so make some - will use random
     # with the largest maximum distance between molecules possible
     max_vdw = max(get_vdw_radius(symbol) for symbol in system.atom_symbols())

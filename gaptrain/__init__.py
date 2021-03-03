@@ -12,7 +12,7 @@ from gaptrain import cur
 from gaptrain import active
 from gaptrain import gap
 from gaptrain import solvents
-from gaptrain.gap import GAP, IntraGAP, InterGAP, IIGAP
+from gaptrain.gap import GAP, IntraGAP, InterGAP, IIGAP, DRepGAP
 
 __all__ = ['System',
            'Configuration',
@@ -23,6 +23,7 @@ __all__ = ['System',
            'IntraGAP',
            'InterGAP',
            'IIGAP',
+           'DRepGAP',
            'Data',
            'GTConfig',
            'Trajectory',
@@ -30,6 +31,7 @@ __all__ = ['System',
            'Tau',
            'Box',
            'gap',
+           'active',
            'md',
            'descriptors',
            'cur',

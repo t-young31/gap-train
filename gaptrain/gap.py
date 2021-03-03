@@ -3,7 +3,9 @@ from gaptrain.log import logger
 from gaptrain.plotting import plot_ef_correlation
 from gaptrain.exceptions import GAPFailed
 from gaptrain.calculators import run_gap
-from autode.atoms import elements
+from gaptrain.repcalculator import repulsion
+from autode.atoms import elements, get_vdw_radius
+from autode.bonds import get_avg_bond_length
 from subprocess import Popen, PIPE
 from itertools import combinations_with_replacement
 from multiprocessing import Pool
@@ -263,6 +265,69 @@ class IntraGAP(GAP):
 
         logger.info(f'Initialised an intra-GAP with molecular indexes:'
                     f' {self.mol_idxs}')
+
+
+class DRepGAP(GAP):
+    """A GAP using a baseline repulsive forcefield"""
+
+    def ase_gap_potential_str(self):
+        """Generate the quippy/ASE string to run the potential"""
+
+        if not os.path.exists(f'{self.name}.xml'):
+            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
+
+        here = os.path.abspath(os.path.dirname(__file__))
+        rep_calc_path = os.path.join(here, 'repcalculator.py')
+        pt = "".join(open(rep_calc_path, 'r').readlines())
+
+        pt += '\n\nref_dists = np.array([\n'
+        for row in self.ref_dist_mat:
+            pt += f'{row.tolist()},\n'
+        pt += '])\n'
+
+        pt += ('pot = DRepCalculator(quippy.Potential("IP GAP", \n'
+               f'param_filename="{self.name}.xml"),'
+               f' ref_dists)')
+        return pt
+
+    def train(self, data):
+        """Remove the repulsive component from the training data and
+        train as usual"""
+        start_time = time()
+
+        delta_data = data.copy()
+        for config in delta_data:
+            rep_energy, rep_forces = repulsion(atoms=config.ase_atoms(),
+                                               ref_dist_mat=self.ref_dist_mat)
+
+            logger.info(f'||f_rep|| = {np.linalg.norm(rep_forces):.4f} eV Å-1')
+
+            config.energy -= rep_energy
+            config.forces -= rep_forces
+
+        logger.info(f'Removed repulsive energy in {time() - start_time:.4f} s')
+        return super().train(delta_data)
+
+    def __init__(self, name, system, default_params=True):
+        super().__init__(name, system, default_params)
+
+        atoms = system.configuration().atoms
+        vdw_radii = [get_vdw_radius(atom.label) for atom in atoms]
+
+        # Matrix with the pairwise additions of the vdW radii
+        self.ref_dist_mat = np.add.outer(np.array(vdw_radii), np.array(vdw_radii))
+
+        for i, atom_i in enumerate(atoms):
+            for j, atom_j in enumerate(atoms):
+                if i > j:
+
+                    r0 = get_avg_bond_length(atom_i.label, atom_j.label)
+                    # if np.linalg.norm(atom_i.coord - atom_j.coord) > 1.25*r0:
+                    #    continue
+
+                    # Set the bonded atoms
+                    self.ref_dist_mat[i, j] = r0
+                    self.ref_dist_mat[j, i] = r0
 
 
 class SolventIntraGAP(IntraGAP):
