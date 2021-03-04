@@ -580,6 +580,29 @@ class AdditiveGAP:
         self._list = [gap1, gap2]
 
 
+class IAdditiveGAP(GAP):
+
+    def ase_gap_potential_str(self):
+        """String for evaluating the energy with this GAP pair"""
+        here = os.path.abspath(os.path.dirname(__file__))
+        pt_str = "".join(open(os.path.join(here, 'iicalculator.py'), 'r').readlines())
+
+        pt_str += (f'\nintra_gap = quippy.Potential("IP GAP", '
+                   f'param_filename="{self.intra_gap.name}.xml")\n'
+                   f'intra_gap.mol_idxs = {self.intra_gap.mol_idxs}\n'
+                   f'gap = quippy.Potential("IP GAP", \n'
+                   f'          param_filename="{self.gap.name}.xml")\n'
+                   f'pot = IAdditiveCalculator(intra_gap, gap)')
+
+        return pt_str
+
+    def __init__(self, name, gap, intra_gap):
+        super().__init__(name=name)
+
+        self.gap = gap
+        self.intra_gap = intra_gap
+
+
 class IIGAP:
     """Inter+intra GAP where the inter is evaluated in a different box"""
 

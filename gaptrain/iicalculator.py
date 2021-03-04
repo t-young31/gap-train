@@ -106,6 +106,37 @@ class IntraCalculator(IICalculator):
         return None
 
 
+class IAdditiveCalculator(IntraCalculator):
+    """Calculate the sum of intra-components for a subset of molecules plus
+    the remaining"""
+
+    def calculate(self, atoms=None, properties=None,
+                  system_changes=None,
+                  **kwargs):
+        mol_idxs = np.array(self.intra.mol_idxs, dtype=int).flatten()
+
+        # Create a new set of atoms, which may not include every atom
+        atoms_subset = Atoms(numbers=[atoms.numbers[i] for i in mol_idxs],
+                             positions=atoms.positions[mol_idxs],
+                             pbc=True,
+                             cell=atoms.cell)
+
+        intra_atoms = self.expanded_atoms(atoms_subset)
+        intra_atoms.set_calculator(self.intra)
+
+        inter_atoms = atoms.copy()
+        inter_atoms.set_calculator(self.inter)
+
+        # Add the energies and forces
+        self.results["energy"] = (inter_atoms.get_potential_energy()
+                                  + intra_atoms.get_potential_energy())
+        self.results["free_energy"] = self.results["energy"]
+
+        self.results["forces"] = inter_atoms.get_forces()
+        self.results["forces"][mol_idxs] += intra_atoms.get_forces()
+        return None
+
+
 class SSCalculator(IICalculator):
 
     def calculate(self, atoms=None, properties=None,
