@@ -125,11 +125,11 @@ def run_mmmd(system, config, temp, dt, interval, **kwargs):
 
     a, b, c = system.box.size
 
-    if a <= 20 or b <= 20 or c <= 20:
-        # GROMACS requires cutoff to be less than half the smallest box length
-        cutoff = (np.min(system.box.size) * 0.5 - 0.001)
-    else:
-        cutoff = 1.0
+    # GROMACS requires cutoff to be less than half the smallest box length
+    # in nanometers, with a maximum value of 1 nm
+    ang_to_nm = 0.1
+    cutoff = min(np.min(system.box.size) * ang_to_nm * 0.5 - 0.001,
+                 1)
 
     # Create min.mdp parameters file
     with open('min.mdp', 'w') as min_file:
