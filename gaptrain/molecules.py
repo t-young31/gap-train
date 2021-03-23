@@ -70,7 +70,8 @@ class Species(ade.species.Species):
         """
         return np.average(self.coordinates, axis=0)
 
-    def calculate_radius(self):
+    @property
+    def radius(self):
         """
         Calculate the radius of this species as half the maximum distance
         between two atoms plus the van der Walls radius of H if there are >1
@@ -118,8 +119,6 @@ class Species(ade.species.Species):
                          mult=spin_multiplicity)
 
         self.itp_filename = gmx_itp_filename
-
-        self.radius = self.calculate_radius()
 
 
 class Molecule(Species):
