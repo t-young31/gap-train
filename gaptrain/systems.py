@@ -339,7 +339,7 @@ class MMSystem(System):
             print(f'\n[ system ]',
                   f'; Name',
                   f'{str(self)}\n',
-                  f'[ print_molecules ]',
+                  f'[ molecules ]',
                   f'; Compound{"":<7s}#mols', file=topol_file, sep='\n')
 
             mol_names = [m.name for m in self.molecules]
