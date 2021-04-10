@@ -263,7 +263,12 @@ class Configuration:
 
             elif j == 1:
                 if 'dft_energy' in line:
-                    self.energy = float(line.split()[-1].lstrip('dft_energy='))
+
+                    # Grab the energy, which may be in any position in the line
+                    for item in line.split():
+                        if 'dft_energy=' in item:
+                            self.energy = float(item.split('=')[-1])
+                            break
 
                 # Try and load the box
                 if 'Lattice="' in line and box is None:
