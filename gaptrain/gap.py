@@ -13,6 +13,11 @@ import pickle
 from time import time
 import os
 
+if GTConfig.quip_version_above_66c553f:
+    potential_class = 'quippy.potential.Potential'
+else:
+    potential_class = 'quippy.Potential'
+
 
 def atomic_number(symbol):
     """Elements in order indexed from 0 so the atomic number is the index+1"""
@@ -47,7 +52,7 @@ class GAP:
         if not os.path.exists(f'{self.name}.xml'):
             raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
 
-        return ('pot = quippy.Potential("IP GAP", \n'
+        return (f'pot = {potential_class}("IP GAP", \n'
                 f'              param_filename="{self.name}.xml")')
 
     def train_command(self):
@@ -56,7 +61,12 @@ class GAP:
         general = self.params.general
         params = ('default_sigma={'
                   f'{general["sigma_E"]:.6f} {general["sigma_F"]:.6f} 0.0 0.0'
-                  '} gap={')
+                  '} ')
+
+        if GTConfig.quip_version_above_66c553f:
+            params += 'e0_method=average '
+
+        params += 'gap={'
 
         # Iterate thorough the dictionary of two-body pairwise parameters
         for (symbol_a, symbol_b), pairwise in self.params.pairwise.items():
@@ -105,8 +115,12 @@ class GAP:
                        f'zeta=4 '
                        f'atom_sigma={soap["sigma_at"]} '
                        f'cutoff={soap["cutoff"]} '
-                       f'delta={soap["delta"]} '
-                       f'n_Z=1 '
+                       f'delta={soap["delta"]} ')
+
+            if GTConfig.quip_version_above_66c553f:
+                params += 'add_species=F '
+
+            params += (f'n_Z=1 '
                        f'n_species={len(soap["other"])} '
                        'species_Z={{'
                        # Remove the brackets from the ends of the list
@@ -166,7 +180,7 @@ class GAP:
         delta_time = time() - start_time
         print(f'GAP training ran in {delta_time/60:.1f} m')
 
-        if any((delta_time < 0.05,
+        if any((delta_time < 0.01,
                 b'SYSTEM ABORT' in err,
                 not os.path.exists(f'{self.name}.xml'))):
 
@@ -242,7 +256,7 @@ class IntraGAP(GAP):
         here = os.path.abspath(os.path.dirname(__file__))
         pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
 
-        pt += [f'intra_gap = quippy.Potential("IP GAP", '
+        pt += [f'intra_gap = {potential_class}("IP GAP", '
                f'param_filename="{self.name}.xml")\n',
                f'intra_gap.mol_idxs = {self.mol_idxs}\n',
                f'pot = IntraCalculator(intra_gap)\n']
@@ -545,14 +559,14 @@ class AdditiveGAP:
 
         pt_str = ''
         for i in range(2):
-            pt_str += (f'pot{i+1} = quippy.Potential("IP GAP", \n'
+            pt_str += (f'pot{i+1} = {potential_class}("IP GAP", \n'
                        f'          param_filename="{self[i].name}.xml")\n')
 
             if not os.path.exists(f'{self[i].name}.xml'):
                 raise IOError(f'GAP parameter file ({self[i].name}.xml) in '
                               f'additiive GAP did not exist')
 
-        pt_str += f'pot = quippy.Potential("Sum", pot1=pot1, pot2=pot2)'
+        pt_str += f'pot = {potential_class}("Sum", pot1=pot1, pot2=pot2)'
 
         return pt_str
 
@@ -607,9 +621,9 @@ class IIGAP:
         here = os.path.abspath(os.path.dirname(__file__))
         pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
 
-        pt += [f'inter_gap = quippy.Potential("IP GAP", '
+        pt += [f'inter_gap = {potential_class}("IP GAP", '
                f'param_filename="{self.inter.name}.xml")\n',
-               f'intra_gap = quippy.Potential("IP GAP", '
+               f'intra_gap = {potential_class}("IP GAP", '
                f'param_filename="{self.intra.name}.xml")\n',
                f'intra_gap.mol_idxs = {self.intra.mol_idxs}\n',
                f'pot = {calc_str}\n']
@@ -659,7 +673,7 @@ class SSGAP(IIGAP):
         if calc_str is None:
             calc_str = 'SSCalculator(solute_gap, intra_gap, inter_gap)'
 
-        pt = ('solute_gap = quippy.Potential("IP GAP", '
+        pt = (f'solute_gap = {potential_class}("IP GAP", '
               f'     param_filename="{self.solute_intra.name}.xml")\n'
               f'solute_gap.mol_idxs = {self.solute_intra.mol_idxs}\n')
 

@@ -51,6 +51,10 @@ class GTConfig:
                       'band.out')
 
     # ----------------------- GAP -------------------------------
+    # Set to False for compatibility with quip commit 66c553f, should be
+    # true for more recent versions
+    quip_version_above_66c553f = True
+
     if 'QUIP_CONT' not in os.environ:
         os.environ['QUIP_CONT'] = '/u/fd/ball4935/opt/QUIP.sif'
 
