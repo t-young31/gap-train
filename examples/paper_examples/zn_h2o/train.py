@@ -1,3 +1,4 @@
+import os
 import gaptrain as gt
 gt.GTConfig.n_cores = 20
 
@@ -47,6 +48,10 @@ def train_inter():
 
 
 if __name__ == '__main__':
+
+    if not os.path.exists('water_intra_gap.xml'):
+        exit('Intramolecular GAP for water did not exist. Please generate it '
+             'with e.g. train_water_h2o.py')
 
     znh2o6 = gt.System(box_size=[10, 10, 10])
     znh2o6.add_molecules(gt.Molecule('znh2o6.xyz', charge=2))
