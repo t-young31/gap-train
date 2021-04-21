@@ -54,7 +54,7 @@ def remove_intra(configs, gap):
 
 def get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
                            ref_method_name='dftb', curr_time_fs=0, n_calls=0,
-                           extra_time_fs=0):
+                           extra_time_fs=0, **kwargs):
     """
     Given a configuration run MD with a GAP until the absolute error between
     the predicted and true values is above a threshold
@@ -100,7 +100,8 @@ def get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
                                dt=0.5,
                                interval=4,
                                fs=md_time_fs,
-                               n_cores=1)
+                               n_cores=1,
+                               **kwargs)
 
     # Actual initial time, given this function can be called multiple times
     for frame in gap_traj:
@@ -146,10 +147,11 @@ def get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
     return get_active_config_diff(config, gap, temp, e_thresh, max_time_fs,
                                   curr_time_fs=curr_time_fs,
                                   ref_method_name=ref_method_name,
-                                  n_calls=n_calls+1)
+                                  n_calls=n_calls+1,
+                                  **kwargs)
 
 
-def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
+def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs, **kwargs):
     """
     Generate an 'active' configuration, i.e. a configuration to be added to the
     training set by active learning, using a query-by-committee model, where
@@ -182,7 +184,8 @@ def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
                                    dt=0.5,
                                    interval=4,
                                    fs=2 + n_iters**3,
-                                   n_cores=1)
+                                   n_cores=1,
+                                   **kwargs)
 
         for frame in gap_traj[::max(1, len(gap_traj)//10)]:
             pred_es = []
@@ -206,7 +209,8 @@ def get_active_config_qbc(config, gap, temp, std_e_thresh, max_time_fs):
 
 
 @work_in_tmp_dir(kept_exts=[], copied_exts=['.xml'])
-def get_active_config_gp_var(config, gap, temp, var_e_thresh, max_time_fs):
+def get_active_config_gp_var(config, gap, temp, var_e_thresh,
+                             max_time_fs, **kwargs):
     """
     Generate an active configuration by calculating the predicted variance
     on a configuration using the trained gap
@@ -250,7 +254,9 @@ def get_active_config_gp_var(config, gap, temp, var_e_thresh, max_time_fs):
                                    dt=0.5,
                                    interval=max(1, (2 + n_iters**3)//20),
                                    fs=2 + n_iters**3,
-                                   n_cores=1)
+                                   n_cores=1,
+                                   **kwargs)
+
         curr_time += 2 + n_iters**3
 
         gap_traj.save('tmp_traj.xyz')
@@ -272,7 +278,7 @@ def get_active_config_gp_var(config, gap, temp, var_e_thresh, max_time_fs):
 
 def get_active_configs(config, gap, ref_method_name, method='diff',
                        max_time_fs=1000, n_configs=10, temp=300, e_thresh=0.1,
-                       min_time_fs=0):
+                       min_time_fs=0, **kwargs):
     """
     Generate n_configs using on-the-fly active learning parallelised over
     GTConfig.n_cores
@@ -301,6 +307,8 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
                         loop. If non-zero then will run this amount of time
                         initially then look for a configuration with a
                         |E_0 - E_GAP| > e_thresh
+
+    :param kwargs: Additional keyword arguments passed to the GAP MD function
 
     :return:(gt.ConfigurationSet)
     """
@@ -337,7 +345,7 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
     with Pool(processes=int(gt.GTConfig.n_cores)) as pool:
 
         for _ in range(n_configs):
-            result = pool.apply_async(func=function, args=args)
+            result = pool.apply_async(func=function, args=args, kwds=kwargs)
             results.append(result)
 
         for result in results:
@@ -349,8 +357,9 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
 
             # Lots of different exceptions can be raised when trying to
             # generate an active config, continue regardless..
-            except:
-                logger.error('Raised an exception in calculating the energy')
+            except Exception as err:
+                logger.error(f'Raised an exception in calculating the energy\n'
+                             f'{err}')
                 continue
 
     if method.lower() != 'diff':
@@ -423,8 +432,8 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
     return init_configs
 
 
-def train(system,
-          method_name,
+def train(system: gt.System,
+          method_name: str,
           gap=None,
           max_time_active_fs=1000,
           min_time_active_fs=0,
@@ -441,7 +450,10 @@ def train(system,
           n_init_configs=10,
           init_configs=None,
           remove_intra_init_configs=True,
-          fix_init_config=False):
+          fix_init_config=False,
+          bbond_energy=None,
+          fbond_energy=None,
+          init_active_temp=None):
     """
     Train a system using active learning, by propagating dynamics using ML
     driven molecular dynamics (MD) and adding configurations where the error
@@ -538,7 +550,20 @@ def train(system,
                             False then the minimum energy structure is used.
                             Useful for TS learning, where dynamics should be
                             propagated from a saddle point not the minimum
-    :return:
+
+    :param bbond_energy: (dict | None) Additional energy to add to a breaking
+                         bond. e.g. bbond_energy={(0, 1), 0.1} Adds 0.1 eV
+                         to the 'bond' between atoms 0 and 1 as velocities
+                        shared between the atoms in the breaking bond direction
+
+    :param fbond_energy: (dict | None) As bbond_energy but in the direction to
+                         form a bond
+
+
+    :param init_active_temp: (float | None) Initial temperature for velocities
+                             in the 'active' MD search for configurations
+
+    :return: (gt.Data, gt.GAP)
     """
     init_configs = get_init_configs(init_configs=init_configs,
                                     n=n_init_configs,
@@ -608,7 +633,10 @@ def train(system,
                                      temp=temp,
                                      e_thresh=active_e_thresh,
                                      max_time_fs=max_time_active_fs,
-                                     min_time_fs=min_time_active_fs)
+                                     min_time_fs=min_time_active_fs,
+                                     bbond_energy=bbond_energy,
+                                     fbond_energy=fbond_energy,
+                                     init_temp=init_active_temp)
 
         # Active learning finds no configurations,,
         if len(configs) == 0:
