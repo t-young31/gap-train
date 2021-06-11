@@ -105,7 +105,13 @@ class Tau:
                                    n_cores=min(gt.GTConfig.n_cores, 4))
 
             # Only evaluate the energy
-            traj.single_point(method_name=method_name)
+            try:
+                traj.single_point(method_name=method_name)
+            except ValueError:
+                logger.warning('Failed to calculate single point energies with'
+                               f' {method_name}. τ_acc will be underestimated '
+                               f'by <{block_time}')
+                return curr_time
 
             pred = traj.copy()
             pred.parallel_gap(gap=gap)
