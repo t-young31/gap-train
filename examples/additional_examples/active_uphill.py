@@ -2,12 +2,6 @@ import gaptrain as gt
 import autode as ade
 from autode.wrappers.keywords import GradientKeywords, OptKeywords
 gt.GTConfig.n_cores = 8
-
-
-# TODO: remove
-gt.GTConfig.quip_version_above_66c553f = False
-
-
 gt.GTConfig.orca_keywords = GradientKeywords(['PBE', 'def2-SVP', 'D3BJ', 'EnGrad'])
 
 # Generate an optimised cyclobutene molecule
