@@ -36,7 +36,8 @@ def simulation_steps(dt, kwargs):
     return max(int(time_fs / dt), 1)
 
 
-def ase_momenta_string(configuration, temp, bbond_energy, fbond_energy):
+def ase_momenta_string(configuration, temp,
+                       bbond_energy: dict, fbond_energy: dict):
     """Generate a string to set the initial momenta
 
     :param configuration: (gt.Configuration)
@@ -48,7 +49,7 @@ def ase_momenta_string(configuration, temp, bbond_energy, fbond_energy):
     string = ''
 
     if temp > 0:
-        logger.info(f'Initialising temperature velocities for a temperature '
+        logger.info(f'Initialising initial velocities for a temperature '
                     f'{temp} K')
         string += f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)\n'
 
@@ -63,7 +64,6 @@ def ase_momenta_string(configuration, temp, bbond_energy, fbond_energy):
 
     coords = configuration.coordinates()
     if bbond_energy is not None:
-        assert type(bbond_energy) is dict
         logger.info('Adding breaking bond momenta')
 
         for atom_idxs, energy in bbond_energy.items():
@@ -80,8 +80,6 @@ def ase_momenta_string(configuration, temp, bbond_energy, fbond_energy):
             string += momenta(idx=j, vector=-vec, energy=energy)
 
     if fbond_energy is not None:
-        assert type(fbond_energy) is dict
-
         for atom_idxs, energy in fbond_energy.items():
             i, j = atom_idxs
             logger.info(f'Adding {energy} eV to form bond: {i}-{j}')
@@ -278,8 +276,7 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
 
 
 @work_in_tmp_dir(copied_exts=['.xml'])
-def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
-              fbond_energy=None, init_temp=None, **kwargs):
+def run_gapmd(configuration, gap, temp, dt, interval, init_temp=None, **kwargs):
     """
     Run molecular dynamics on a system using a GAP to predict energies and
     forces
@@ -299,15 +296,20 @@ def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
 
     :param interval: (int) Interval between printing the geometry
 
-    :param bbond_energy: (dict | None) Additional energy to add to a breaking
+    -------------------------------------------------
+    Keyword Arguments:
+
+        {fs, ps, ns}: Simulation time in some units
+
+        bbond_energy: (dict | None) Additional energy to add to a breaking
                          bond. e.g. bbond_energy={(0, 1), 0.1} Adds 0.1 eV
                          to the 'bond' between atoms 0 and 1 as velocities
                          shared between the atoms in the breaking bond direction
 
-    :param fbond_energy: (dict | None) As bbond_energy but in the direction to
+        :fbond_energy: (dict | None) As bbond_energy but in the direction to
                          form a bond
 
-    :param kwargs: {fs, ps, ns} Simulation time in some units
+    :returns: (gt.Trajectory)
     """
     logger.info('Running GAP MD')
     configuration.save(filename='config.xyz')
@@ -319,6 +321,9 @@ def run_gapmd(configuration, gap, temp, dt, interval, bbond_energy=None,
         n_cores = kwargs['n_cores']
     else:
         n_cores = min(GTConfig.n_cores, 8)
+
+    fbond_energy = kwargs.get('fbond_energy', None)
+    bbond_energy = kwargs.get('bbond_energy', None)
 
     os.environ['OMP_NUM_THREADS'] = str(n_cores)
     logger.info(f'Using {n_cores} cores for GAP MD')

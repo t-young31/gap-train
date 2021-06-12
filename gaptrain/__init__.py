@@ -31,6 +31,7 @@ __all__ = ['System',
            'Box',
            'gap',
            'md',
+           'active',
            'descriptors',
            'cur',
            'solvents']
