@@ -1,7 +1,10 @@
+import pytest
 import gaptrain as gt
 from gaptrain.systems import MMSystem
-from gaptrain.md import run_mmmd
+from gaptrain.md import run_mmmd, run_gapmd
 from gaptrain.molecules import Ion
+from autode.species import Molecule
+from gaptrain.utils import work_in_tmp_dir
 import os
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -43,3 +46,21 @@ def test_ase_momenta_string():
     assert type(momenta_string) is str
 
     return None
+
+
+@work_in_tmp_dir()
+def test_run_gapmd_no_box():
+
+    h2o = Molecule(smiles='O')
+    h2o.print_xyz_file(filename='tmp.xyz')
+
+    with open('some_params.xml', 'w') as xml_file:
+        print('not a real xml', file=xml_file)
+
+    # Without a box defined for the configuration dynamics can't be run
+    with pytest.raises(ValueError):
+        _ = run_gapmd(configuration=gt.Configuration('tmp.xyz'),
+                      gap=gt.GAP('some_params.xml'),
+                      temp=298.15,
+                      dt=0.5,
+                      interval=1)

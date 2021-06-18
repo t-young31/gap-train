@@ -311,6 +311,12 @@ def run_gapmd(configuration, gap, temp, dt, interval, init_temp=None, **kwargs):
 
     :returns: (gt.Trajectory)
     """
+    if configuration.box is None:
+        raise ValueError('To run periodic GAP MD a box must be defined '
+                         'for a configuration. i.e. '
+                         'config = gt.Configuration("filename.xyz", '
+                         'box=gt.Box([10, 10, 10])')
+
     logger.info('Running GAP MD')
     configuration.save(filename='config.xyz')
 
