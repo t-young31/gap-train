@@ -4,20 +4,7 @@
 
 This repository contains the _gaptrain_ module for generating datasets, training
 GAPs and running simulations using Atomic Simulation Environment (ASE) to 
-drive dynamics. Methods are described in the [preprint](https://doi.org/10.1039/d1sc01825f):
-
-```
-@article{GAPTraining2021,
-  doi = {10.1039/d1sc01825f},
-  url = {https://doi.org/10.1039/d1sc01825f},
-  year = {2021},
-  publisher = {Royal Society of Chemistry ({RSC})},
-  author = {Tom Young and Tristan Johnston-Wood and Volker L. Deringer and Fernanda Duarte},
-  title = {A transferable active-learning strategy for reactive molecular force fields},
-  journal = {Chemical Science}
-}
-```
-
+drive dynamics. 
 
 ## Installation
 
@@ -119,4 +106,21 @@ export GT_ORCA=True
 export GT_XTB=True
 export GT_GAP=True
 export GT_GMX=True
+```
+
+
+## Citation
+
+If _gaptrain_ is used in a publication please consider citing the [paper](https://doi.org/10.1039/d1sc01825f):
+
+```
+@article{GAPTraining2021,
+  doi = {10.1039/d1sc01825f},
+  url = {https://doi.org/10.1039/d1sc01825f},
+  year = {2021},
+  publisher = {Royal Society of Chemistry ({RSC})},
+  author = {Tom Young and Tristan Johnston-Wood and Volker L. Deringer and Fernanda Duarte},
+  title = {A transferable active-learning strategy for reactive molecular force fields},
+  journal = {Chemical Science}
+}
 ```
