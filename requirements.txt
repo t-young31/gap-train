@@ -6,7 +6,7 @@ cython
 scipy
 pytest
 codecov
-autode
+autode==1.0.5
 ase
 coloredlogs
 dscribe
