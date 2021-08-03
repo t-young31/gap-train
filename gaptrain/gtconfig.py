@@ -8,16 +8,12 @@ gap-train makes use of the following environment variables
 if they're not set some defaults are given but it's probably useful to set them
 for development with e.g.
 
-export QUIP_CONT = $HOME/QUIP.sif
+export GPAW_SETUP_PATH = $HOME/gpaw/share/
 
-in a bash shell
+in a bash shell.
 """
 import os
-
-
-# ----------------------- GPAW -------------------------------
-if 'GPAW_SETUP_PATH' not in os.environ:
-    os.environ['GPAW_SETUP_PATH'] = '/u/fd/ball4935/opt/anaconda3/envs/gpaw/share/gpaw-setups-0.9.20000'
+import shutil
 
 # WARNING: Calling GPAW asynchronously on a set of data will NOT respect
 # os.environ['OMP_NUM_THREADS'] = '1' so this environment variable must be
@@ -27,15 +23,13 @@ if 'GPAW_SETUP_PATH' not in os.environ:
 if 'DFTB_PATH' in os.environ:
     dftb_path = os.environ['DFTB_PATH']
 
+    if 'DFTB_PREFIX' not in os.environ:
+        os.environ['DFTB_PREFIX'] = f'{dftb_path}/recipes/slakos/download/3ob-3-1'
+
+    if 'DFTB_COMMAND' not in os.environ:
+        os.environ['DFTB_COMMAND'] = f'{dftb_path}/bin/dftb+'
 else:
-    dftb_path = '/u/fd/ball4935/opt/dftbplus-20.1.x86_64-linux'
-    # dftb_path = '/u/fd/ball4935/.local/dftbplus-20.1.x86_64-linux'
-
-if 'DFTB_PREFIX' not in os.environ:
-    os.environ['DFTB_PREFIX'] = f'{dftb_path}/recipes/slakos/download/3ob-3-1'
-
-if 'DFTB_COMMAND' not in os.environ:
-    os.environ['DFTB_COMMAND'] = f'{dftb_path}/bin/dftb+'
+    print("WARNING: $DFTB_PATH not set, dftb+ not available")
 
 
 class GTConfig:
@@ -55,33 +49,30 @@ class GTConfig:
     # true for more recent versions
     quip_version_above_66c553f = True
 
-    if 'QUIP_CONT' not in os.environ:
-        os.environ['QUIP_CONT'] = '/u/fd/ball4935/opt/QUIP.sif'
+    # Commands should be lists
+    gap_fit_command = [shutil.which('gap_fit')]
+    quip_command = [shutil.which('quip')]
 
-    gap_fit_command = ['singularity', 'exec', os.environ['QUIP_CONT'],
-                       'teach_sparse']
-
-    quip_command = ['singularity', 'exec', os.environ['QUIP_CONT'], 'quip']
-
-    quippy_gap_command = ['singularity', 'exec',  os.environ['QUIP_CONT'],
-                          '/usr/local/bin/python']
+    # Path to the Python version where quippy is installed, assumes an install
+    # in the current version
+    quippy_gap_command = [shutil.which('python')]
 
     # Default parameters for a GAP potential
     gap_default_params = {'sigma_E': 10**(-3.5),        # eV
                           'sigma_F': 10**(-1.0)}        # eV Å-1
 
     # Default two-body parameters
-    gap_default_2b_params = {'cutoff': 5.5,             # Å
+    gap_default_2b_params = {'cutoff':   5.5,           # Å
                              'n_sparse': 30,
-                             'delta': 1.0               # eV
+                             'delta':    1.0
                              }
 
     # Default SOAP parameters
-    gap_default_soap_params = {'cutoff': 3.0,           # Å
+    gap_default_soap_params = {'cutoff':   4.0,         # Å
                                'n_sparse': 500,
-                               'order': 6,
+                               'order':    6,
                                'sigma_at': 0.5,         # Å
-                               'delta': 0.1             # eV
+                               'delta':    0.1
                                }
 
     # ----------------------- ORCA -------------------------------
