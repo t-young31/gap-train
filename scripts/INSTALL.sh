@@ -14,10 +14,12 @@ if ! command -v conda &> /dev/null; then
     wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
     bash miniconda.sh -b -p "$HOME/miniconda"
     rm miniconda.sh
+    eval "$("$HOME"/miniconda/bin/conda shell.bash hook)"
+    conda init bash
     print "                ...done\n\n"
     print "Installed miniconda to $HOME/miniconda"
 fi
-print "                          ...found"
+print "Checking for conda install...found"
 # -----------------------------------------------------------------------------
 
 print "Creating new Python 3 environment for gap-train module (named 'gap')..."
@@ -56,19 +58,23 @@ python setup.py install
 
 print "Installing QUIP..."
 pip install quippy-ase
-print -e "               ...done\n\n"
+print "               ...done\n\n"
 # -----------------------------------------------------------------------------
 
-read -p "Install gpaw? ([y]/n)" -r install_gpaw
+print "Installing electronic structure packages.\n
+Note: ORCA cannot be installed automatically as the EULA must be accepted individually.
+Go to https://orcaforum.kofo.mpg.de/index.php, sign in and go to 'downloads' to download and install."
+
+read -p "Install gpaw? ([y]/n)\n" -r install_gpaw
 
 if [ "$install_gpaw" == "y" ] || [ "$install_gpaw" == "" ]; then
     print "Installing gpaw..."
     conda install -c conda-forge gpaw --yes
-    print -e "               ...done\n\n"
+    print "               ...done\n\n"
 fi
 # -----------------------------------------------------------------------------
 
-read -p "Install xtb? ([y]/n)" -r install_xtb
+read -p "Install xtb? ([y]/n)\n" -r install_xtb
 
 if [ "$install_xtb" == "y" ] || [ "$install_xtb" == "" ]; then
     print "Installing xtb..."
@@ -77,11 +83,11 @@ if [ "$install_xtb" == "y" ] || [ "$install_xtb" == "" ]; then
 fi
 # -----------------------------------------------------------------------------
 
-read -p "Install DFTB+? ([y]/n)" -r install_dftb
+read -p "Install DFTB+? ([y]/n)\n" -r install_dftb
 
 if [ "$install_dftb" == "y" ] || [ "$install_dftb" == "" ]; then
     print "Installing DFTB+..."
-    conda install -c conda-forge dftbplus
+    conda install -c conda-forge dftbplus --yes
     print "                ...done\n\n"
 
 
@@ -92,7 +98,7 @@ if [ "$install_dftb" == "y" ] || [ "$install_dftb" == "" ]; then
       print "Downloading..."
       wget -N https://dftb.org/fileadmin/DFTB/public/slako/3ob/3ob-3-1.tar.xz
       wget -N https://dftb.org/fileadmin/DFTB/public/slako/3ob/wfc.3ob-3-1.hsd
-      print "           ...done\n\n"
+      print "Downloading...done\n\n"
 
       param_dir="$HOME/.local/dftb/slakos"
       print "Copying parameter files to $param_dir"
@@ -107,14 +113,13 @@ if [ "$install_dftb" == "y" ] || [ "$install_dftb" == "" ]; then
     # Set $DFTB_PREFIX if it is not already present
     if ! grep -Fxq "export DFTB_PREFIX" "$HOME/.bashrc"; then
       print "Modifying ~/.bashrc to include DFTB parameter path"
-      echo "export DFTB_PREFIX=$param_dir" >> "$HOME/.bashrc"
+      echo "export DFTB_PREFIX=$HOME/.local/dftb/slakos/3ob-3-1/" >> "$HOME/.bashrc"
     fi
 
-    print "                                ...done\n\n"
+    print "Installing DFTB+ parameter files          ...done\n\n"
 fi
 # -----------------------------------------------------------------------------
 
-
-print "Done!\n
-        Note: The gap environment will need to be activated each time a terminal is opened with\n
-        conda activate gap\n\n"
+print "Done!   Logout and log back in for the changes to take effect\n
+Note: The gap environment will need to be activated each time a terminal is opened with:\n
+       conda activate gap\n\n"
