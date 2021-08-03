@@ -1,3 +1,4 @@
+import shutil
 from gaptrain.trajectories import Trajectory
 from gaptrain.calculators import DFTB
 from gaptrain.utils import work_in_tmp_dir
@@ -229,6 +230,10 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
 
     :param kwargs: {fs, ps, ns} Simulation time in some units
     """
+    dftb_path = os.getenv('DFTB_COMMAND', shutil.which('dftb+'))
+    if dftb_path is None:
+        raise ValueError('Failed to run DFTB+. Executable not found ')
+
     logger.info('Running DFTB+ MD')
     ase_atoms = configuration.ase_atoms()
 
@@ -265,7 +270,7 @@ def run_dftbmd(configuration, temp, dt, interval, **kwargs):
               '}', sep='\n', file=input_file)
 
     with open('dftb_md.out', 'w') as output_file:
-        process = Popen([os.environ['DFTB_COMMAND']],
+        process = Popen([dftb_path],
                         shell=False, stderr=PIPE, stdout=output_file)
         _, err = process.communicate()
 
