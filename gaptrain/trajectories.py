@@ -114,3 +114,9 @@ class Trajectory(gt.ConfigurationSet):
 
         if len(self) == 0:
             logger.warning('Loaded an empty trajectory')
+
+        if (filename.endswith('.xyz')
+                and any(prm is None for prm in (charge, mult, box))):
+
+            logger.warning(f'Tried to load {filename} but did not have '
+                           f'one of: charge, mult or box')
