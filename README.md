@@ -4,35 +4,27 @@
 
 This repository contains the _gaptrain_ module for generating datasets, training
 GAPs and running simulations using Atomic Simulation Environment (ASE) to 
-drive dynamics. 
+drive dynamics and electronic structure packages for reference energies and forces. 
 
 ## Installation
 
-To install _gaptrain_ first ensure at least one electronic structure method is
-available, install QUIP, then install the module:
-
-1. If required install:
-
-    a. [GPAW](https://wiki.fysik.dtu.dk/gpaw/install.html)
-
-    b. [DFTB+](https://dftbplus.org) and the appropriate [parameters](https://dftb.org/parameters/download)
-
-    c. [GROMACS](http://www.gromacs.org)
-
-    d. [XTB](https://github.com/grimme-lab/xtb)
-
-    e. [ORCA](https://sites.google.com/site/orcainputlibrary/)
-
-2. Install [QUIP](https://github.com/libAtoms/QUIP) with [GAP](http://www.libatoms.org/gap/gap_download.html).
-the easiest way to install these is to use the Docker or Singularity containers
-
-3. Install _gaptrain_
+To install _gaptrain_ in one line:
 ```
+wget https://raw.githubusercontent.com/t-young31/gap-train/master/scripts/INSTALL.sh && bash INSTALL.sh
+```
+> **_NOTE:_**  ORCA cannot be installed with this script.
+
+Otherwise, from source:
+
+```bash
 git clone https://github.com/t-young31/gap-train.git
 cd gap-train
 conda install --file requirements.txt -c conda-forge
 python setup.py install
 ```
+where the electronic structure packages ([GPAW](https://wiki.fysik.dtu.dk/gpaw/install.html),
+[DFTB+](https://dftbplus.org), [XTB](https://github.com/grimme-lab/xtb), [ORCA](https://sites.google.com/site/orcainputlibrary/)) 
+and [QUIP](https://github.com/libAtoms/QUIP) need to be installed manually.
 
 
 ## Usage
