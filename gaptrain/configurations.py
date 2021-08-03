@@ -160,7 +160,7 @@ class Configuration:
 
         return run_cp2k(self, max_force)
 
-    def run_orca(self, max_force=None, n_cores=None):
+    def run_orca(self, max_force=None, n_cores=None, keywords=None):
         """Run an ORCA calculation on this configuration"""
         from gaptrain.calculators import run_autode, GTConfig
         from autode.methods import ORCA
@@ -168,7 +168,7 @@ class Configuration:
 
         n_cores = n_cores if n_cores is not None else GTConfig.n_cores
 
-        return run_autode(self, method=ORCA(), n_cores=n_cores)
+        return run_autode(self, method=ORCA(), n_cores=n_cores, kwds=keywords)
 
     def run_xtb(self, max_force=None, n_cores=None):
         """Run an XTB calculation on this configuration"""
@@ -595,12 +595,12 @@ class ConfigurationSet:
         from gaptrain.calculators import run_dftb
         return self._run_parallel_method(run_dftb, max_force=max_force)
 
-    def parallel_orca(self):
+    def parallel_orca(self, keywords=None):
         """Run parallel ORCA on these configurations"""
         from gaptrain.calculators import run_autode
         from autode.methods import ORCA
         return self._run_parallel_method(run_autode, max_force=None,
-                                         n_cores=1, method=ORCA())
+                                         n_cores=1, method=ORCA(), kwds=keywords)
     
     def parallel_xtb(self):
         """Run parallel XTB on these configurations"""

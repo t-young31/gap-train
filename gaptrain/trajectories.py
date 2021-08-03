@@ -38,7 +38,7 @@ def gro2xyz(filename, config, out_filename='nvt_traj.xyz'):
     return None
 
 
-class Trajectory(gt.ConfigurationSet):
+class Trajectory(gt.Data):
     """MD trajectory frames"""
 
     def extract_from_dftb(self, init_config):
