@@ -19,7 +19,8 @@ if ! command -v conda &> /dev/null; then
     print "                ...done\n\n"
     print "Installed miniconda to $HOME/miniconda"
 fi
-print "Checking for conda install...found"
+print "conda install             ...found"
+
 # -----------------------------------------------------------------------------
 
 print "Creating new Python 3 environment for gap-train module (named 'gap')..."
@@ -65,7 +66,7 @@ print "Installing electronic structure packages.\n
 Note: ORCA cannot be installed automatically as the EULA must be accepted individually.
 Go to https://orcaforum.kofo.mpg.de/index.php, sign in and go to 'downloads' to download and install."
 
-read -p "Install gpaw? ([y]/n)\n" -r install_gpaw
+read -p "Install gpaw? ([y]/n)" -r install_gpaw
 
 if [ "$install_gpaw" == "y" ] || [ "$install_gpaw" == "" ]; then
     print "Installing gpaw..."
@@ -74,7 +75,7 @@ if [ "$install_gpaw" == "y" ] || [ "$install_gpaw" == "" ]; then
 fi
 # -----------------------------------------------------------------------------
 
-read -p "Install xtb? ([y]/n)\n" -r install_xtb
+read -p "Install xtb? ([y]/n)" -r install_xtb
 
 if [ "$install_xtb" == "y" ] || [ "$install_xtb" == "" ]; then
     print "Installing xtb..."
@@ -83,7 +84,7 @@ if [ "$install_xtb" == "y" ] || [ "$install_xtb" == "" ]; then
 fi
 # -----------------------------------------------------------------------------
 
-read -p "Install DFTB+? ([y]/n)\n" -r install_dftb
+read -p "Install DFTB+? ([y]/n)" -r install_dftb
 
 if [ "$install_dftb" == "y" ] || [ "$install_dftb" == "" ]; then
     print "Installing DFTB+..."
