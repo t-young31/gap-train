@@ -164,7 +164,7 @@ class Tau:
 
         ----------------------------------------------------------------------
         :param configs: (list(gt.Configuration) | gt.ConfigurationSet) A set of
-                        initial configurations from which dynamics with be
+                        initial configurations from which dynamics will be
                         propagated from
 
         :param e_lower: (float) E_l energy threshold in eV below which
