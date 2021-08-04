@@ -23,7 +23,7 @@ Training a GAP on CCSD(T) energies and MP2 forces is sufficient to generate a GA
 space, MP2 forces and CC energies highly accurate methane dynamics can be propagated in just
 5 minutes of training time (on 10 cores, *methane_train.py*, *methane_val.py*).
 
-<img src="methane_energies_vs_time.png" width="440">
+<img src="methane_energies_vs_time.png" width="500">
 
 where the 'true' corresponds to CCSD(T)/def2-TZVP and the time the position in a short 500 K
 MD simulation using the trained GAP.
