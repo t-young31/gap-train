@@ -93,10 +93,10 @@ if __name__ == '__main__':
     methane = gt.System(gt.Molecule('methane.xyz'),
                         box_size=[50, 50, 50])
 
-    # generate_dftb_trajectory()
-    # traj = gt.Trajectory('methane_dftb_md.xyz', charge=0, mult=1,
-    #                      box=gt.Box([50, 50, 50]))
-    # generate_energies_forces(traj)
+    generate_dftb_trajectory()
+    traj = gt.Trajectory('methane_dftb_md.xyz', charge=0, mult=1,
+                         box=gt.Box([50, 50, 50]))
+    generate_energies_forces(traj)
 
     fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(12, 8))
     fig.delaxes(ax[1, 2])
@@ -105,4 +105,4 @@ if __name__ == '__main__':
         plot_force_component_comparison(name=method_name,
                                         axis_idx=idx)
     plt.tight_layout()
-    plt.savefig(f'force_comparison_vs_ccsdt.pdf')
+    plt.savefig(f'methane_force_comparison_vs_ccsdt.pdf')

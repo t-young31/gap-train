@@ -12,7 +12,7 @@ several levels of theory (*methane_F.py*) suggests that using hybrid DFT or MP2 
 combination with CCSD(T) energies should be sufficient to train a CCSD(T)-quality GAP. The
 average error is roughly the same as the optimised σ<sub>F</sub> hyperparameter (0.1 eV Å<sup>-1</sup>).
 
-<img src="methane_force_comparison_vs_ccsdt.png" width="640">
+<img src="methane_force_comparison_vs_ccsdt.png" width="840">
 
 Similar results are obtained for (molecular) water.
 
