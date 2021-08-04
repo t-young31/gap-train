@@ -1,0 +1,34 @@
+## Mixed energy and force methods
+Gaussian approximation potentials make use of energies and forces to fit the potential. 
+However, they need not be of the same level of theory (or particularly well converged,
+as noted in the tutorial review[1]). For high-level coupled-cluster potentials where 
+gradients are expensive to calculate the forces may be evaluated at a different level
+of theory to the energies, provided they are within the 'assumed error' (σ<sub>F</sub>)
+to the true forces.
+
+### Force errors
+Generating frames using a DFTB(3ob) MD simulation and evaluating the force components at 
+several levels of theory (*methane_F.py*) suggests that using hybrid DFT or MP2 forces in
+combination with CCSD(T) energies should be sufficient to train a CCSD(T)-quality GAP. The
+average error is roughly the same as the optimised σ<sub>F</sub> hyperparameter (0.1 eV Å<sup>-1</sup>).
+
+<img src="methane_force_comparison_vs_ccsdt.png" width="640">
+
+Similar results are obtained for (molecular) water.
+
+### Mixed energy and force GAPs
+
+Training a GAP on CCSD(T) energies and MP2 forces is sufficient to generate a GAP within
+1 kcal mol-1 of the true CC surface. Using active learning at XTB to sample the configuration 
+space, MP2 forces and CC energies highly accurate methane dynamics can be propagated in just
+5 minutes of training time (on 10 cores, *methane_train.py*, *methane_val.py*).
+
+<img src="methane_energies_vs_time.png" width="640">
+
+where the 'true' corresponds to CCSD(T)/def2-TZVP and the time the position in a short 500 K
+MD simulation using the trained GAP.
+
+### References
+
+[1] A. P. Bartok and G. Csanyi, *Int. J. Quant. Chem.*, 2015, **115**, 1051.
+
