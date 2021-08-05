@@ -49,7 +49,7 @@ n_configurations        τ_acc
 For this system therefore the number of required configurations is less than half, if a τ_acc of 1 ps is
 desired.
 
-##### 2. Acetic acid
+#### 2. Acetic acid
 Employing CUR selection for a slightly larger 8-atom system (AcOH) allows for an accurate CCSD(T)-quality
 GAP to be generated with just 167 CCSD(T) calculations (*AcOH_train.py*, *AcOH_val.py*).
 
@@ -61,5 +61,6 @@ GAP to be generated with just 167 CCSD(T) calculations (*AcOH_train.py*, *AcOH_v
 ### References
 
 [1] A. P. Bartok and G. Csanyi, *Int. J. Quant. Chem.*, 2015, **115**, 1051.
+
 [2] M. W. Mahoney and P. Drineas, *PNAS*, 2009, **106**, 697.
 
