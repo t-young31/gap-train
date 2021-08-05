@@ -2,8 +2,8 @@
 Gaussian approximation potentials make use of energies and forces to fit the potential. 
 However, they need not be of the same level of theory (or particularly well converged,
 as noted in the tutorial review[1]). For high-level coupled-cluster potentials where 
-gradients are expensive to calculate the forces may be evaluated at a different level
-of theory to the energies, provided they are within the 'assumed error' (σ<sub>F</sub>)
+gradients are expensive to calculate, the forces may be evaluated at a different level
+of theory to the energies. This is provided they are within the 'assumed error' (σ<sub>F</sub>)
 to the true forces.
 
 ### Force errors
@@ -20,12 +20,12 @@ Similar results are obtained for (molecular) water.
 #### 0. Methane
 Training a GAP on CCSD(T) energies and MP2 forces is sufficient to generate a GAP within
 1 kcal mol-1 of the true CC surface. Using active learning at XTB to sample the configuration 
-space, MP2 forces and CC energies highly accurate methane dynamics can be propagated in just
+space, MP2 forces and CC energies, highly accurate methane dynamics can be propagated in just
 5 minutes of training time (on 10 cores, *methane_train.py*, *methane_val.py*).
 
 <img src="methane_energies_vs_time.png" width="500">
 
-where the 'true' corresponds to CCSD(T)/def2-TZVP and the time the position in a short 500 K
+where the 'true' corresponds to CCSD(T)/def2-TZVP and the time within a short 500 K
 MD simulation using the trained GAP.
 
 #### 1. Methanol
@@ -46,12 +46,13 @@ n_configurations        τ_acc
 40                  106.67 ± 30.31 fs
 ```
 
-For this system therefore the number of required configurations is less than half, if a τ_acc of 1 ps is
+For this system the the number of required configurations is less than half, if a τ_acc of 1 ps is
 desired.
 
 #### 2. Acetic acid
-Employing CUR selection for a slightly larger 8-atom system (AcOH) allows for an accurate CCSD(T)-quality
-GAP to be generated with just 167 CCSD(T) calculations (*AcOH_train.py*, *AcOH_val.py*).
+Employing CUR selection to 50% of the AL configurations for a slightly larger 8-atom system (AcOH) allows
+for an accurate CCSD(T)-quality GAP to be generated with just 167 CCSD(T) calculations
+(*AcOH_train.py*, *AcOH_val.py*).
 
 <img src="AcOH_energies_vs_time.png" width="500">
 
