@@ -44,7 +44,7 @@ class DFTB(Dftb):
 
 
 @work_in_tmp_dir()
-def run_autode(configuration, max_force=None, method=None, n_cores=1):
+def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None):
     """
     Run an orca or xtb calculation
 
@@ -54,14 +54,18 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1):
     :param max_force: (float) or None
 
     :param method: (autode.wrappers.base.ElectronicStructureMethod)
+
+    :param n_cores: (int) Number of cores to use for the calculation
+
+    :param kwds: (autode.wrappers.keywords.Keywords)
     """
     from autode.species import Species
     from autode.calculation import Calculation
     from autode.exceptions import CouldNotGetProperty
     
-    if method.name == 'orca' and GTConfig.orca_keywords is None:
+    if method.name == 'orca' and GTConfig.orca_keywords is None and kwds is None:
         raise ValueError("For ORCA training GTConfig.orca_keywords must be"
-                         " set. e.g. "
+                         " set. or this function called with kwds e.g. "
                          "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
 
     # optimisation is not implemented, needs a method to run
@@ -72,9 +76,12 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1):
                       charge=configuration.charge,
                       mult=configuration.mult)
 
-    # allow for an ORCA calculation to have non-default keywords.. not the
-    # cleanest implementation..
-    kwds = GTConfig.orca_keywords if method.name == 'orca' else method.keywords.grad
+    # allow for an ORCA calculation to have non-default keywords
+    if kwds is None and method.name == 'orca':
+        kwds = GTConfig.orca_keywords
+    if kwds is None:                      # Default to a gradient calculation
+        kwds = method.keywords.grad
+
     calc = Calculation(name='tmp',
                        molecule=species,
                        method=method,
