@@ -1,3 +1,4 @@
+![test](https://github.com/t-young31/gap-train/actions/workflows/pytest.yml/badge.svg)
 # gap-train
 
 ## Introduction
