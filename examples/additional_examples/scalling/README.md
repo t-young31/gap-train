@@ -26,16 +26,15 @@ at the time of writing).
 
 For a more diverse set of molecules (organic solvents)
 
-<img src="solvents/solvents.png" width="700">
+<img src="solvents/solvents.png" width="600">
 
 plotting the number of configurations required to generate a GAP with τ<sub>acc</sub> > 1 ps 
 (parameters as above)
 
-<img src="solvents/solvent_scaling.png" width="800">
+<img src="solvents/solvent_scaling.png" width="900">
 
-suggests an approximate exponential scaling.
-
-
+suggests no strong correlation, only that - as expected - larger molecules
+require more training evaluations.
 
 
 ### References
