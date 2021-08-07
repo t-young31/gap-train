@@ -34,7 +34,7 @@ if __name__ == '__main__':
         [1026, 1250, 1215],
         [359, 352, 368],
         [1427, 1161, 1493],
-        [3677, 3581, ],
+        [3677, 3581, 3749],
         [348, 539, 384],      # 15
         [2614, 2526, 2575],
         [925, 828, 752],
@@ -50,7 +50,7 @@ if __name__ == '__main__':
         [402, 407, 340],
         [3551, 3464, 3372],
         [315, 372, 279],
-        [],                 # 30
+        [3389, 3362, ],                 # 30
         [292, 235, 191]
     ]
 
@@ -69,7 +69,7 @@ if __name__ == '__main__':
         [247, 289, 284],
         [103, 103, 110],
         [365, 305, 352],
-        [884, 846, ],
+        [884, 846, 839],
         [95, 119, 111],
         [633, 636, 628],
         [234, 196, 202],
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         [113, 114, 108],
         [802, 824, 802],
         [87, 104, 80],
-        [],
+        [766, 787, ],
         [73, 66, 62]
     ]
 
@@ -103,8 +103,15 @@ if __name__ == '__main__':
                 color='red',
                 label='$n_{train}$')
 
-    for ax in (ax1, ax2):
+    for i, ax in enumerate((ax1, ax2)):
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.i'))
+
+        for idx in range(len(n_atoms_list)):
+            y = n_evals if i == 0 else n_train_configs
+            ax.annotate(str(idx),
+                        xy=(n_atoms_list[idx], np.average(y[idx])),
+                        xytext=(n_atoms_list[idx]+0.2, np.average(y[idx])),
+                        fontsize=7)
 
     ax1.set_xlabel('# atoms')
     ax1.set_ylabel('$n_{eval}$')
@@ -119,4 +126,4 @@ if __name__ == '__main__':
     ax2.legend(loc='lower right')
 
     plt.tight_layout()
-    plt.savefig('solvent_scaling.pdf')
+    plt.savefig('solvent_scaling.png', dpi=500)
