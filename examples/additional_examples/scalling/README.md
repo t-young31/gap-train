@@ -36,7 +36,7 @@ plotting the number of configurations required to generate a GAP with τ<sub>acc
 suggests no strong correlation, only that - as expected - larger molecules
 require more training evaluations. Note that the number of training configurations shown above 
 is not representative of the number required to generate a stable potential for that molecule, as
-the RMSE is <<1 kcal mol<sub>-1</sub> over configurations accessed in a 300 K simulation. Furthermore,
+the RMSE is << 1 kcal mol<sub>-1</sub> over configurations accessed in a 300 K simulation. Furthermore,
 the AL is performed at 500 K, exceeding the temperature of the desired simulation and increasing 
 the effective space to learn. For example, reducing the AL temperature to 300 K for glycine (*30*) 
 halves *n*<sub>eval</sub> and *n*<sub>train</sub> while maintaining a τ<sub>acc</sub> > 1 ps (parameters as above).
