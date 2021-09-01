@@ -5,7 +5,6 @@ from gaptrain.log import logger
 from gaptrain.configurations import Configuration
 import gaptrain.exceptions as ex
 from autode.species.species import Species
-from autode.atoms import get_atomic_weight
 from copy import deepcopy
 import numpy as np
 
@@ -248,7 +247,7 @@ class System:
     def density(self):
         """Calculate the density of the system in g cm-3"""
 
-        total_mw = sum([get_atomic_weight(atom.label) for m in self.molecules
+        total_mw = sum([atom.weight.to('amu') for m in self.molecules
                         for atom in m.atoms])  # g mol-1
 
         # ρ = m / V  ->  ρ = (mw / Na) / (V) * 1E-3

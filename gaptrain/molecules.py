@@ -2,7 +2,6 @@ import autode as ade
 from autode.input_output import xyz_file_to_atoms
 from autode.geom import calc_rmsd
 from autode.atoms import Atom
-from autode.atoms import get_vdw_radius
 from gaptrain.log import logger
 from scipy.spatial.distance import cdist
 from scipy.spatial import distance_matrix
@@ -80,14 +79,14 @@ class Species(ade.species.Species):
         :return: (float) Radius in Å
         """
         if self.n_atoms == 1:
-            return get_vdw_radius(atom_label=self.atoms[0].label)
+            return self.atoms[0].vdw_radius
 
         coords = self.coordinates
         max_distance = np.max(distance_matrix(coords, coords))
 
         logger.warning('Assuming hydrogen on the exterior in calculating the '
                        f'radius of {self.name}')
-        return max_distance / 2.0 + get_vdw_radius('H')
+        return max_distance / 2.0 + Atom('H').vdw_radius
 
     def set_mm_atom_types(self):
         """Set the molecular mechanics (MM) atoms types for this molecule"""
