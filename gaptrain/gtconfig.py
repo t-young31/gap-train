@@ -79,5 +79,8 @@ class GTConfig:
     # Keywords to use for an ORCA calculation
     orca_keywords = None
 
+    # ---------------------- Gaussian -----------------------------
+    g09_keywords = None
+
     # ----------------------- CP2K -------------------------------
     cp2k_command = ['srun', '--cpu-bind=cores', 'cp2k.popt']

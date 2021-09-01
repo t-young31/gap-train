@@ -62,11 +62,21 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None)
     from autode.species import Species
     from autode.calculation import Calculation
     from autode.exceptions import CouldNotGetProperty
-    
-    if method.name == 'orca' and GTConfig.orca_keywords is None and kwds is None:
-        raise ValueError("For ORCA training GTConfig.orca_keywords must be"
-                         " set. or this function called with kwds e.g. "
-                         "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
+
+    if method.name == 'orca':
+        if GTConfig.orca_keywords is None and kwds is None:
+            raise ValueError("For ORCA training GTConfig.orca_keywords must be"
+                             " set. or this function called with kwds e.g. "
+                             "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
+
+        kwds = GTConfig.orca_keywords if kwds is None else method.keywords.grad
+
+    if method.name == 'g09':
+        if GTConfig.g09_keywords is None and kwds is None:
+            raise ValueError("For G09 training GTConfig.g09_keywords must be"
+                             " set.")
+
+        kwds = GTConfig.g09_keywords if kwds is None else method.keywords.grad
 
     # optimisation is not implemented, needs a method to run
     assert max_force is None and method is not None
@@ -76,19 +86,13 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None)
                       charge=configuration.charge,
                       mult=configuration.mult)
 
-    # allow for an ORCA calculation to have non-default keywords
-    if kwds is None and method.name == 'orca':
-        kwds = GTConfig.orca_keywords
-    if kwds is None:                      # Default to a gradient calculation
-        kwds = method.keywords.grad
-
     calc = Calculation(name='tmp',
                        molecule=species,
                        method=method,
                        keywords=kwds,
                        n_cores=n_cores)
     calc.run()
-    ha_to_ev = 27.2114
+
     try:
         configuration.forces = -ha_to_ev * calc.get_gradients()
     except CouldNotGetProperty:

@@ -601,7 +601,14 @@ class ConfigurationSet:
         from autode.methods import ORCA
         return self._run_parallel_method(run_autode, max_force=None,
                                          n_cores=1, method=ORCA(), kwds=keywords)
-    
+
+    def parallel_g09(self, keywords=None):
+        """Run parallel ORCA on these configurations"""
+        from gaptrain.calculators import run_autode
+        from autode.methods import G09
+        return self._run_parallel_method(run_autode, max_force=None,
+                                         n_cores=1, method=G09(), kwds=keywords)
+
     def parallel_xtb(self):
         """Run parallel XTB on these configurations"""
         from gaptrain.calculators import run_autode
@@ -622,7 +629,7 @@ class ConfigurationSet:
 
     def single_point(self, method_name):
         """Run parallel single points"""
-        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'g09', 'xtb', 'cp2k')
         return getattr(self, f'parallel_{method_name.lower()}')()
 
     def remove_first(self, n):
