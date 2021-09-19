@@ -1,6 +1,6 @@
 """Train a GAP for a gas phase benzene molecule with a DFTB ground truth"""
 import gaptrain as gt
-gt.GTConfig.n_cores = 4
+gt.GTConfig.n_cores = 10
 
 # Initialise a cubic box 10x10x10 Å containing a single benzene molecule
 benzene = gt.System(box_size=[10, 10, 10])

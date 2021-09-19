@@ -1,5 +1,5 @@
 import gaptrain as gt
-gt.GTConfig.n_cores = 4
+gt.GTConfig.n_cores = 10
 
 # Initialise a box of water
 h2o = gt.System(box_size=[10, 10, 10])

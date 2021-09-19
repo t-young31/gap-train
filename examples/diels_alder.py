@@ -2,7 +2,7 @@ import gaptrain as gt
 import autode as ade
 from autode.wrappers.keywords import GradientKeywords
 
-gt.GTConfig.n_cores = 8
+gt.GTConfig.n_cores = 10
 
 
 def find_ts():
