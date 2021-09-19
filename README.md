@@ -72,7 +72,7 @@ _gaptrain_ is unit tested with [pytest](https://docs.pytest.org/en/stable/), run
 them with
 
 ```bash
-py.test
+py.test tests/
 ```
 
 in the top level gap-train directory. To run the DFTB+, GAP and GROMACS tests

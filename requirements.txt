@@ -9,4 +9,4 @@ codecov
 autode==1.1.0
 ase
 coloredlogs
-dscribe
+dscribe==3.22

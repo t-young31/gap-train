@@ -45,17 +45,10 @@ class GTConfig:
                       'band.out')
 
     # ----------------------- GAP -------------------------------
-    # Set to False for compatibility with quip commit 66c553f, should be
-    # true for more recent versions
-    quip_version_above_66c553f = True
 
-    # Commands should be lists
+    # Commands must be lists
     gap_fit_command = [shutil.which('gap_fit')]
     quip_command = [shutil.which('quip')]
-
-    # Path to the Python version where quippy is installed, assumes an install
-    # in the current version
-    quippy_gap_command = [shutil.which('python')]
 
     # Default parameters for a GAP potential
     gap_default_params = {'sigma_E': 10**(-3.5),        # eV

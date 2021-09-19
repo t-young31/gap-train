@@ -197,7 +197,7 @@ def run_gap(configuration, max_force, gap, traj_name=None):
               sep='\n', file=quippy_script)
 
     # Run the process
-    subprocess = Popen(GTConfig.quippy_gap_command + ['gap.py'],
+    subprocess = Popen(['python', 'gap.py'],
                        shell=False, stdout=PIPE, stderr=PIPE)
     subprocess.wait()
 

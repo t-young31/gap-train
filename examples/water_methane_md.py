@@ -1,6 +1,6 @@
 """Run some molecular dynamics with a solute-solvent GAP"""
 import gaptrain as gt
-gt.GTConfig.n_cores = 4
+gt.GTConfig.n_cores = 10
 
 # Initialise a box of water and methane
 system = gt.System(box_size=[10, 10, 10])

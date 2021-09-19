@@ -13,10 +13,7 @@ import pickle
 from time import time
 import os
 
-if GTConfig.quip_version_above_66c553f:
-    potential_class = 'quippy.potential.Potential'
-else:
-    potential_class = 'quippy.Potential'
+potential_class = 'quippy.potential.Potential'
 
 
 def atomic_number(symbol):
@@ -63,10 +60,7 @@ class GAP:
                   f'{general["sigma_E"]:.6f} {general["sigma_F"]:.6f} 0.0 0.0'
                   '} ')
 
-        if GTConfig.quip_version_above_66c553f:
-            params += 'e0_method=average '
-
-        params += 'gap={'
+        params += 'e0_method=average gap={'
 
         # Iterate thorough the dictionary of two-body pairwise parameters
         for (symbol_a, symbol_b), pairwise in self.params.pairwise.items():
@@ -115,12 +109,9 @@ class GAP:
                        f'zeta=4 '
                        f'atom_sigma={soap["sigma_at"]} '
                        f'cutoff={soap["cutoff"]} '
-                       f'delta={soap["delta"]} ')
-
-            if GTConfig.quip_version_above_66c553f:
-                params += 'add_species=F '
-
-            params += (f'n_Z=1 '
+                       f'delta={soap["delta"]} '
+                       f'add_species=F '
+                       f'n_Z=1 '
                        f'n_species={len(soap["other"])} '
                        'species_Z={{'
                        # Remove the brackets from the ends of the list
