@@ -158,59 +158,30 @@ def run_gap(configuration, max_force, gap, traj_name=None):
     :param gap: (gaptrain.gap.GAP)
     :return:
     """
-    configuration.save(filename='config.xyz')
-    a, b, c = configuration.box.size
+    import quippy
+    from ase.optimize import BFGS
+    from ase.io.trajectory import Trajectory
+    system = configuration.ase_atoms()
+    system.center()
 
-    # Energy minimisation section to the file
-    min_section = ''
+    system.set_calculator(gap.ase_calculator())
 
+    # Minimise if there is a non-None max force
     if max_force is not None:
+        dyn = BFGS(system)
+
         if traj_name is not None:
-            min_section = (f'traj = Trajectory(\'{traj_name}\', \'w\', '
-                           f'                  system)\n'
-                           'dyn = BFGS(system)\n'
-                           'dyn.attach(traj.write, interval=1)\n'
-                           f'dyn.run(fmax={float(max_force)})')
-        else:
-            min_section = ('dyn = BFGS(system)\n'
-                           f'dyn.run(fmax={float(max_force)})')
+            traj = Trajectory(traj_name, 'w', system)
+            dyn.attach(traj.write, interval=1)
 
-    # Print a Python script to execute quippy - likely not installed in the
-    # current interpreter..
-    with open(f'gap.py', 'w') as quippy_script:
-        print('import quippy',
-              'import numpy as np',
-              'from ase.io import read, write',
-              'from ase.optimize import BFGS',
-              'from ase.io.trajectory import Trajectory',
-              'system = read("config.xyz")',
-              f'system.cell = [{a}, {b}, {c}]',
-              'system.pbc = True',
-              'system.center()',
-              f'{gap.ase_gap_potential_str()}',
-              'system.set_calculator(pot)',
-              f'{min_section}',
-              'np.savetxt("energy.txt",\n'
-              '           np.array([system.get_potential_energy()]))',
-              'np.savetxt("forces.txt", system.get_forces())',
-              f'write("config.xyz", system)',
-              sep='\n', file=quippy_script)
+        dyn.run(fmax=float(max_force))
 
-    # Run the process
-    subprocess = Popen(['python', 'gap.py'],
-                       shell=False, stdout=PIPE, stderr=PIPE)
-    subprocess.wait()
-
-    # Grab the energy from the output after unsetting it
     try:
-        configuration.load(filename='config.xyz')
-        configuration.energy = np.loadtxt('energy.txt')
+        configuration.energy = system.get_potential_energy()
+        configuration.forces = system.get_forces()
 
-    except IOError:
+    except (RuntimeError, ValueError):
         raise GAPFailed('Failed to calculate energy with the GAP')
-
-    # Grab the final forces from the numpy array
-    configuration.forces = np.loadtxt('forces.txt')
 
     return configuration
 

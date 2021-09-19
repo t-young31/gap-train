@@ -13,7 +13,7 @@ import pickle
 from time import time
 import os
 
-potential_class = 'quippy.potential.Potential'
+potential_class = ''
 
 
 def atomic_number(symbol):
@@ -43,14 +43,20 @@ def predict(gap, data):
 
 class GAP:
 
-    def ase_gap_potential_str(self):
+    @property
+    def xml_filename(self):
+        return f'{self.name}.xml'
+
+    def ase_calculator(self):
         """Generate the quippy/ASE string to run the potential"""
+        import quippy
 
-        if not os.path.exists(f'{self.name}.xml'):
-            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
+        if not os.path.exists(self.xml_filename):
+            raise IOError(f'GAP parameter file ({self.xml_filename}) did not '
+                          f'exist')
 
-        return (f'pot = {potential_class}("IP GAP", \n'
-                f'              param_filename="{self.name}.xml")')
+        return quippy.potential.Potential("IP GAP",
+                                          param_filename=self.xml_filename)
 
     def train_command(self):
         """Generate the teach_sparse function call for this system of atoms"""
@@ -198,7 +204,8 @@ class GAP:
         :param system: (gaptrain.systems.System | None)
         """
 
-        self.name = name
+        # Default to removing the extension if it exists
+        self.name = name if not name.endswith('.xml') else name[:-4]
 
         if system is not None and default_params:
             self.params = Parameters(atom_symbols=system.atom_symbols())
