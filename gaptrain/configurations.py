@@ -12,6 +12,10 @@ import os
 
 class Configuration:
 
+    @property
+    def n_atoms(self):
+        return len(self.atoms)
+
     def ase_atoms(self):
         """Get ASE atoms from this configuration"""
         from ase import Atoms
@@ -396,8 +400,36 @@ class Configuration:
 
         return None
 
-    def __init__(self, filename=None, system=None, box=None, charge=None,
-                 mult=None, name='config'):
+    def _init_from_system(self, system):
+        """
+        Initialise a configuration from a system
+
+        :param system: (gt.System)
+        """
+
+        for mol in system.molecules:
+
+            if not any(str(mol) == m.name for m in self.unique_molecules):
+                self.unique_molecules.append(gt.UniqueMolecule(mol))
+
+            for unq_mol in self.unique_molecules:
+                if unq_mol.name != str(mol):
+                    continue
+
+                end_idx = self.n_atoms + unq_mol.molecule.n_atoms
+                unq_mol.atom_idxs.append(list(range(self.n_atoms, end_idx)))
+
+            self.atoms += mol.atoms
+
+        return None
+
+    def __init__(self,
+                 filename=None,
+                 system=None,
+                 box=None,
+                 charge=None,
+                 mult=None,
+                 name='config'):
         """
         A configuration consisting of a set of atoms suitable to run DFT
         or GAP on to set self.energy and self.forces
@@ -414,10 +446,10 @@ class Configuration:
 
         self.name = name
         self.atoms = []
+        self.unique_molecules = []
 
         if system is not None:
-            for molecule in system.molecules:
-                self.atoms += molecule.atoms
+            self._init_from_system(system)
 
         self.forces = None                                  # eV Å-1
         self.energy = None                                  # eV
@@ -432,7 +464,6 @@ class Configuration:
         self.t0 = 0          # Time from initial configuration
 
         if filename is not None:
-
             self.load(filename)
 
 

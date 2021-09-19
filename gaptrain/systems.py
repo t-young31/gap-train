@@ -74,8 +74,12 @@ class System:
 
         return self
 
-    def random(self, min_dist_threshold=1.7, with_intra=False, on_grid=False,
-               max_attempts=10000, **kwargs):
+    def random(self,
+               min_dist_threshold=1.7,
+               with_intra=False,
+               on_grid=False,
+               max_attempts=10000,
+               **kwargs):
         """Randomise the configuration
 
         -----------------------------------------------------------------------
@@ -147,7 +151,9 @@ class System:
 
         return config
 
-    def grid(self, min_dist_threshold=1.5, max_attempts=10000):
+    def grid(self,
+             min_dist_threshold=1.5,
+             max_attempts=10000):
         """
         Generate molecules on an evenly spaced grid
 
