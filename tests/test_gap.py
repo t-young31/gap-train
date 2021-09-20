@@ -56,12 +56,12 @@ def test_intra_gap1():
 
     gap = gt.gap.IntraGAP(name='test',
                           unique_molecule=system.unique_molecules[0])
-    assert gap._mol_idxs == [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
+    assert gap.mol_idxs == [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
 
     ase_atoms = system.random().ase_atoms()
     new_atoms = expanded_atoms(ase_atoms,
                                expansion_factor=10,
-                               mol_idxs=np.array(gap._mol_idxs, dtype=int))
+                               mol_idxs=np.array(gap.mol_idxs, dtype=int))
     coords = new_atoms.positions
     for i, coord in enumerate(coords):
         if i < 3:
@@ -80,12 +80,12 @@ def test_intra_gap2():
 
     gap = gt.gap.IntraGAP(name='methane',
                           unique_molecule=system.unique_molecules[1])
-    assert gap._mol_idxs == [list(range(9, 14))]
+    assert gap.mol_idxs == [list(range(9, 14))]
 
     ase_atoms = system.random().ase_atoms()
     new_atoms = expanded_atoms(ase_atoms,
                                expansion_factor=10,
-                               mol_idxs=np.array(gap._mol_idxs, dtype=int))
+                               mol_idxs=np.array(gap.mol_idxs, dtype=int))
     dist_mat = distance_matrix(new_atoms.positions,
                                new_atoms.positions)
 
