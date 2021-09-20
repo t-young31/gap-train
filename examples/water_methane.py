@@ -7,4 +7,4 @@ system.add_molecules(gt.Molecule('methane.xyz'))
 system.add_solvent('h2o', n=20)
 
 # Train a solute-solvent GAP and generate parameter files
-data, gap = gt.active.train_ss(system, method_name='dftb')
+data, gap = gt.active.train_ii(system, method_name='dftb')

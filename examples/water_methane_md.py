@@ -8,17 +8,16 @@ system.add_molecules(gt.Molecule('methane.xyz'))
 system.add_solvent('h2o', n=20)
 
 # Load the GAP parameter files
-solv_gap = gt.gap.SolventIntraGAP(name=f'intra_h2o', system=system)
-solute_gap = gt.gap.SoluteIntraGAP(name=f'intra_CH4',
-                                   system=system,
-                                   molecule=gt.Molecule('methane.xyz'))
+solute_gap = gt.IntraGAP(name=f'intra_CH4',
+                         unique_molecule=system.unique_molecules[0])
+solv_gap = gt.IntraGAP(name=f'intra_h2o',
+                       unique_molecule=system.unique_molecules[1])
+
 inter_gap = gt.InterGAP(name='inter', system=system)
 
 # Run molecular dynamics using the composite GAP
 traj = gt.md.run_gapmd(configuration=system.random(min_dist_threshold=1.7),
-                       gap=gt.gap.SSGAP(solute_intra=solute_gap,
-                                        solvent_intra=solv_gap,
-                                        inter=inter_gap),
+                       gap=gt.IIGAP(inter_gap, solv_gap, solute_gap),
                        temp=300,
                        dt=0.5,
                        interval=5,
