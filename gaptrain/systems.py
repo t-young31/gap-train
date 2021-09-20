@@ -171,7 +171,6 @@ class System:
         grid_points = []
         a, b, c = sub_box.size
         n_a, n_b, n_c = n_x(a, b, c), n_x(b, a, c), n_x(c, a, b)
-        print(n_a, n_b, n_c)
 
         # Add all the grid points in 3D over the orthorhombic box
         for i in range(n_a):
@@ -182,7 +181,6 @@ class System:
 
         # Need to have fewer molecules than grid points to put them on
         assert len(grid_points) >= n_molecules
-        print(len(grid_points))
 
         def random_rotate(vec):
             molecule.translate(vec=-molecule.centroid())

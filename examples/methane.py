@@ -2,7 +2,7 @@
 truth and compare the accuracy along a trajectory"""
 import gaptrain as gt
 from autode.wrappers.keywords import GradientKeywords
-gt.GTConfig.n_cores = 8
+gt.GTConfig.n_cores = 10
 
 # Set the keywords to use for an ORCA energy and gradient calculation
 gt.GTConfig.orca_keywords = GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])

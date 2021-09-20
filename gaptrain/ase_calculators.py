@@ -98,14 +98,14 @@ class IntraCalculator(Calculator):
                   **kwargs):
         """Calculate energies and forces"""
 
-        atoms = self.expanded_subset(atoms)
+        _atoms = self.expanded_subset(atoms)
 
         # Add the total energy of all the intra components
-        self.results["energy"] = atoms.get_potential_energy()
+        self.results["energy"] = _atoms.get_potential_energy()
 
         # And a subset of the forces
         forces = np.zeros(shape=(len(atoms), 3))
-        forces[self.flat_mol_idxs, :] += atoms.get_forces()
+        forces[self.flat_mol_idxs, :] += _atoms.get_forces()
         self.results["forces"] = forces
         return None
 

@@ -678,11 +678,6 @@ def train_ii(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
 
     :param inter_temp: (float) Temperature to run the intermolecular training
     """
-
-    if system.n_unique_molecules > 1:
-        raise ValueError('Can only train an inter+intra for a single bulk '
-                         'molecular species')
-
     if system.n_unique_molecules < 1:
         raise ValueError('Must have at least one molecule to train GAP for')
 

@@ -237,7 +237,7 @@ class InterGAP(GAP):
 
 class IntraGAP(GAP):
 
-    def ase_calculator(self, mol_idxs=None):
+    def ase_calculator(self):
         """
         Generate the quippy/ASE string to run the potential
 
@@ -254,10 +254,7 @@ class IntraGAP(GAP):
         """
         self._check_xml_exists()
 
-        if mol_idxs is None:
-            mol_idxs = self._mol_idxs
-
-        return IntraCalculator("IP GAP", self.xml_filename, mol_idxs=mol_idxs)
+        return IntraCalculator("IP GAP", self.xml_filename, mol_idxs=self.mol_idxs)
 
     def __init__(self, name, unique_molecule):
         """
@@ -268,10 +265,10 @@ class IntraGAP(GAP):
         :param unique_molecule: (gt.molecules.UniqueMolecule)
         """
         super().__init__(name, unique_molecule)
-        self._mol_idxs = unique_molecule.atom_idxs
+        self.mol_idxs = unique_molecule.atom_idxs
 
         logger.info(f'Initialised an intra-GAP with molecular indexes:'
-                    f' {self._mol_idxs}')
+                    f' {self.mol_idxs}')
 
 
 class IIGAP:
