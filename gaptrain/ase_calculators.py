@@ -31,7 +31,7 @@ def expanded_atoms(atoms:            ASEAtoms,
     ex_atoms.set_cell(expansion_factor * atoms.cell)
 
     # Get the current coordinates and indexes of the atoms to shift',
-    coords = ex_atoms.get_positions()
+    coords = atoms.get_positions()
 
     vec = np.average(coords[mol_idxs], axis=1)
     vecs = np.zeros_like(coords)

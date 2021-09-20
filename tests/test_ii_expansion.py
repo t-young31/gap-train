@@ -16,6 +16,7 @@ def test_box_expansion():
     new_atoms = expanded_atoms(atoms=ase_atoms,
                                mol_idxs=mol_idxs,
                                expansion_factor=10)
+    print(new_atoms.positions)
 
     from timeit import repeat
     print('Expansion runs in ',

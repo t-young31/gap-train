@@ -1,7 +1,8 @@
+import numpy as np
 import pytest
 import gaptrain as gt
 from gaptrain.systems import MMSystem
-from gaptrain.md import run_mmmd, run_gapmd
+from gaptrain.md import run_mmmd, run_gapmd, set_momenta
 from gaptrain.molecules import Ion
 from autode.species import Molecule
 from gaptrain.utils import work_in_tmp_dir
@@ -37,15 +38,17 @@ def test_ase_momenta_string():
 
     configuration = system.configuration()
 
-    bbond_energy = {(1, 2): 0.1}
-    fbond_energy = {(1, 2): 0.1}
+    bbond_energy = {(1, 2): 1}
+    ase_atoms = configuration.ase_atoms()
+    set_momenta(configuration,
+                ase_atoms,
+                temp=100,
+                bbond_energy=bbond_energy,
+                fbond_energy={})
 
-    momenta_string = gt.md.ase_momenta_string(configuration, 300, bbond_energy,
-                                              fbond_energy)
-
-    assert type(momenta_string) is str
-
-    return None
+    momenta = ase_atoms.get_momenta()
+    assert np.linalg.norm(momenta[1, :]) > np.linalg.norm(momenta[0, :])
+    assert np.linalg.norm(momenta[2, :]) > np.linalg.norm(momenta[0, :])
 
 
 @work_in_tmp_dir()
