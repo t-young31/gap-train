@@ -1,4 +1,4 @@
-from gaptrain.molecules import Species
+from gaptrain.molecules import Species, UniqueMolecule
 from gaptrain.solvents import get_solvent
 from gaptrain.box import Box
 from gaptrain.log import logger
@@ -240,9 +240,15 @@ class System:
         self.molecules += [deepcopy(molecule) for _ in range(n)]
         return None
 
+    @property
     def atom_symbols(self):
         """Get all the atom labels/atomic symbols in this system"""
         return [atom.label for m in self.molecules for atom in m.atoms]
+
+    @property
+    def n_atoms(self):
+        """Get all the atom labels/atomic symbols in this system"""
+        return len(self.atom_symbols)
 
     @property
     def n_unique_molecules(self):
@@ -276,6 +282,32 @@ class System:
         """Get the total spin multiplicity on the system"""
         n_unpaired = sum((mol.mult - 1) / 2 for mol in self.molecules)
         return 2 * n_unpaired + 1
+
+    @property
+    def unique_molecules(self):
+        """
+        Unique molecules that comprise this system populating their atom
+        indexes. e.g. For a system of two water molecules:
+            mol_idxs = [[0, 1, 2], [3, 4, 5]]
+        """
+        unq_mols = []
+        start_idx = 0
+
+        for mol in self.molecules:
+
+            if not any(str(mol) == m.name for m in unq_mols):
+                unq_mols.append(UniqueMolecule(mol))
+
+            for unq_mol in unq_mols:
+                if unq_mol.name != str(mol):
+                    continue
+
+                end_idx = start_idx + unq_mol.molecule.n_atoms
+                unq_mol.atom_idxs.append(list(range(start_idx, end_idx)))
+
+                start_idx += unq_mol.molecule.n_atoms
+
+        return unq_mols
 
     def __init__(self, *args, box_size):
         """

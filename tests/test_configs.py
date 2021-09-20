@@ -391,9 +391,9 @@ def test_unique_molecules():
     s1.add_molecules(h2o, n=2)
 
     assert s1.configuration().n_atoms == 6
-    assert len(s1.configuration().unique_molecules) == 1
+    assert len(s1.unique_molecules) == 1
 
-    unq_mol = s1.configuration().unique_molecules[0]
+    unq_mol = s1.unique_molecules[0]
     # Should have two molecules
     assert len(unq_mol.atom_idxs) == 2
     # each with 3 atoms
@@ -402,13 +402,10 @@ def test_unique_molecules():
     s2 = gt.System(box_size=[10, 10, 10])
     s2.add_molecules(h2o, n=3)
     s2.add_molecules(methane, n=1)
-    assert len(s2.configuration().unique_molecules) == 2
+    assert len(s2.unique_molecules) == 2
 
-    print(s2.configuration().unique_molecules[0].atom_idxs
-          )
-
-    assert (s2.configuration().unique_molecules[0].atom_idxs
+    assert (s2.unique_molecules[0].atom_idxs
             == [[0, 1, 2], [3, 4, 5], [6, 7, 8]])
 
-    assert (s2.configuration().unique_molecules[1].atom_idxs
+    assert (s2.unique_molecules[1].atom_idxs
             == [[9, 10, 11, 12, 13]])

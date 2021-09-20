@@ -144,7 +144,6 @@ def run_gpaw(configuration, max_force):
     return configuration
 
 
-@work_in_tmp_dir(kept_exts=['.traj'], copied_exts=['.xml'])
 def run_gap(configuration, max_force, gap, traj_name=None):
     """
     Run a GAP calculation using quippy as the driver which is a wrapper around
@@ -158,19 +157,19 @@ def run_gap(configuration, max_force, gap, traj_name=None):
     :param gap: (gaptrain.gap.GAP)
     :return:
     """
-    import quippy
-    from ase.optimize import BFGS
-    from ase.io.trajectory import Trajectory
     system = configuration.ase_atoms()
     system.center()
-
     system.set_calculator(gap.ase_calculator())
 
     # Minimise if there is a non-None max force
     if max_force is not None:
+        from ase.optimize import BFGS
+
         dyn = BFGS(system)
 
         if traj_name is not None:
+            from ase.io.trajectory import Trajectory
+
             traj = Trajectory(traj_name, 'w', system)
             dyn.attach(traj.write, interval=1)
 

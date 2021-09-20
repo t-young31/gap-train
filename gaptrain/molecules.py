@@ -163,13 +163,15 @@ class UniqueMolecule:
         # Assume a unique name of this molecule..
         return hash(self.name)
 
+    @property
+    def atom_symbols(self):
+        """Atomic symbols for all atoms in this molecule"""
+        return [atom.atomic_symbol for atom in self.molecule.atoms]
+
     def __init__(self, molecule):
 
         self.name = str(molecule)
         self.molecule = molecule
-
-        # GAP used to evaluate the energy
-        self.gap = None
 
         # Atom indexes in a configuration that this unique molecule
         # corresponds to
@@ -194,4 +196,3 @@ class Ion(Species):
                          spin_multiplicity=spin_multiplicity,
                          atoms=[Atom(label)],
                          gmx_itp_filename=gmx_itp_filename)
-

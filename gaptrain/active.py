@@ -231,7 +231,7 @@ def get_active_config_gp_var(config, gap, temp, var_e_thresh,
     """
     # Needs a single gap to calculate the variance simply, if this is a II or
     # SS GAP then assume the intra is well trained and use inter prediction
-    gap_name = gap.inter.name if hasattr(gap, 'inter') else gap.name
+    gap_name = gap.inter_gap.name if hasattr(gap, 'inter') else gap.name
 
     def run_quip():
         """Use QUIP on a set of configurations to predict the variance"""
@@ -386,7 +386,7 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
 
     # Initial configurations are not defined, so make some - will use random
     # with the largest maximum distance between molecules possible
-    max_vdw = max(Atom(symbol).vdw_radius for symbol in system.atom_symbols())
+    max_vdw = max(Atom(symbol).vdw_radius for symbol in system.atom_symbols)
     ideal_dist = 2*max_vdw - 0.5    # Desired minimum distance in Å
 
     # Reduce the distance until there is a probability at least 0.1 that a

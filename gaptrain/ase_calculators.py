@@ -1,9 +1,128 @@
 import numpy as np
 from ase.calculators.calculator import Calculator
-from ase import Atoms
+from ase import Atoms as ASEAtoms
+
+
+def expanded_atoms(atoms:            ASEAtoms,
+                   expansion_factor: float,
+                   mol_idxs:         np.ndarray):
+    """
+    Generate atoms expanded by a factor intermolecularly e.g.
+
+                                 ________________
+      ___________               /               /
+     /     X   /       -->     /         X     /
+    /  X     /                /              /
+    ---------                /     X        /
+                            ----------------
+
+    will only apply shifts to the centre of mass for molecules defined in
+    mol_idxs.
+
+    :param atoms:  ASE atoms
+    :param expansion_factor: (float)
+    :param mol_idxs: (np.ndarray) Matrix of atom indexes for each molecule
+
+    :returns: ASE atoms
+    """
+    ex_atoms = atoms.copy()
+
+    # Expand the box
+    ex_atoms.set_cell(expansion_factor * atoms.cell)
+
+    # Get the current coordinates and indexes of the atoms to shift',
+    coords = ex_atoms.get_positions()
+
+    vec = np.average(coords[mol_idxs], axis=1)
+    vecs = np.zeros_like(coords)
+    vecs[mol_idxs.flatten(), :] = np.repeat(vec,
+                                            repeats=mol_idxs.shape[1],
+                                            axis=0)
+    frac_com = vecs / np.diagonal(atoms.cell)
+
+    # Shift from the current position to the new approximate
+    # fractional center of mass
+    coords += (frac_com * np.diagonal(ex_atoms.cell) - vecs)
+
+    ex_atoms.set_positions(coords)
+    ex_atoms.wrap()
+
+    return ex_atoms
+
+
+class IntraCalculator(Calculator):
+
+    implemented_properties = ["energy", "forces"]
+
+    def calculate(self,
+                  atoms=None,
+                  properties=None,
+                  system_changes=None,
+                  **kwargs):
+        """Calculate energies and forces"""
+
+        atoms = expanded_atoms(atoms,
+                               expansion_factor=self.expansion_factor,
+                               mol_idxs=self.mol_idxs)
+
+        atoms_subset = ASEAtoms(numbers=atoms.numbers[self.flat_mol_idxs],
+                                positions=atoms.positions[self.flat_mol_idxs, :],
+                                pbc=True,
+                                cell=atoms.cell)
+
+        atoms_subset.set_calculator(self.quip_calc)
+
+        # Add the total energy of all the intra components
+        self.results["energy"] = atoms_subset.get_potential_energy()
+
+        # And a subset of the forces
+        forces = np.zeros(shape=(len(atoms), 3))
+        forces[self.flat_mol_idxs, :] += atoms_subset.get_forces()
+        self.results["forces"] = forces
+        return None
+
+    def __init__(self,
+                 name,
+                 xml_filename,
+                 mol_idxs,
+                 expansion_factor=10,
+                 **kwargs):
+        """
+        ASE calculator for the calculation of intramolecular energies and
+        forces for all molecules in a system, defined by a set of mol_idxs
+
+        :param name:
+        :param xml_filename:
+        :param mol_idxs:
+        :param expansion_factor:
+        :param kwargs:
+        """
+        super().__init__(**kwargs)
+
+        self.name = name
+        self.expansion_factor = expansion_factor
+
+        # Will throw a ValueError if the list of lists is not 'homogeneous'
+        # and not correctly assigned to the same molecule
+        self.mol_idxs = np.array(mol_idxs,  dtype=int)
+        self.flat_mol_idxs = self.mol_idxs.flatten()
+
+        try:
+            import quippy
+            self.quip_calc = quippy.potential.Potential("IP GAP",
+                                                        param_filename=xml_filename)
+
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError('Quippy was not installed. Try\n'
+                                      'pip install quippy-ase')
 
 
 class IICalculator(Calculator):
+    pass
+
+
+
+class _IICalculator(Calculator):
 
     implemented_properties = ["energy", "forces"]
 
@@ -78,7 +197,7 @@ class IICalculator(Calculator):
         self.expansion_factor = expansion_factor
 
 
-class IntraCalculator(IICalculator):
+class _IntraCalculator(IICalculator):
     """Calculate only the intra-molecular component of the energy"""
 
     def calculate(self, atoms=None, properties=None,

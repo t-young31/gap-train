@@ -400,29 +400,6 @@ class Configuration:
 
         return None
 
-    def _init_from_system(self, system):
-        """
-        Initialise a configuration from a system
-
-        :param system: (gt.System)
-        """
-
-        for mol in system.molecules:
-
-            if not any(str(mol) == m.name for m in self.unique_molecules):
-                self.unique_molecules.append(gt.UniqueMolecule(mol))
-
-            for unq_mol in self.unique_molecules:
-                if unq_mol.name != str(mol):
-                    continue
-
-                end_idx = self.n_atoms + unq_mol.molecule.n_atoms
-                unq_mol.atom_idxs.append(list(range(self.n_atoms, end_idx)))
-
-            self.atoms += mol.atoms
-
-        return None
-
     def __init__(self,
                  filename=None,
                  system=None,
@@ -446,10 +423,10 @@ class Configuration:
 
         self.name = name
         self.atoms = []
-        self.unique_molecules = []
 
         if system is not None:
-            self._init_from_system(system)
+            for mol in system.molecules:
+                self.atoms += mol.atoms
 
         self.forces = None                                  # eV Å-1
         self.energy = None                                  # eV

@@ -1,12 +1,16 @@
+import numpy as np
+from scipy.spatial import distance_matrix
 import gaptrain as gt
+from gaptrain.ase_calculators import expanded_atoms
 import os
+
 
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = gt.Molecule(os.path.join(here, 'data', 'h2o.xyz'))
 methane = gt.Molecule(os.path.join(here, 'data', 'methane.xyz'))
 
 
-def test_gap():
+def _test_gap():
 
     water_dimer = gt.System(box_size=[3.0, 3.0, 3.0])
     water_dimer.add_molecules(h2o, n=2)
@@ -26,7 +30,7 @@ def test_gap():
     assert len(list(gap.params.soap)) == 1
 
 
-def test_gap_train():
+def _test_gap_train():
 
     system = gt.System(box_size=[10, 10, 10])
 
@@ -45,14 +49,46 @@ def test_gap_train():
     gap.train(training_data)
 
 
-def test_intra_gap():
+def test_intra_gap1():
 
     system = gt.System(box_size=[10, 10, 10])
     system.add_solvent('h2o', n=3)
 
-    gap = gt.gap.SolventIntraGAP(name='test', system=system)
-    assert gap.mol_idxs == [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
+    gap = gt.gap.IntraGAP(name='test',
+                          unique_molecule=system.unique_molecules[0])
+    assert gap._mol_idxs == [[0, 1, 2], [3, 4, 5], [6, 7, 8]]
 
+    ase_atoms = system.random().ase_atoms()
+    new_atoms = expanded_atoms(ase_atoms,
+                               expansion_factor=10,
+                               mol_idxs=np.array(gap._mol_idxs, dtype=int))
+    coords = new_atoms.positions
+    for i, coord in enumerate(coords):
+        if i < 3:
+            # Bonded atoms to the first atom should be close by
+            assert np.linalg.norm(coords[0] - coord) < 3
+        else:
+            # while the non-bonded counterparts should all be far away
+            assert np.linalg.norm(coords[0] - coord) > 10
+
+
+def test_intra_gap2():
+
+    system = gt.System(box_size=[10, 10, 10])
+    system.add_solvent('h2o', n=3)
     system.add_molecules(methane, n=1)
-    gap = gt.gap.SoluteIntraGAP(name='test', system=system, molecule=methane)
-    assert gap.mol_idxs == [[9, 10, 11, 12, 13]]
+
+    gap = gt.gap.IntraGAP(name='methane',
+                          unique_molecule=system.unique_molecules[1])
+    assert gap._mol_idxs == [list(range(9, 14))]
+
+    ase_atoms = system.random().ase_atoms()
+    new_atoms = expanded_atoms(ase_atoms,
+                               expansion_factor=10,
+                               mol_idxs=np.array(gap._mol_idxs, dtype=int))
+    dist_mat = distance_matrix(new_atoms.positions,
+                               new_atoms.positions)
+
+    # Far away non-bonded atoms and close bonded atoms
+    assert np.min(dist_mat[-1, :][:-5]) > 10
+    assert np.min(dist_mat[-1, :][-5:]) < 3

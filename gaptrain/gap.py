@@ -3,17 +3,16 @@ from gaptrain.log import logger
 from gaptrain.plotting import plot_ef_correlation
 from gaptrain.exceptions import GAPFailed
 from gaptrain.calculators import run_gap
+from ase.calculators.calculator import Calculator
+from ase.atoms import Atoms as ASEAtoms
+from gaptrain.ase_calculators import IntraCalculator
 from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations_with_replacement
 from multiprocessing import Pool
-from copy import deepcopy
-import numpy as np
 import pickle
 from time import time
 import os
-
-potential_class = ''
 
 
 def atomic_number(symbol):
@@ -47,14 +46,26 @@ class GAP:
     def xml_filename(self):
         return f'{self.name}.xml'
 
-    def ase_calculator(self):
-        """Generate the quippy/ASE string to run the potential"""
-        import quippy
-
+    def _check_xml_exists(self):
+        """Raise an exception if the parameter file (.xml) doesn't exist"""
         if not os.path.exists(self.xml_filename):
             raise IOError(f'GAP parameter file ({self.xml_filename}) did not '
                           f'exist')
 
+    def ase_calculator(self):
+        """
+        ASE Calculator instance to evaluate the energy using a GAP with
+        parameter filename: self.xml_filename
+
+        :return: (ase.Calculator)
+        """
+        try:
+            import quippy
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError('Quippy was not installed. Try\n'
+                                      'pip install quippy-ase')
+
+        self._check_xml_exists()
         return quippy.potential.Potential("IP GAP",
                                           param_filename=self.xml_filename)
 
@@ -201,14 +212,16 @@ class GAP:
         A Gaussian Approximation Potential
 
         :param name: (str)
-        :param system: (gaptrain.systems.System | None)
+        :param system: (gt.systems.System
+                        | gt.molecules.UniqueMolecule
+                        | None)
         """
 
         # Default to removing the extension if it exists
         self.name = name if not name.endswith('.xml') else name[:-4]
 
         if system is not None and default_params:
-            self.params = Parameters(atom_symbols=system.atom_symbols())
+            self.params = Parameters(atom_symbols=system.atom_symbols)
 
         else:
             self.params = Parameters(atom_symbols=[])
@@ -219,100 +232,107 @@ class GAP:
 
 
 class InterGAP(GAP):
-    pass
+    """'Intermolecular' GAP i.e. reminder after intra subtraction"""
 
 
 class IntraGAP(GAP):
 
-    def _set_mol_idxs(self, system, molecule):
-        """Set the indexes of the molecule in the system that this GAP
-        applies to"""
-        if molecule is None:
-            raise NotImplementedError
+    def ase_calculator(self, mol_idxs=None):
+        """
+        Generate the quippy/ASE string to run the potential
 
-        curr_n_atoms = 0
+        :param mol_idxs: (list(list(int)) | None) Indexes of the atoms within
+                         a configuration which form molecules that this
+                         intra GAP can evaluate. e.g. for a configuration of
+                         two water molecules:
+                            mol_idxs = [[0, 1, 2], [3, 4, 5]]
 
-        for s_molecule in system.molecules:
-            if molecule == s_molecule:
-                idxs = range(curr_n_atoms, curr_n_atoms + molecule.n_atoms)
-                self.mol_idxs.append(list(idxs))
+                        If None then use the initial definition given by
+                        the unique molecule
 
-            curr_n_atoms += s_molecule.n_atoms
+        :return: (ase.Calculator)
+        """
+        self._check_xml_exists()
 
-        if len(self.mol_idxs) == 0:
-            raise RuntimeError(f'Found no molecules matching: {str(molecule)}'
-                               f' in the system')
-        return None
+        if mol_idxs is None:
+            mol_idxs = self._mol_idxs
 
-    def ase_gap_potential_str(self):
-        """Generate the quippy/ASE string to run the potential"""
+        return IntraCalculator("IP GAP", self.xml_filename, mol_idxs=mol_idxs)
 
-        if not os.path.exists(f'{self.name}.xml'):
-            raise IOError(f'GAP parameter file ({self.name}.xml) did not exist')
-
-        # Custom calculator for the intra energy in a larger box
-        here = os.path.abspath(os.path.dirname(__file__))
-        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
-
-        pt += [f'intra_gap = {potential_class}("IP GAP", '
-               f'param_filename="{self.name}.xml")\n',
-               f'intra_gap.mol_idxs = {self.mol_idxs}\n',
-               f'pot = IntraCalculator(intra_gap)\n']
-
-        return ''.join(pt)
-
-    def __init__(self, name, system, molecule):
-        """An intramolecular GAP, must be initialised with a system so the
-        molecules are defined
+    def __init__(self, name, unique_molecule):
+        """
+        An intramolecular GAP defined for a unique molecule specific to a
+        system
 
         :param name: (str)
-        :param system: (gt.system.System)
+        :param unique_molecule: (gt.molecules.UniqueMolecule)
         """
-        super().__init__(name, system)
-
-        self.mol_idxs = []
-        self._set_mol_idxs(system, molecule)
+        super().__init__(name, unique_molecule)
+        self._mol_idxs = unique_molecule.atom_idxs
 
         logger.info(f'Initialised an intra-GAP with molecular indexes:'
-                    f' {self.mol_idxs}')
+                    f' {self._mol_idxs}')
 
 
-class SolventIntraGAP(IntraGAP):
+class IIGAP:
+    """Inter+intra GAP where the inter is evaluated in a different box"""
 
-    def _set_mol_idxs(self, system, molecule):
-        """Set the molecular indexes from a system as the most abundant
-        identical molecules"""
-        mols_and_num = {}
-        for molecule in system.molecules:
-            if str(molecule) not in mols_and_num:
-                mols_and_num[str(molecule)] = 1
-            else:
-                mols_and_num[str(molecule)] += 1
+    def train(self, data):
+        """Train the inter-component of the GAP"""
+        logger.info('Training the intermolecular component of the potential. '
+                    'Expecting data that is free from intra energy and force')
 
-        # Rudimentary sort..
-        max_mol, max_num = None, 0
-        for mol, num in mols_and_num.items():
-            if num > max_num:
-                max_mol = mol
+        if not all(os.path.exists(gap.xml_filename) for gap in self.intra_gaps):
+            raise RuntimeError('Intramolecular GAPs must be already trained')
 
-        # Add the indexes of the most abundant molecules
-        curr_n_atoms = 0
+        self.training_data = data
+        return self.inter_gap.train(data)
 
-        for molecule in system.molecules:
-            if str(molecule) == max_mol:
-                idxs = range(curr_n_atoms, curr_n_atoms + molecule.n_atoms)
-                self.mol_idxs.append(list(idxs))
+    def _check_xml_exists(self):
+        """Raise an exception if the parameter file (.xml) doesn't exist"""
+        if not os.path.exists(self.inter_gap.xml_filename):
+            raise IOError(f'Intermolecular GAP parameter file must exist')
 
-            curr_n_atoms += molecule.n_atoms
-
+        for gap in self.intra_gaps:
+            if not os.path.exists(gap.xml_filename):
+                raise IOError(f'GAP parameter file ({gap.xml_filename}) did '
+                              f'not exist')
         return None
 
-    def __init__(self, name, system):
-        super().__init__(name, system, molecule=None)
+    def ase_calculator(self):
+        """Generate the quippy/ASE string to run the potential"""
+
+        self._check_xml_exists()
 
 
-class SoluteIntraGAP(IntraGAP):
-    pass
+
+        return
+
+    def __init__(self, *args):
+        """
+        Collective GAP comprised of inter and intra components
+
+        :param args: (gt.gap.IntraGAP | gt.gap.InterGAP)
+        """
+        self.training_data = None   # intermolecular training data
+        self.inter_gap = None
+        self.intra_gaps = []
+
+        for arg in args:
+            if isinstance(arg, IntraGAP):
+                self.intra_gaps.append(arg)
+
+            elif isinstance(arg, InterGAP):
+                self.inter_gap = arg
+
+            else:
+                raise ValueError('IIGAP must be initialised with only '
+                                 'InterGAP or IntraGAP potentials')
+
+        if self.inter_gap is None or len(self.intra_gaps) == 0:
+            raise AssertionError('Must have both an inter+intra GAP')
+
+        self.name = f'II_{self.inter_gap.name}'
 
 
 class Parameters:
@@ -397,297 +417,3 @@ class Parameters:
         self.angle = {}
         self.soap = {}
         self._set_soap(atom_symbols)
-
-
-class GAPEnsemble:
-
-    def n_gaps(self):
-        return len(self.gaps)
-
-    def predict_energy_error(self, *args):
-        """
-        Predict the standard deviation between predicted energies
-
-        -----------------------------------------------------------------------
-        :param args: (gaptrain.configurations.Configuration |
-                      gaptrain.configurations.ConfigurationSet)
-
-        :return: (float | list(float)) Error on each of the configurations
-        """
-        configs = []
-
-        # Populate a list of all the configurations that need to be
-        for arg in args:
-            try:
-                for config in arg:
-                    configs.append(config)
-
-            except TypeError:
-                assert arg.__class__.__name__ == 'Configuration'
-                configs.append(arg)
-
-        assert len(configs) != 0
-
-        start_time = time()
-        results = np.empty(shape=(len(configs), self.n_gaps()), dtype=object)
-        predictions = np.empty(shape=results.shape)
-
-        os.environ['OMP_NUM_THREADS'] = '1'
-        os.environ['MLK_NUM_THREADS'] = '1'
-        logger.info('Set OMP and MLK threads to 1')
-
-        with Pool(processes=GTConfig.n_cores) as pool:
-
-            # Apply the method to each configuration in this set
-            for i, config in enumerate(configs):
-                for j, gap in enumerate(self.gaps):
-                    result = pool.apply_async(func=run_gap,
-                                              args=(config, None, gap))
-                    results[i, j] = result
-
-            # Reset all the configurations in this set with updated energy
-            # and forces (each with .true)
-            for i in range(len(configs)):
-                for j in range(self.n_gaps()):
-                    predictions[i, j] = results[i, j].get(timeout=None).energy
-
-        logger.info(f'Calculations done in {(time() - start_time):.1f} s')
-
-        if len(configs) == 1:
-            return np.std(predictions[0])
-
-        return [np.std(predictions[i, :]) for i in range(len(configs))]
-
-    def sub_sampled_data(self, data, gap=None, random=True):
-        """
-        Select a portion of the data to train a GAP on as an nth of the full
-        training data where n is the number of GAPs in this ensemble
-
-        :param data: (gaptrain.data.Data)
-        :param gap: (gaptrain.gap.GAP | None)
-        :param random: (bool) Whether to take a random sample
-        :return:
-        """
-        sub_sampled_data = data.copy()
-
-        # Remove points randomly from the training data to give an n-th
-        n_data = int(len(data) / self.n_gaps())
-
-        if n_data == 0:
-            raise RuntimeError('Insufficient configurations to sub-sample')
-
-        if gap is not None:
-            if any(n_sparse > n_data for n_sparse in gap.params.n_sparses()):
-                raise RuntimeError('Number of sub-sampled data must be greater'
-                                   ' than or equal to the number of sparse '
-                                   'points')
-        else:
-            logger.warning('Cannot check that the number of data is larger'
-                           'than the number of sparse points')
-
-        if random:
-            sub_sampled_data.remove_random(remainder=n_data)
-        else:
-            raise NotImplementedError
-
-        return sub_sampled_data
-
-    def train(self, data=None, sub_sample=False):
-        """
-        Train the ensemble of GAPS
-
-        :param data: (gaptrain.data.Data)
-        :param sub_sample: (bool) Should the data be sub sampled or the full
-                           set used?
-        """
-
-        if data is None:
-            data = self.training_data
-
-        if data is None:
-            raise AssertionError('Could not train - no training data set')
-
-        logger.info(f'Training an ensemble with a total of {len(data)} '
-                    'configurations')
-
-        for i, gap in enumerate(self.gaps):
-
-            if sub_sample:
-                training_data = self.sub_sampled_data(data, gap, random=True)
-            else:
-                training_data = data.copy()
-
-            # Ensure that the data's name is unique, for saving etc.
-            training_data.name += f's{i}'
-
-            # Train the GAP
-            gap.train(data=training_data)
-
-        return None
-
-    def __init__(self, name, system=None, n=5, gap=None):
-        """
-        Ensemble of Gaussian approximation potentials allowing for error
-        estimates by sub-sampling
-
-        :param name: (str)
-        :param system: (gt.System)
-        :param gap: (gt.GAP)
-        """
-        logger.info(f'Initialising a GAP ensemble with {int(n)} GAPs')
-        self.training_data = None
-
-        if system and not gap:
-            self.gaps = [GAP(f'{name}_{i}', system) for i in range(int(n))]
-
-        elif gap and not system:
-            self.gaps = [deepcopy(gap) for _ in range(int(n))]
-            self.training_data = gap.training_data
-
-        else:
-            raise AssertionError('Must initialise a GAP ensemble with either '
-                                 'a GAP or a System')
-
-
-class AdditiveGAP:
-    """GAP where the energy is a sum of terms"""
-
-    def ase_gap_potential_str(self):
-        """Generate the quippy/ASE string to run the potential"""
-
-        pt_str = ''
-        for i in range(2):
-            pt_str += (f'pot{i+1} = {potential_class}("IP GAP", \n'
-                       f'          param_filename="{self[i].name}.xml")\n')
-
-            if not os.path.exists(f'{self[i].name}.xml'):
-                raise IOError(f'GAP parameter file ({self[i].name}.xml) in '
-                              f'additiive GAP did not exist')
-
-        pt_str += f'pot = {potential_class}("Sum", pot1=pot1, pot2=pot2)'
-
-        return pt_str
-
-    def predict(self, data):
-        return predict(self, data)
-
-    def plot_correlation(self, true_data, predicted_data, rel_energies=True):
-        return plot_ef_correlation(f'{self._list[0].name}+{self._list[1].name}',
-                                   true_data,
-                                   predicted_data,
-                                   rel_energies=rel_energies)
-
-    def __getitem__(self, item):
-        return self._list[item]
-
-    def __init__(self, gap1, gap2):
-        """
-        Additive GAP
-
-        :param gap1:
-        :param gap2:
-        """
-
-        self.name = f'{gap1.name}_{gap2.name}'
-        self._list = [gap1, gap2]
-
-
-class IIGAP:
-    """Inter+intra GAP where the inter is evaluated in a different box"""
-
-    def train(self, data):
-        """Train the inter-component of the GAP"""
-        logger.info('Training the intermolecular component of the potential. '
-                    'Expecting data that is free from intra energy and force')
-
-        if not os.path.exists(f'{self.intra.name}.xml'):
-            raise RuntimeError('Intra must be already trained')
-
-        self.training_data = data
-        return self.inter.train(data)
-
-    def ase_gap_potential_str(self,
-                              calc_str='IICalculator(intra_gap, inter_gap)'):
-        """Generate the quippy/ASE string to run the potential"""
-
-        if not (os.path.exists(f'{self.inter.name}.xml')
-                and os.path.exists(f'{self.intra.name}.xml')):
-            raise IOError(f'GAP parameter files did not exist')
-
-        # Custom calculator to calculate the intra component of the energy in
-        # a larger box; in a file for neatness
-        here = os.path.abspath(os.path.dirname(__file__))
-        pt = open(os.path.join(here, 'iicalculator.py'), 'r').readlines()
-
-        pt += [f'inter_gap = {potential_class}("IP GAP", '
-               f'param_filename="{self.inter.name}.xml")\n',
-               f'intra_gap = {potential_class}("IP GAP", '
-               f'param_filename="{self.intra.name}.xml")\n',
-               f'intra_gap.mol_idxs = {self.intra.mol_idxs}\n',
-               f'pot = {calc_str}\n']
-
-        return ''.join(pt)
-
-    def __init__(self, *args):
-        """
-        Collective GAP comprised of inter and intra components
-
-        :param args: (gt.gap.GAP)
-        """
-
-        self.training_data = None   # inter training data
-        self.inter = None
-        self.intra = None
-
-        for arg in args:
-            if isinstance(arg, IntraGAP):
-                self.intra = arg
-
-            elif isinstance(arg, InterGAP):
-                self.inter = arg
-
-            else:
-                raise ValueError('IIGAP must be initialised with only '
-                                 'InterGAP or IntraGAP potentials')
-
-        if self.inter is None or self.intra is None:
-            raise AssertionError('Must have both an inter+intra GAP')
-
-        self.name = f'{self.intra.name}_{self.inter.name}'
-
-
-class SSGAP(IIGAP):
-
-    def train(self, data):
-        """Train the inter component of a solute-solvent GAP """
-        if not os.path.exists(f'{self.solute_intra.name}.xml'):
-            raise RuntimeError('Solute intra must be already trained')
-
-        return super().train(data)
-
-    def ase_gap_potential_str(self, calc_str=None):
-        """Generate the quippy/ASE potential string with three calculators"""
-
-        if calc_str is None:
-            calc_str = 'SSCalculator(solute_gap, intra_gap, inter_gap)'
-
-        pt = (f'solute_gap = {potential_class}("IP GAP", '
-              f'     param_filename="{self.solute_intra.name}.xml")\n'
-              f'solute_gap.mol_idxs = {self.solute_intra.mol_idxs}\n')
-
-        pt += super().ase_gap_potential_str(calc_str=calc_str)
-        return pt
-
-    def __init__(self, solute_intra, solvent_intra, inter):
-        """
-        Solute-solvent (SS) Gaussian Approximation Potential comprised of a
-        GAP for thr gas phase solute, the solvent and the remainder of the
-        intermolecular interactions
-        """
-        super().__init__(solvent_intra, inter)
-
-        self.solute_intra = solute_intra
-        assert hasattr(self.solute_intra, 'mol_idxs')
-
-        if len(self.solute_intra.mol_idxs) > 1:
-            raise ValueError('More than one solvent not supported')
