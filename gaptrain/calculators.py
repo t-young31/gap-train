@@ -144,6 +144,7 @@ def run_gpaw(configuration, max_force):
     return configuration
 
 
+@work_in_tmp_dir(kept_exts=['.traj'], copied_exts=['.xml'])
 def run_gap(configuration, max_force, gap, traj_name=None):
     """
     Run a GAP calculation using quippy as the driver which is a wrapper around
@@ -157,27 +158,27 @@ def run_gap(configuration, max_force, gap, traj_name=None):
     :param gap: (gaptrain.gap.GAP)
     :return:
     """
-    system = configuration.ase_atoms()
-    system.center()
-    system.set_calculator(gap.ase_calculator())
+    ase_atoms = configuration.ase_atoms()
+    ase_atoms.center()
+    ase_atoms.set_calculator(gap.ase_calculator())
 
     # Minimise if there is a non-None max force
     if max_force is not None:
         from ase.optimize import BFGS
 
-        dyn = BFGS(system)
+        dyn = BFGS(ase_atoms)
 
         if traj_name is not None:
             from ase.io.trajectory import Trajectory
 
-            traj = Trajectory(traj_name, 'w', system)
+            traj = Trajectory(traj_name, 'w', ase_atoms)
             dyn.attach(traj.write, interval=1)
 
         dyn.run(fmax=float(max_force))
 
     try:
-        configuration.energy = system.get_potential_energy()
-        configuration.forces = system.get_forces()
+        configuration.energy = ase_atoms.get_potential_energy()
+        configuration.forces = ase_atoms.get_forces()
 
     except (RuntimeError, ValueError):
         raise GAPFailed('Failed to calculate energy with the GAP')

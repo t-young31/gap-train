@@ -5,7 +5,7 @@ from gaptrain.exceptions import GAPFailed
 from gaptrain.calculators import run_gap
 from ase.calculators.calculator import Calculator
 from ase.atoms import Atoms as ASEAtoms
-from gaptrain.ase_calculators import IntraCalculator
+from gaptrain.ase_calculators import IntraCalculator, IICalculator
 from autode.atoms import elements
 from subprocess import Popen, PIPE
 from itertools import combinations_with_replacement
@@ -288,7 +288,7 @@ class IIGAP:
         self.training_data = data
         return self.inter_gap.train(data)
 
-    def _check_xml_exists(self):
+    def _check_xmls_exists(self):
         """Raise an exception if the parameter file (.xml) doesn't exist"""
         if not os.path.exists(self.inter_gap.xml_filename):
             raise IOError(f'Intermolecular GAP parameter file must exist')
@@ -301,12 +301,12 @@ class IIGAP:
 
     def ase_calculator(self):
         """Generate the quippy/ASE string to run the potential"""
+        self._check_xmls_exists()
 
-        self._check_xml_exists()
-
-
-
-        return
+        return IICalculator("IP GAP",
+                            xml_filename=self.inter_gap.xml_filename,
+                            intra_calculators=[gap.ase_calculator()
+                                               for gap in self.intra_gaps])
 
     def __init__(self, *args):
         """

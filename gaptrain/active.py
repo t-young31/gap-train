@@ -33,21 +33,13 @@ def remove_intra(configs, gap):
     if isinstance(gap, gt.gap.IIGAP):
         logger.info('Removing the intramolecular energy and forces..')
         intra_configs = configs.copy()
-        intra_configs.parallel_gap(gap=gap.intra)
 
-        for config, i_config in zip(configs, intra_configs):
-            config.energy -= i_config.energy
-            config.forces -= i_config.forces
+        for intra_gap in gap.intra_gaps:
+            intra_configs.parallel_gap(gap=intra_gap)
 
-        # If there is also a solute in the system then remove the energy
-        # associated with it
-        if isinstance(gap, gt.gap.SSGAP):
-            solute_configs = configs.copy()
-            solute_configs.parallel_gap(gap=gap.solute_intra)
-
-            for config, s_config in zip(configs, solute_configs):
-                config.energy -= s_config.energy
-                config.forces -= s_config.forces
+            for config, i_config in zip(configs, intra_configs):
+                config.energy -= i_config.energy
+                config.forces -= i_config.forces
 
     return configs
 
@@ -326,14 +318,6 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
         args = (config, gap, temp, e_thresh, max_time_fs, ref_method_name,
                 0, 0, min_time_fs)
 
-    elif method.lower() == 'qbc':
-        function = get_active_config_qbc
-        # Train a few GAPs on the same data
-        gap = gt.gap.GAPEnsemble(name=f'{gap.name}_ensemble', gap=gap)
-        gap.train()
-
-        args = (config, gap, temp, e_thresh, max_time_fs)
-
     elif method.lower() == 'gp_var':
         function = get_active_config_gp_var
         args = (config, gap, temp, e_thresh, max_time_fs)
@@ -399,7 +383,8 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
 
         for _ in range(10):
             try:
-                _ = system.random(min_dist_threshold=dist)
+                _ = system.random(min_dist_threshold=dist,
+                                  max_attempts=2000)
                 n_generated_configs += 1
 
             except ex.RandomiseFailed:
@@ -496,7 +481,7 @@ def train(system: gt.System,
 
 
     :param active_method: (str) Method used to generate active learnt
-                          configurations. One of ['diff', 'qbc', 'gp_var']
+                          configurations. One of ['diff', 'gp_var']
 
     :param active_e_thresh: (float) Threshold in eV (E_t) above which a
                             configuration is added to the potential. If None
@@ -572,8 +557,7 @@ def train(system: gt.System,
 
     # Remove the intra-molecular energy if an intra+inter (II) GAP is being
     # trained
-    do_remove_intra = isinstance(gap, gt.IIGAP)
-    if do_remove_intra and remove_intra_init_configs:
+    if remove_intra_init_configs:
         remove_intra(init_configs, gap=gap)
 
     # Initial configuration must have energies
@@ -653,7 +637,8 @@ def train(system: gt.System,
                     f'{min_time_active_fs} fs before an error exceeded the '
                     f'threshold of {active_e_thresh:.3f} eV')
 
-        if do_remove_intra:
+        # Only training the intermolecular component in a I+I GAP
+        if isinstance(gap, gt.IIGAP):
             remove_intra(configs, gap=gap)
 
         train_data += configs
@@ -705,100 +690,35 @@ def train_ii(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
         raise ValueError('Ambiguous specification, please specify: intra_temp '
                          'and inter_temp')
 
-    # Create a system of just the monomer to train the intra-molecular
-    # component of the system
-    molecule = system.molecules[0]
-    intra_system = gt.System(box_size=system.box.size)
-    intra_system.add_molecules(molecule)
+    all_data, intra_gaps = [], []
 
-    # and train the intra component using a bespoke GAP
-    gap = gt.GAP(name=f'intra_{molecule.name}', system=intra_system)
-    intra_data, _ = train(intra_system,
-                          method_name=method_name,
-                          gap=gap,
-                          temp=intra_temp,
-                          **kwargs)
+    for unq_mol in system.unique_molecules:
+        # Create a system of just the monomer to train the intra-molecular
+        # component of the system
+        intra_system = gt.System(unq_mol.molecule,
+                                 box_size=system.box.size)
 
-    if len(intra_data) == 0:
-        raise RuntimeError('Failed to train the intra-system')
+        # and train the intra component using a bespoke GAP
+        gap = gt.GAP(name=f'intra_{unq_mol.molecule.name}',
+                     system=intra_system)
 
-    # Now create an intra GAP that has the molecule indexes
-    intra_gap = gt.gap.IntraGAP(name=f'intra_{molecule.name}',
-                                system=system,
-                                molecule=molecule)
+        intra_data, intra_gap = train(intra_system,
+                                      method_name=method_name,
+                                      gap=gap,
+                                      temp=intra_temp,
+                                      **kwargs)
+        all_data.append(intra_data)
+        intra_gaps.append(gt.IntraGAP(name=f'intra_{unq_mol.molecule.name}',
+                                      unique_molecule=unq_mol))
 
-    inter_gap = gt.InterGAP(name=f'inter_{molecule.name}',
-                            system=system)
+    inter_gap = gt.InterGAP(name=f'inter', system=system)
 
     # And finally train the inter component of the energy
     inter_data, gap = gt.active.train(system,
                                       method_name=method_name,
                                       temp=inter_temp,
-                                      gap=gt.IIGAP(intra_gap, inter_gap),
+                                      gap=gt.IIGAP(inter_gap, *intra_gaps),
                                       **kwargs)
+    all_data.append(inter_data)
 
-    return (intra_data, inter_data), gap
-
-
-def train_ss(system, method_name, intra_temp=1000, inter_temp=300, **kwargs):
-    """
-    Train an intra+intermolecular from just a system
-
-    ---------------------------------------------------------------------------
-    :param system: (gt.System)
-
-    :param method_name: (str) e.g dftb
-
-    :param intra_temp: (float) Temperature to run the intramolecular training
-
-    :param inter_temp: (float) Temperature to run the intermolecular training
-    """
-    if system.n_unique_molecules != 2:
-        raise ValueError('Can only train an solute-solvent GAP for a system '
-                         'with two molecules, the solute and the solvent')
-
-    # Find the least, and most abundant molecules in the system, as the solute
-    # and solvent respectively
-    names = [mol.name for mol in system.molecules]
-    nm1, nm2 = tuple(set(names))
-    solute_name, solv_name = (nm1, nm2) if names.count(nm1) == 1 else (nm2, nm1)
-
-    solute = [mol for mol in system.molecules if mol.name == solute_name][0]
-    solv = [mol for mol in system.molecules if mol.name == solv_name][0]
-
-    data = []   # List of training data for all the components in the system
-
-    # Train the intramolecular components of the potential for the solute and
-    # the solvent
-    for molecule in (solute, solv):
-        # Create a system with only one molecule
-        intra_system = gt.System(box_size=system.box.size)
-        intra_system.add_molecules(molecule)
-
-        # and train..
-        logger.info(f'Training intramolecular component of {molecule.name}')
-        mol_data, _ = gt.active.train(intra_system,
-                                      gap=gt.GAP(name=f'intra_{molecule.name}',
-                                                 system=intra_system),
-                                      method_name=method_name,
-                                      temp=intra_temp,
-                                      **kwargs)
-        data.append(mol_data)
-
-    # Recreate the GAPs with the full system (so they have the
-    solv_gap = gt.gap.SolventIntraGAP(name=f'intra_{solv.name}', system=system)
-    solute_gap = gt.gap.SoluteIntraGAP(name=f'intra_{solute.name}',
-                                       system=system, molecule=solute)
-    inter_gap = gt.InterGAP(name='inter', system=system)
-
-    # and finally train the intermolecular part of the potential
-    inter_data, gap = gt.active.train(system,
-                                      method_name=method_name,
-                                      gap=gt.gap.SSGAP(solute_intra=solute_gap,
-                                                       solvent_intra=solv_gap,
-                                                       inter=inter_gap),
-                                      temp=inter_temp,
-                                      **kwargs)
-    data.append(inter_data)
-
-    return tuple(data), gap
+    return tuple(all_data), gap
