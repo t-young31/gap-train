@@ -70,7 +70,7 @@ class GTConfig:
     # Default SOAP parameters
     gap_default_soap_params = {'cutoff':   4.0,         # Å
                                'n_sparse': 500,
-                               'order':    6,
+                               'order':    8,
                                'sigma_at': 0.5,         # Å
                                'delta':    0.1
                                }
@@ -78,6 +78,9 @@ class GTConfig:
     # ----------------------- ORCA -------------------------------
     # Keywords to use for an ORCA calculation
     orca_keywords = None
+
+    # ---------------------- Gaussian -----------------------------
+    gaussian_keywords = None
 
     # ----------------------- CP2K -------------------------------
     cp2k_command = ['srun', '--cpu-bind=cores', 'cp2k.popt']

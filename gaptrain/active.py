@@ -2,9 +2,9 @@ import gaptrain as gt
 import numpy as np
 import gaptrain.exceptions as ex
 from subprocess import Popen, PIPE
+from autode.atoms import Atom
 from gaptrain.utils import unique_name, work_in_tmp_dir
 from gaptrain.calculators import get_gp_var_quip_out
-from autode.atoms import get_vdw_radius
 from multiprocessing import Pool
 from gaptrain.log import logger
 
@@ -386,7 +386,7 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
 
     # Initial configurations are not defined, so make some - will use random
     # with the largest maximum distance between molecules possible
-    max_vdw = max(get_vdw_radius(symbol) for symbol in system.atom_symbols())
+    max_vdw = max(Atom(symbol).vdw_radius for symbol in system.atom_symbols())
     ideal_dist = 2*max_vdw - 0.5    # Desired minimum distance in Å
 
     # Reduce the distance until there is a probability at least 0.1 that a

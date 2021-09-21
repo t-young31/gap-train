@@ -170,6 +170,24 @@ class Configuration:
 
         return run_autode(self, method=ORCA(), n_cores=n_cores, kwds=keywords)
 
+    def run_g09(self, max_force=None, n_cores=None, keywords=None):
+        """Run a Gaussian09 calculation on this configuration"""
+        from gaptrain.calculators import run_autode, GTConfig
+        from autode.methods import G09
+        assert max_force is None
+        n_cores = n_cores if n_cores is not None else GTConfig.n_cores
+
+        return run_autode(self, method=G09(), n_cores=n_cores, kwds=keywords)
+
+    def run_g16(self, max_force=None, n_cores=None, keywords=None):
+        """Run an ORCA calculation on this configuration"""
+        from gaptrain.calculators import run_autode, GTConfig
+        from autode.methods import G16
+        assert max_force is None
+        n_cores = n_cores if n_cores is not None else GTConfig.n_cores
+
+        return run_autode(self, method=G16(), n_cores=n_cores, kwds=keywords)
+
     def run_xtb(self, max_force=None, n_cores=None):
         """Run an XTB calculation on this configuration"""
         from gaptrain.calculators import run_autode, GTConfig
@@ -183,14 +201,15 @@ class Configuration:
     def optimise(self, method_name, max_force, n_cores=None):
         """Optimise this configuration to a force threshold:
          |F_i| < max_force eV / A  for all atoms i"""
-        assert max_force > 0 and method_name in ('dftb', 'gpaw', 'orca')
+        assert max_force > 0 and method_name in ('dftb', 'gpaw')
 
         methd = f'run_{method_name.lower()}'
         return getattr(self, methd)(max_force=max_force, n_cores=n_cores)
 
     def single_point(self, method_name, n_cores=None):
         """Run a single point energy/force evaluation on this configuration"""
-        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k',
+                               'g09', 'g16')
         return getattr(self, f'run_{method_name.lower()}')(n_cores=n_cores)
 
     def print_gro_file(self, system):
@@ -601,7 +620,21 @@ class ConfigurationSet:
         from autode.methods import ORCA
         return self._run_parallel_method(run_autode, max_force=None,
                                          n_cores=1, method=ORCA(), kwds=keywords)
-    
+
+    def parallel_g09(self, keywords=None):
+        """Run parallel ORCA on these configurations"""
+        from gaptrain.calculators import run_autode
+        from autode.methods import G09
+        return self._run_parallel_method(run_autode, max_force=None,
+                                         n_cores=1, method=G09(), kwds=keywords)
+
+    def parallel_g16(self, keywords=None):
+        """Run parallel ORCA on these configurations"""
+        from gaptrain.calculators import run_autode
+        from autode.methods import G16
+        return self._run_parallel_method(run_autode, max_force=None,
+                                         n_cores=1, method=G16(), kwds=keywords)
+
     def parallel_xtb(self):
         """Run parallel XTB on these configurations"""
         from gaptrain.calculators import run_autode
@@ -622,7 +655,8 @@ class ConfigurationSet:
 
     def single_point(self, method_name):
         """Run parallel single points"""
-        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k',
+                               'g09', 'g16')
         return getattr(self, f'parallel_{method_name.lower()}')()
 
     def remove_first(self, n):
