@@ -19,11 +19,11 @@ def expanded_atoms(atoms:            ASEAtoms,
     will only apply shifts to the centre of mass for molecules defined in
     mol_idxs.
 
-    :param atoms:  ASE atoms
+    :param atoms: ASE atoms
     :param expansion_factor: (float)
     :param mol_idxs: (np.ndarray) Matrix of atom indexes for each molecule
 
-    :returns: ASE atoms
+    :return: ASE atoms
     """
     ex_atoms = ASEAtoms(numbers=atoms.numbers)
 
@@ -52,14 +52,15 @@ def expanded_atoms(atoms:            ASEAtoms,
 
 def _quippy_calc(xml_filename: str):
     """
+    Instantiate a quippy ASE calculator from a .xml file
 
     :param xml_filename: (str)
-    :return:
+    :return: (quippy.potential.Potential)
     """
 
     if not xml_filename.endswith('.xml'):
-        raise ValueError(f'xml filename must end with .xml.'
-                         f' Had: {xml_filename}')
+        raise ValueError(f'xml filename must end with .xml. '
+                         f'Had: {xml_filename}')
 
     try:
         import quippy
@@ -119,10 +120,11 @@ class IntraCalculator(Calculator):
         ASE calculator for the calculation of intramolecular energies and
         forces for all molecules in a system, defined by a set of mol_idxs
 
-        :param name:
-        :param xml_filename:
-        :param mol_idxs:
-        :param expansion_factor:
+        :param name: (str)
+        :param xml_filename: (str)
+        :param mol_idxs: (list(list(int)) Atom indexes making up each molecule
+        :param expansion_factor: (float) Factor by which the box will be
+                                         expanded
         :param kwargs:
         """
         super().__init__(**kwargs)
@@ -147,7 +149,8 @@ class IICalculator(Calculator):
                   system_changes=None,
                   **kwargs):
         """
-        Calculate the total energy and forces using the inter +
+        Calculate the total energy and forces using the inter + intra-molecular
+        potentials
         """
         inter_atoms = ASEAtoms(numbers=atoms.numbers,
                                positions=atoms.positions,
@@ -178,9 +181,13 @@ class IICalculator(Calculator):
         that apply to specific atoms indexes while the intermolecular
         component applies to everything in the defined box size
 
-        :param name:
-        :param xml_filename:
-        :param intra_calculators:
+        :param name: (str)
+        :param xml_filename: (str) Name of the .xml file for the intermolecular
+                                   (remainder) GAP
+        :param intra_calculators: (list(IntraCalculator)) All the calculators
+                                  for the intramolecular components of a
+                                  system. They should have mol_idxs set to
+                                  determine which components they act on
         :param kwargs:
         """
         super().__init__(**kwargs)

@@ -58,6 +58,8 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None)
     :param n_cores: (int) Number of cores to use for the calculation
 
     :param kwds: (autode.wrappers.keywords.Keywords)
+
+    :return: (gt.Configuration)
     """
     from autode.species import Species
     from autode.calculation import Calculation
@@ -115,6 +117,8 @@ def run_gpaw(configuration, max_force):
     :param configuration: (gaptrain.configurations.Configuration)
 
     :param max_force: (float) or None
+
+    :return: (gt.Configuration)
     """
     from gpaw import GPAW, PW
     from ase.optimize import BFGS
@@ -156,7 +160,8 @@ def run_gap(configuration, max_force, gap, traj_name=None):
     :param max_force: (float) or None
 
     :param gap: (gaptrain.gap.GAP)
-    :return:
+
+    :return: (gt.Configuration)
     """
     ase_atoms = configuration.ase_atoms()
     ase_atoms.center()
@@ -197,6 +202,8 @@ def run_dftb(configuration, max_force, traj_name=None):
     :param max_force: (float) or None
 
     :param traj_name: (str) or None
+
+    :return: (gt.Configuration)
     """
     from ase.optimize import BFGS
 
@@ -236,6 +243,8 @@ def run_cp2k(configuration, max_force):
     :param configuration: (gaptrain.configurations.Configuration)
 
     :param max_force: (float) or None
+
+    :return: (gt.Configuration)
     """
     assert max_force is None
 
@@ -380,6 +389,7 @@ def get_gp_var_quip_out(configuration, out_filename='quip.out'):
 
     :param configuration: (gt.Configuration)
     :param out_filename: (str)
+
     :return: (list(np.ndarray))
     """
     out_lines = [line for line in open(out_filename, 'r')

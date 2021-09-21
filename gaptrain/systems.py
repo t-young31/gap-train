@@ -245,7 +245,7 @@ class System:
 
     @property
     def n_atoms(self):
-        """Get all the atom labels/atomic symbols in this system"""
+        """Number of total atoms in this system"""
         return len(self.atom_symbols)
 
     @property
@@ -285,7 +285,7 @@ class System:
     def unique_molecules(self):
         """
         Unique molecules that comprise this system populating their atom
-        indexes. e.g. For a system of two water molecules:
+        indexes. E.g. For a system of two water molecules:
             mol_idxs = [[0, 1, 2], [3, 4, 5]]
         """
         unq_mols = []

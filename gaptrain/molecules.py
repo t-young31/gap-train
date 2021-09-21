@@ -160,7 +160,7 @@ class Molecule(Species):
 class UniqueMolecule:
 
     def __hash__(self):
-        # Assume a unique name of this molecule..
+        # Assume a unique name of this molecule...
         return hash(self.name)
 
     @property

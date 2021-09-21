@@ -222,7 +222,7 @@ def get_active_config_gp_var(config, gap, temp, var_e_thresh,
     :return: (gt.Configuration)
     """
     # Needs a single gap to calculate the variance simply, if this is a II or
-    # SS GAP then assume the intra is well trained and use inter prediction
+    # then assume the intra is well trained and use inter prediction
     gap_name = gap.inter_gap.name if hasattr(gap, 'inter') else gap.name
 
     def run_quip():

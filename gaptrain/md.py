@@ -68,8 +68,8 @@ def set_momenta(configuration,
         ase_atoms.arrays['momenta'] = np.zeros((len(ase_atoms), 3))
 
     def add_momenta(idx, vector, energy):
-        ase_atoms.arrays['momenta'][int(idx)] = (np.sqrt(ase_atoms.get_masses()[int(idx)] * energy)
-                                                 * np.array(vector.tolist()))
+        masses = ase_atoms.get_masses()
+        ase_atoms.arrays['momenta'][idx] = (np.sqrt(masses[idx] * energy) * vector)
         return None
 
     coords = configuration.coordinates()
