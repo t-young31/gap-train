@@ -655,7 +655,8 @@ class ConfigurationSet:
 
     def single_point(self, method_name):
         """Run parallel single points"""
-        assert method_name in ('dftb', 'gpaw', 'orca', 'g09', 'xtb', 'cp2k')
+        assert method_name in ('dftb', 'gpaw', 'orca', 'xtb', 'cp2k',
+                               'g09', 'g16')
         return getattr(self, f'parallel_{method_name.lower()}')()
 
     def remove_first(self, n):
