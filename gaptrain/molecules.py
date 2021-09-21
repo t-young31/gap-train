@@ -31,6 +31,10 @@ class Species(ade.species.Species):
 
         return name
 
+    def __hash__(self):
+        # Molecules are unique up to isomers of the same structure
+        return hash(self.__str__())
+
     def in_box(self, box):
         """Is this molecule totally inside a box with an origin at
         (0,0,0) and top right corner (a, b, c) = box.size
@@ -153,6 +157,27 @@ class Molecule(Species):
                     f'GROMACS itp filename = {self.itp_filename}')
 
 
+class UniqueMolecule:
+
+    def __hash__(self):
+        # Assume a unique name of this molecule...
+        return hash(self.name)
+
+    @property
+    def atom_symbols(self):
+        """Atomic symbols for all atoms in this molecule"""
+        return [atom.atomic_symbol for atom in self.molecule.atoms]
+
+    def __init__(self, molecule):
+
+        self.name = str(molecule)
+        self.molecule = molecule
+
+        # Atom indexes in a configuration that this unique molecule
+        # corresponds to
+        self.atom_idxs = []
+
+
 class Ion(Species):
 
     def __init__(self, label, charge, spin_multiplicity=1,
@@ -171,4 +196,3 @@ class Ion(Species):
                          spin_multiplicity=spin_multiplicity,
                          atoms=[Atom(label)],
                          gmx_itp_filename=gmx_itp_filename)
-

@@ -58,6 +58,8 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None)
     :param n_cores: (int) Number of cores to use for the calculation
 
     :param kwds: (autode.wrappers.keywords.Keywords)
+
+    :return: (gt.Configuration)
     """
     from autode.species import Species
     from autode.calculation import Calculation
@@ -115,6 +117,8 @@ def run_gpaw(configuration, max_force):
     :param configuration: (gaptrain.configurations.Configuration)
 
     :param max_force: (float) or None
+
+    :return: (gt.Configuration)
     """
     from gpaw import GPAW, PW
     from ase.optimize import BFGS
@@ -156,61 +160,33 @@ def run_gap(configuration, max_force, gap, traj_name=None):
     :param max_force: (float) or None
 
     :param gap: (gaptrain.gap.GAP)
-    :return:
+
+    :return: (gt.Configuration)
     """
-    configuration.save(filename='config.xyz')
-    a, b, c = configuration.box.size
+    ase_atoms = configuration.ase_atoms()
+    ase_atoms.center()
+    ase_atoms.set_calculator(gap.ase_calculator())
 
-    # Energy minimisation section to the file
-    min_section = ''
-
+    # Minimise if there is a non-None max force
     if max_force is not None:
+        from ase.optimize import BFGS
+
+        dyn = BFGS(ase_atoms)
+
         if traj_name is not None:
-            min_section = (f'traj = Trajectory(\'{traj_name}\', \'w\', '
-                           f'                  system)\n'
-                           'dyn = BFGS(system)\n'
-                           'dyn.attach(traj.write, interval=1)\n'
-                           f'dyn.run(fmax={float(max_force)})')
-        else:
-            min_section = ('dyn = BFGS(system)\n'
-                           f'dyn.run(fmax={float(max_force)})')
+            from ase.io.trajectory import Trajectory
 
-    # Print a Python script to execute quippy - likely not installed in the
-    # current interpreter..
-    with open(f'gap.py', 'w') as quippy_script:
-        print('import quippy',
-              'import numpy as np',
-              'from ase.io import read, write',
-              'from ase.optimize import BFGS',
-              'from ase.io.trajectory import Trajectory',
-              'system = read("config.xyz")',
-              f'system.cell = [{a}, {b}, {c}]',
-              'system.pbc = True',
-              'system.center()',
-              f'{gap.ase_gap_potential_str()}',
-              'system.set_calculator(pot)',
-              f'{min_section}',
-              'np.savetxt("energy.txt",\n'
-              '           np.array([system.get_potential_energy()]))',
-              'np.savetxt("forces.txt", system.get_forces())',
-              f'write("config.xyz", system)',
-              sep='\n', file=quippy_script)
+            traj = Trajectory(traj_name, 'w', ase_atoms)
+            dyn.attach(traj.write, interval=1)
 
-    # Run the process
-    subprocess = Popen(GTConfig.quippy_gap_command + ['gap.py'],
-                       shell=False, stdout=PIPE, stderr=PIPE)
-    subprocess.wait()
+        dyn.run(fmax=float(max_force))
 
-    # Grab the energy from the output after unsetting it
     try:
-        configuration.load(filename='config.xyz')
-        configuration.energy = np.loadtxt('energy.txt')
+        configuration.energy = ase_atoms.get_potential_energy()
+        configuration.forces = ase_atoms.get_forces()
 
-    except IOError:
+    except (RuntimeError, ValueError):
         raise GAPFailed('Failed to calculate energy with the GAP')
-
-    # Grab the final forces from the numpy array
-    configuration.forces = np.loadtxt('forces.txt')
 
     return configuration
 
@@ -226,6 +202,8 @@ def run_dftb(configuration, max_force, traj_name=None):
     :param max_force: (float) or None
 
     :param traj_name: (str) or None
+
+    :return: (gt.Configuration)
     """
     from ase.optimize import BFGS
 
@@ -265,6 +243,8 @@ def run_cp2k(configuration, max_force):
     :param configuration: (gaptrain.configurations.Configuration)
 
     :param max_force: (float) or None
+
+    :return: (gt.Configuration)
     """
     assert max_force is None
 
@@ -409,6 +389,7 @@ def get_gp_var_quip_out(configuration, out_filename='quip.out'):
 
     :param configuration: (gt.Configuration)
     :param out_filename: (str)
+
     :return: (list(np.ndarray))
     """
     out_lines = [line for line in open(out_filename, 'r')

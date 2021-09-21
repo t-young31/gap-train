@@ -1,4 +1,4 @@
-from gaptrain.molecules import Species
+from gaptrain.molecules import Species, UniqueMolecule
 from gaptrain.solvents import get_solvent
 from gaptrain.box import Box
 from gaptrain.log import logger
@@ -74,8 +74,12 @@ class System:
 
         return self
 
-    def random(self, min_dist_threshold=1.7, with_intra=False, on_grid=False,
-               max_attempts=10000, **kwargs):
+    def random(self,
+               min_dist_threshold=1.7,
+               with_intra=False,
+               on_grid=False,
+               max_attempts=10000,
+               **kwargs):
         """Randomise the configuration
 
         -----------------------------------------------------------------------
@@ -147,7 +151,9 @@ class System:
 
         return config
 
-    def grid(self, min_dist_threshold=1.5, max_attempts=10000):
+    def grid(self,
+             min_dist_threshold=1.5,
+             max_attempts=10000):
         """
         Generate molecules on an evenly spaced grid
 
@@ -165,7 +171,6 @@ class System:
         grid_points = []
         a, b, c = sub_box.size
         n_a, n_b, n_c = n_x(a, b, c), n_x(b, a, c), n_x(c, a, b)
-        print(n_a, n_b, n_c)
 
         # Add all the grid points in 3D over the orthorhombic box
         for i in range(n_a):
@@ -176,7 +181,6 @@ class System:
 
         # Need to have fewer molecules than grid points to put them on
         assert len(grid_points) >= n_molecules
-        print(len(grid_points))
 
         def random_rotate(vec):
             molecule.translate(vec=-molecule.centroid())
@@ -234,9 +238,15 @@ class System:
         self.molecules += [deepcopy(molecule) for _ in range(n)]
         return None
 
+    @property
     def atom_symbols(self):
         """Get all the atom labels/atomic symbols in this system"""
         return [atom.label for m in self.molecules for atom in m.atoms]
+
+    @property
+    def n_atoms(self):
+        """Number of total atoms in this system"""
+        return len(self.atom_symbols)
 
     @property
     def n_unique_molecules(self):
@@ -270,6 +280,32 @@ class System:
         """Get the total spin multiplicity on the system"""
         n_unpaired = sum((mol.mult - 1) / 2 for mol in self.molecules)
         return 2 * n_unpaired + 1
+
+    @property
+    def unique_molecules(self):
+        """
+        Unique molecules that comprise this system populating their atom
+        indexes. E.g. For a system of two water molecules:
+            mol_idxs = [[0, 1, 2], [3, 4, 5]]
+        """
+        unq_mols = []
+        start_idx = 0
+
+        for mol in self.molecules:
+
+            if not any(str(mol) == m.name for m in unq_mols):
+                unq_mols.append(UniqueMolecule(mol))
+
+            for unq_mol in unq_mols:
+                if unq_mol.name != str(mol):
+                    continue
+
+                end_idx = start_idx + unq_mol.molecule.n_atoms
+                unq_mol.atom_idxs.append(list(range(start_idx, end_idx)))
+
+                start_idx += unq_mol.molecule.n_atoms
+
+        return unq_mols
 
     def __init__(self, *args, box_size):
         """

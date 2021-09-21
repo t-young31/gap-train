@@ -66,28 +66,13 @@ GPAW similarly requires a parameter path with e.g.
 export GPAW_SETUP_PATH=/path/to/gpaw-install/share/gpaw-setups-0.9.20000
 ```
 
-To train GAPs requires a teach_sparse (or gap_fit) command to be available which
-can be set in a Python script with
-
-```python
-gt.GTConfig.gap_fit_command = '/path/to/gap/train/executable'
-```
-
-To drive ASE dynamics using a GAP potential requires a Python with
-quippy installed
-
-```python
-gt.GTConfig.quippy_gap_command = '/path/to/quippy/python'
-```
-
-
 ## Testing
 
 _gaptrain_ is unit tested with [pytest](https://docs.pytest.org/en/stable/), run
 them with
 
 ```bash
-py.test
+py.test tests/
 ```
 
 in the top level gap-train directory. To run the DFTB+, GAP and GROMACS tests

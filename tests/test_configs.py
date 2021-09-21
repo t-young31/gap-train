@@ -11,7 +11,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 h2o = Molecule(os.path.join(here, 'data', 'h2o.xyz'))
-
+methane = Molecule(os.path.join(here, 'data', 'methane.xyz'))
 
 side_length = 7.0
 system = System(box_size=[side_length, side_length, side_length])
@@ -383,3 +383,29 @@ def test_load_no_args():
         os.remove('test.xyz')
         if hasattr(configs, '_list'):
             assert len(configs) == 0
+
+
+def test_unique_molecules():
+
+    s1 = gt.System(box_size=[10, 10, 10])
+    s1.add_molecules(h2o, n=2)
+
+    assert s1.configuration().n_atoms == 6
+    assert len(s1.unique_molecules) == 1
+
+    unq_mol = s1.unique_molecules[0]
+    # Should have two molecules
+    assert len(unq_mol.atom_idxs) == 2
+    # each with 3 atoms
+    assert all(len(idxs) == 3 for idxs in unq_mol.atom_idxs)
+
+    s2 = gt.System(box_size=[10, 10, 10])
+    s2.add_molecules(h2o, n=3)
+    s2.add_molecules(methane, n=1)
+    assert len(s2.unique_molecules) == 2
+
+    assert (s2.unique_molecules[0].atom_idxs
+            == [[0, 1, 2], [3, 4, 5], [6, 7, 8]])
+
+    assert (s2.unique_molecules[1].atom_idxs
+            == [[9, 10, 11, 12, 13]])

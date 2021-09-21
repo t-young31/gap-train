@@ -1,10 +1,16 @@
 import shutil
+from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
+from ase.io.trajectory import Trajectory as ASETrajectory
+from ase.md.langevin import Langevin
+from ase.md.verlet import VelocityVerlet
+from ase import units
 from gaptrain.trajectories import Trajectory
 from gaptrain.calculators import DFTB
 from gaptrain.utils import work_in_tmp_dir
 from gaptrain.log import logger
 from gaptrain.gtconfig import GTConfig
 from subprocess import Popen, PIPE
+from numpy.random import RandomState
 import subprocess
 import numpy as np
 import os
@@ -37,8 +43,11 @@ def simulation_steps(dt, kwargs):
     return max(int(time_fs / dt), 1)
 
 
-def ase_momenta_string(configuration, temp,
-                       bbond_energy: dict, fbond_energy: dict):
+def set_momenta(configuration,
+                ase_atoms,
+                temp        : float,
+                bbond_energy: dict,
+                fbond_energy: dict):
     """Generate a string to set the initial momenta
 
     :param configuration: (gt.Configuration)
@@ -47,21 +56,21 @@ def ase_momenta_string(configuration, temp,
     :param fbond_energy: (dict | None) Forming bond energy
     """
 
-    string = ''
-
     if temp > 0:
         logger.info(f'Initialising initial velocities for a temperature '
                     f'{temp} K')
-        string += f'MaxwellBoltzmannDistribution(system, {temp} * units.kB)\n'
+
+        MaxwellBoltzmannDistribution(ase_atoms, temp * units.kB,
+                                     rng=RandomState())
 
     else:
         # Set the momenta to zero
-        string += f"system.arrays['momenta'] = np.zeros((len(system), 3))\n"
+        ase_atoms.arrays['momenta'] = np.zeros((len(ase_atoms), 3))
 
-    def momenta(idx, vector, energy):
-        return (f"system.arrays['momenta'][{int(idx)}] = " 
-                f"np.sqrt(system.get_masses()[{int(idx)}] * {energy})"
-                f" * np.array({vector.tolist()})\n")
+    def add_momenta(idx, vector, energy):
+        masses = ase_atoms.get_masses()
+        ase_atoms.arrays['momenta'][idx] = (np.sqrt(masses[idx] * energy) * vector)
+        return None
 
     coords = configuration.coordinates()
     if bbond_energy is not None:
@@ -77,8 +86,8 @@ def ase_momenta_string(configuration, temp,
             vec = coords[i] - coords[j]
             vec /= np.linalg.norm(vec)    # normalise
 
-            string += momenta(idx=i, vector=vec, energy=energy)
-            string += momenta(idx=j, vector=-vec, energy=energy)
+            add_momenta(idx=i, vector=vec, energy=energy)
+            add_momenta(idx=j, vector=-vec, energy=energy)
 
     if fbond_energy is not None:
         for atom_idxs, energy in fbond_energy.items():
@@ -91,10 +100,10 @@ def ase_momenta_string(configuration, temp,
             vec = coords[j] - coords[i]
             vec /= np.linalg.norm(vec)  # normalise
 
-            string += momenta(idx=i, vector=vec, energy=energy)
-            string += momenta(idx=j, vector=-vec, energy=energy)
+            add_momenta(idx=i, vector=vec, energy=energy)
+            add_momenta(idx=j, vector=-vec, energy=energy)
 
-    return string
+    return None
 
 
 def run_mmmd(system, config, temp, dt, interval, **kwargs):
@@ -323,15 +332,8 @@ def run_gapmd(configuration, gap, temp, dt, interval, init_temp=None, **kwargs):
                          'box=gt.Box([10, 10, 10])')
 
     logger.info('Running GAP MD')
-    configuration.save(filename='config.xyz')
-
-    a, b, c = configuration.box.size
-    n_steps = simulation_steps(dt, kwargs)
-
-    if 'n_cores' in kwargs:
-        n_cores = kwargs['n_cores']
-    else:
-        n_cores = min(GTConfig.n_cores, 8)
+    # For modestly sized systems there is some slowdown using >8 cores
+    n_cores = kwargs['n_cores'] if 'n_cores' in kwargs else min(GTConfig.n_cores, 8)
 
     fbond_energy = kwargs.get('fbond_energy', None)
     bbond_energy = kwargs.get('bbond_energy', None)
@@ -339,54 +341,32 @@ def run_gapmd(configuration, gap, temp, dt, interval, init_temp=None, **kwargs):
     os.environ['OMP_NUM_THREADS'] = str(n_cores)
     logger.info(f'Using {n_cores} cores for GAP MD')
 
-    def dynamics_string():
-        if temp > 0:
-            # default to Langevin NVT
-            return f'Langevin(system, {dt:.1f} * units.fs, {temp} * units.kB, 0.02)'
-
-        # Otherwise velocity verlet NVE
-        return f'VelocityVerlet(system, {dt:.1f} * units.fs)'
-
     if init_temp is None:
         init_temp = temp
 
-    # Print a Python script to execute quippy and use ASE to drive the dynamics
-    with open(f'gap.py', 'w') as quippy_script:
-        print('from __future__ import print_function',
-              'import quippy',
-              'import numpy as np',
-              'from ase.io import read, write',
-              'from ase.io.trajectory import Trajectory',
-              'from ase.md.velocitydistribution import MaxwellBoltzmannDistribution',
-              'from ase import units',
-              'from ase.md.langevin import Langevin',
-              'from ase.md.verlet import VelocityVerlet',
-              'system = read("config.xyz")',
-              f'system.cell = [{a}, {b}, {c}]',
-              'system.pbc = True',
-              'system.center()',
-              f'{gap.ase_gap_potential_str()}',
-              'system.set_calculator(pot)',
-              ase_momenta_string(configuration, init_temp, bbond_energy, fbond_energy),
-              'traj = Trajectory("tmp.traj", \'w\', system)\n',
-              'energy_file = open("tmp_energies.txt", "w")',
-              'def print_energy(atoms=system):',
-              '    energy_file.write(str(atoms.get_potential_energy())+"\\n")\n',
-              f'dyn = {dynamics_string()}',
-              f'dyn.attach(print_energy, interval={interval})',
-              f'dyn.attach(traj.write, interval={interval})',
-              f'dyn.run(steps={n_steps})',
-              'energy_file.close()',
-              sep='\n', file=quippy_script)
+    ase_atoms = configuration.ase_atoms()
+    ase_atoms.set_calculator(gap.ase_calculator())
 
-    # Run the process
-    quip_md = Popen(GTConfig.quippy_gap_command + ['gap.py'],
-                    shell=False, stdout=PIPE, stderr=PIPE)
-    _, err = quip_md.communicate()
+    set_momenta(configuration, ase_atoms,
+                temp=init_temp,
+                bbond_energy=bbond_energy,
+                fbond_energy=fbond_energy)
 
-    if len(err) > 0 and 'WARNING' not in err.decode():
-        logger.error(f'GAP MD: {err.decode()}')
+    traj = ASETrajectory("tmp.traj", 'w', ase_atoms)
+    energy_file = open("tmp_energies.txt", "w")
 
-    traj = Trajectory('tmp.traj', init_configuration=configuration)
+    def print_energy(atoms=ase_atoms):
+        energy_file.write(f'{atoms.get_potential_energy()}\n')
 
-    return traj
+    if temp > 0:
+        # default to Langevin NVT
+        dyn = Langevin(ase_atoms, dt * units.fs, temp * units.kB, 0.02)
+    else:
+        dyn = VelocityVerlet(ase_atoms, dt * units.fs)
+
+    dyn.attach(print_energy, interval=interval)
+    dyn.attach(traj.write, interval=interval)
+    dyn.run(steps=simulation_steps(dt, kwargs))
+    energy_file.close()
+
+    return Trajectory('tmp.traj', init_configuration=configuration)

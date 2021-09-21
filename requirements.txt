@@ -7,6 +7,6 @@ scipy
 pytest
 codecov
 autode==1.1.0
-ase
+ase==3.22
 coloredlogs
 dscribe

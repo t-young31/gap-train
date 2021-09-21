@@ -1,6 +1,6 @@
 from gaptrain.systems import System
 from gaptrain.configurations import Configuration, ConfigurationSet
-from gaptrain.molecules import Molecule, Ion
+from gaptrain.molecules import Molecule, UniqueMolecule, Ion
 from gaptrain.box import Box
 from gaptrain.data import Data
 from gaptrain.gtconfig import GTConfig
@@ -18,6 +18,7 @@ __all__ = ['System',
            'Configuration',
            'ConfigurationSet',
            'Molecule',
+           'UniqueMolecule',
            'Ion',
            'GAP',
            'IntraGAP',
