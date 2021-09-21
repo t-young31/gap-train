@@ -71,14 +71,17 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None)
                              " set. or this function called with kwds e.g. "
                              "GradientKeywords(['PBE', 'def2-SVP', 'EnGrad'])")
 
-        kwds = GTConfig.orca_keywords if kwds is None else method.keywords.grad
+        kwds = GTConfig.orca_keywords if kwds is None else kwds
 
     if method.name == 'g09' or method.name == 'g16':
         if GTConfig.gaussian_keywords is None and kwds is None:
             raise ValueError("To train with Gaussian QM calculations "
                              "GTConfig.gaussian_keywords must be set.")
 
-        kwds = GTConfig.gaussian_keywords if kwds is None else method.keywords.grad
+        kwds = GTConfig.gaussian_keywords if kwds is None else kwds
+
+    if kwds is None:                   # Default to a gradient calculation
+        kwds = method.keywords.grad
 
     # optimisation is not implemented, needs a method to run
     assert max_force is None and method is not None
