@@ -28,7 +28,7 @@ if 'DFTB_PATH' in os.environ:
 
     if 'DFTB_COMMAND' not in os.environ:
         os.environ['DFTB_COMMAND'] = f'{dftb_path}/bin/dftb+'
-else:
+elif shutil.which('dftb+') is None:
     print("WARNING: $DFTB_PATH not set, dftb+ not available")
 
 
