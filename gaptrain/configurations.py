@@ -426,7 +426,7 @@ class Configuration:
 
         if system is not None:
             for mol in system.molecules:
-                self.atoms.extend(mol.atoms)
+                self.atoms.extend(mol.atoms.copy())
 
         self.forces = None                                  # eV Å-1
         self.energy = None                                  # eV
