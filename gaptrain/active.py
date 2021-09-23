@@ -276,7 +276,8 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
     GTConfig.n_cores
 
     --------------------------------------------------------------------------
-    :param config: (gt.Configuration) Initial configuration to propagate from
+    :param config: (gt.Configuration | gt.ConfigurationSet) Initial
+                    configuration(s) to propagate from
 
     :param gap: (gt.gap.GAP) GAP to run MD with
 
@@ -315,12 +316,12 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
 
     if method.lower() == 'diff':
         function = get_active_config_diff
-        args = (config, gap, temp, e_thresh, max_time_fs, ref_method_name,
-                0, 0, min_time_fs)
+        args = [gap, temp, e_thresh, max_time_fs, ref_method_name,
+                0, 0, min_time_fs]
 
     elif method.lower() == 'gp_var':
         function = get_active_config_gp_var
-        args = (config, gap, temp, e_thresh, max_time_fs)
+        args = [gap, temp, e_thresh, max_time_fs]
 
     else:
         raise ValueError('Unsupported active method')
@@ -328,8 +329,17 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
     logger.info(f'Using {gt.GTConfig.n_cores} processes')
     with Pool(processes=int(gt.GTConfig.n_cores)) as pool:
 
-        for _ in range(n_configs):
-            result = pool.apply_async(func=function, args=args, kwds=kwargs)
+        for i in range(n_configs):
+
+            # Prepend the arguments with the initial configuration
+            if isinstance(config, gt.ConfigurationSet):
+                init_config = config[i].copy()
+            else:
+                init_config = config.copy()
+
+            result = pool.apply_async(func=function,
+                                      args=[init_config] + args,
+                                      kwds=kwargs)
             results.append(result)
 
         for result in results:
@@ -605,9 +615,9 @@ def train(system: gt.System,
     # Run the active learning loop, running iterative GAP-MD
     for iteration in range(max_active_iters):
 
-        # Set the configuration from which GAP-MD will be run
+        # Set the configuration(s) from which GAP-MD will be run
         min_idx = int(np.argmin(train_data.energies()))
-        init_config = train_data[0] if fix_init_config else train_data[min_idx]
+        init_config = init_configs if fix_init_config else train_data[min_idx]
 
         configs = get_active_configs(init_config,
                                      gap=gap,
