@@ -377,6 +377,9 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
             logger.info(f'Initialised with {len(init_configs)} configurations '
                         f'all with defined energy')
             return init_configs
+        else:
+            init_configs.single_point(method_name=method_name)
+            return init_configs
 
     # Initial configurations are not defined, so make some - will use random
     # with the largest maximum distance between molecules possible
