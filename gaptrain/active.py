@@ -664,7 +664,7 @@ def train(system: gt.System,
         gap.train(train_data)
 
         # Print the accuracy
-        if validate and iteration % val_interval == 0:
+        if validate and iteration % val_interval == 0 and iteration > 0:
 
             tau.calculate(gap=gap, method_name=method_name)
             print(f'{iteration:<13g}'
