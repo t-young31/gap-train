@@ -114,7 +114,8 @@ class System:
 
             elif len(self.molecules) == 1:
                 # Place a single molecule always at the origin
-                molecule.translate(vec=-molecule.centroid())
+                a, b, c = self.box.size
+                molecule.translate(vec=np.array([a/2, b/2, c/2]))
 
             else:
                 molecule.translate(vec=sub_box.random_point())
