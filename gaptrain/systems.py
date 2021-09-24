@@ -111,6 +111,11 @@ class System:
             if on_grid:
                 vec = sub_box.random_grid_point(spacing=molecule.radius)
                 molecule.translate(vec=vec)
+
+            elif len(self.molecules) == 1:
+                # Place a single molecule always at the origin
+                molecule.translate(vec=-molecule.centroid())
+
             else:
                 molecule.translate(vec=sub_box.random_point())
 
