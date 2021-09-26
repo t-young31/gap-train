@@ -103,8 +103,12 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None)
     except CouldNotGetProperty:
         logger.error('Failed to set forces')
 
-    configuration.energy = ha_to_ev * calc.get_energy()
+    energy = calc.get_energy()
+    if energy is None:
+        logger.error('Failed to calculate the energy')
+        return configuration
 
+    configuration.energy = ha_to_ev * calc.get_energy()
     configuration.partial_charges = calc.get_atomic_charges()
 
     return configuration

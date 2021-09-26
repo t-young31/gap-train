@@ -108,7 +108,7 @@ class Tau:
             # Only evaluate the energy
             try:
                 true.single_point(method_name=method_name)
-            except ValueError:
+            except (ValueError, TypeError):
                 logger.warning('Failed to calculate single point energies with'
                                f' {method_name}. τ_acc will be underestimated '
                                f'by <{block_time}')
@@ -118,7 +118,12 @@ class Tau:
             logger.info(f' t/fs      err      cumul(err)')
 
             for j in range(len(traj)):
-                e_error = np.abs(true[j].energy - traj[j].energy)
+
+                if true[j].energy is None:
+                    logger.warning(f'Frame {j} had no energy')
+                    e_error = 99999999
+                else:
+                    e_error = np.abs(true[j].energy - traj[j].energy)
 
                 # Add any error above the allowed threshold
                 cuml_error += max(e_error - self.e_l, 0)
