@@ -186,7 +186,7 @@ class GAP:
         out, err = p.communicate()
 
         delta_time = time() - start_time
-        print(f'GAP training ran in {delta_time/60:.1f} m')
+        logger.info(f'GAP training ran in {delta_time/60:.1f} m')
 
         if any((delta_time < 0.01,
                 b'SYSTEM ABORT' in err,
