@@ -599,7 +599,7 @@ def train(system: gt.System,
     train_data += init_configs
 
     # and train an initial GAP
-    gap.train(init_configs)
+    gap.train(train_data)
 
     if active_e_thresh is None:
         if active_method.lower() == 'diff':
