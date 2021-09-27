@@ -652,11 +652,12 @@ def train(system: gt.System,
 
             logger.info('No configs to add. Active learning = DONE')
             break
-
-        min_time_active_fs = min(config.t0 for config in configs)
-        logger.info(f'All active configurations reached t = '
-                    f'{min_time_active_fs} fs before an error exceeded the '
-                    f'threshold of {active_e_thresh:.3f} eV')
+        
+        if len(configs) > 0:
+            min_time_active_fs = min(config.t0 for config in configs)
+            logger.info(f'All active configurations reached t = '
+                        f'{min_time_active_fs} fs before an error exceeded the '
+                        f'threshold of {active_e_thresh:.3f} eV')
 
         # Only training the intermolecular component in a I+I GAP
         if isinstance(gap, gt.IIGAP):
