@@ -451,7 +451,8 @@ def train(system: gt.System,
           fix_init_config=False,
           bbond_energy=None,
           fbond_energy=None,
-          init_active_temp=None):
+          init_active_temp=None,
+          min_active_iters=1):
     """
     Train a system using active learning, by propagating dynamics using ML
     driven molecular dynamics (MD) and adding configurations where the error
@@ -561,6 +562,9 @@ def train(system: gt.System,
     :param init_active_temp: (float | None) Initial temperature for velocities
                              in the 'active' MD search for configurations
 
+    :param min_active_iters: (int) Minimum number of active iterations to
+                             perform
+
     :return: (gt.Data, gt.GAP)
     """
     init_configs = get_init_configs(init_configs=init_configs,
@@ -640,7 +644,7 @@ def train(system: gt.System,
                                      init_temp=init_active_temp)
 
         # Active learning finds no configurations,,
-        if len(configs) == 0:
+        if len(configs) == 0 and iteration > min_active_iters:
             # Calculate the final tau if we're running with validation
             if validate:
                 tau.calculate(gap=gap, method_name=method_name)
