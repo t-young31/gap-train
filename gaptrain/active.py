@@ -591,7 +591,11 @@ def train(system: gt.System,
         val_interval = max(max_active_iters // 10, 1)
 
     # Initialise training data
-    train_data = gt.Data(name=gap.name)
+    if gap.training_data is None:
+        train_data = gt.Data(name=gap.name)
+    else:
+        train_data = gap.training_data.copy()
+
     train_data += init_configs
 
     # and train an initial GAP
