@@ -329,11 +329,13 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
     logger.info(f'Using {gt.GTConfig.n_cores} processes')
     with Pool(processes=int(gt.GTConfig.n_cores)) as pool:
 
-        for i in range(n_configs):
+        for _ in range(n_configs):
 
             # Prepend the arguments with the initial configuration
             if isinstance(config, gt.ConfigurationSet):
-                init_config = config[i].copy()
+                # Select a configuration at random from the
+                rand_idx = np.random.randint(0, len(config))
+                init_config = config[rand_idx].copy()
             else:
                 init_config = config.copy()
 
