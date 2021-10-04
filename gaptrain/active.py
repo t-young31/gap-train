@@ -223,7 +223,7 @@ def get_active_config_gp_var(config, gap, temp, var_e_thresh,
     """
     # Needs a single gap to calculate the variance simply, if this is a II or
     # then assume the intra is well trained and use inter prediction
-    gap_name = gap.inter_gap.name if hasattr(gap, 'inter') else gap.name
+    gap_name = gap.inter_gap.name if hasattr(gap, 'inter_gap') else gap.name
 
     def run_quip():
         """Use QUIP on a set of configurations to predict the variance"""
@@ -276,7 +276,8 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
     GTConfig.n_cores
 
     --------------------------------------------------------------------------
-    :param config: (gt.Configuration) Initial configuration to propagate from
+    :param config: (gt.Configuration | gt.ConfigurationSet) Initial
+                    configuration(s) to propagate from
 
     :param gap: (gt.gap.GAP) GAP to run MD with
 
@@ -315,12 +316,12 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
 
     if method.lower() == 'diff':
         function = get_active_config_diff
-        args = (config, gap, temp, e_thresh, max_time_fs, ref_method_name,
-                0, 0, min_time_fs)
+        args = [gap, temp, e_thresh, max_time_fs, ref_method_name,
+                0, 0, min_time_fs]
 
     elif method.lower() == 'gp_var':
         function = get_active_config_gp_var
-        args = (config, gap, temp, e_thresh, max_time_fs)
+        args = [gap, temp, e_thresh, max_time_fs]
 
     else:
         raise ValueError('Unsupported active method')
@@ -329,7 +330,18 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
     with Pool(processes=int(gt.GTConfig.n_cores)) as pool:
 
         for _ in range(n_configs):
-            result = pool.apply_async(func=function, args=args, kwds=kwargs)
+
+            # Prepend the arguments with the initial configuration
+            if isinstance(config, gt.ConfigurationSet):
+                # Select a configuration at random from the set
+                rand_idx = np.random.randint(0, len(config))
+                init_config = config[rand_idx].copy()
+            else:
+                init_config = config.copy()
+
+            result = pool.apply_async(func=function,
+                                      args=[init_config] + args,
+                                      kwds=kwargs)
             results.append(result)
 
         for result in results:
@@ -366,6 +378,9 @@ def get_init_configs(system, init_configs=None, n=10, method_name=None):
         if all(cfg.energy is not None for cfg in init_configs):
             logger.info(f'Initialised with {len(init_configs)} configurations '
                         f'all with defined energy')
+            return init_configs
+        else:
+            init_configs.single_point(method_name=method_name)
             return init_configs
 
     # Initial configurations are not defined, so make some - will use random
@@ -438,7 +453,8 @@ def train(system: gt.System,
           fix_init_config=False,
           bbond_energy=None,
           fbond_energy=None,
-          init_active_temp=None):
+          init_active_temp=None,
+          min_active_iters=1):
     """
     Train a system using active learning, by propagating dynamics using ML
     driven molecular dynamics (MD) and adding configurations where the error
@@ -548,6 +564,9 @@ def train(system: gt.System,
     :param init_active_temp: (float | None) Initial temperature for velocities
                              in the 'active' MD search for configurations
 
+    :param min_active_iters: (int) Minimum number of active iterations to
+                             perform
+
     :return: (gt.Data, gt.GAP)
     """
     init_configs = get_init_configs(init_configs=init_configs,
@@ -578,11 +597,15 @@ def train(system: gt.System,
         val_interval = max(max_active_iters // 10, 1)
 
     # Initialise training data
-    train_data = gt.Data(name=gap.name)
+    if gap.training_data is None:
+        train_data = gt.Data(name=gap.name)
+    else:
+        train_data = gap.training_data.copy()
+
     train_data += init_configs
 
     # and train an initial GAP
-    gap.train(init_configs)
+    gap.train(train_data)
 
     if active_e_thresh is None:
         if active_method.lower() == 'diff':
@@ -605,9 +628,9 @@ def train(system: gt.System,
     # Run the active learning loop, running iterative GAP-MD
     for iteration in range(max_active_iters):
 
-        # Set the configuration from which GAP-MD will be run
+        # Set the configuration(s) from which GAP-MD will be run
         min_idx = int(np.argmin(train_data.energies()))
-        init_config = train_data[0] if fix_init_config else train_data[min_idx]
+        init_config = init_configs if fix_init_config else train_data[min_idx]
 
         configs = get_active_configs(init_config,
                                      gap=gap,
@@ -623,7 +646,7 @@ def train(system: gt.System,
                                      init_temp=init_active_temp)
 
         # Active learning finds no configurations,,
-        if len(configs) == 0:
+        if len(configs) == 0 and iteration > min_active_iters:
             # Calculate the final tau if we're running with validation
             if validate:
                 tau.calculate(gap=gap, method_name=method_name)
@@ -631,11 +654,12 @@ def train(system: gt.System,
 
             logger.info('No configs to add. Active learning = DONE')
             break
-
-        min_time_active_fs = min(config.t0 for config in configs)
-        logger.info(f'All active configurations reached t = '
-                    f'{min_time_active_fs} fs before an error exceeded the '
-                    f'threshold of {active_e_thresh:.3f} eV')
+        
+        if len(configs) > 0:
+            min_time_active_fs = min(config.t0 for config in configs)
+            logger.info(f'All active configurations reached t = '
+                        f'{min_time_active_fs} fs before an error exceeded the '
+                        f'threshold of {active_e_thresh:.3f} eV')
 
         # Only training the intermolecular component in a I+I GAP
         if isinstance(gap, gt.IIGAP):
@@ -651,7 +675,7 @@ def train(system: gt.System,
         gap.train(train_data)
 
         # Print the accuracy
-        if validate and iteration % val_interval == 0:
+        if validate and iteration % val_interval == 0 and iteration > 0:
 
             tau.calculate(gap=gap, method_name=method_name)
             print(f'{iteration:<13g}'

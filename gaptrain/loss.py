@@ -103,24 +103,27 @@ class Tau:
                                    interval=step_interval,
                                    fs=block_time,
                                    n_cores=min(gt.GTConfig.n_cores, 4))
+            true = traj.copy()
 
             # Only evaluate the energy
             try:
-                traj.single_point(method_name=method_name)
-            except ValueError:
+                true.single_point(method_name=method_name)
+            except (ValueError, TypeError):
                 logger.warning('Failed to calculate single point energies with'
                                f' {method_name}. τ_acc will be underestimated '
                                f'by <{block_time}')
                 return curr_time
 
-            pred = traj.copy()
-            pred.parallel_gap(gap=gap)
-
             logger.info('      ___ |E_true - E_GAP|/eV ___')
             logger.info(f' t/fs      err      cumul(err)')
 
             for j in range(len(traj)):
-                e_error = np.abs(traj[j].energy - pred[j].energy)
+
+                if true[j].energy is None:
+                    logger.warning(f'Frame {j} had no energy')
+                    e_error = np.inf
+                else:
+                    e_error = np.abs(true[j].energy - traj[j].energy)
 
                 # Add any error above the allowed threshold
                 cuml_error += max(e_error - self.e_l, 0)

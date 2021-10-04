@@ -52,7 +52,7 @@ class GTConfig:
 
     # Default parameters for a GAP potential
     gap_default_params = {'sigma_E': 10**(-3.5),        # eV
-                          'sigma_F': 10**(-1.0)}        # eV Å-1
+                          'sigma_F': 10**(-1.5)}        # eV Å-1
 
     # Default two-body parameters
     gap_default_2b_params = {'cutoff':   5.5,           # Å

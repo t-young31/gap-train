@@ -38,7 +38,7 @@ def test_ase_momenta_string():
 
     configuration = system.configuration()
 
-    bbond_energy = {(1, 2): 1}
+    bbond_energy = {(1, 2): 10}
     ase_atoms = configuration.ase_atoms()
     set_momenta(configuration,
                 ase_atoms,
