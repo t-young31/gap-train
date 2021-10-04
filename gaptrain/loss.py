@@ -121,7 +121,7 @@ class Tau:
 
                 if true[j].energy is None:
                     logger.warning(f'Frame {j} had no energy')
-                    e_error = 99999999
+                    e_error = np.inf
                 else:
                     e_error = np.abs(true[j].energy - traj[j].energy)
 

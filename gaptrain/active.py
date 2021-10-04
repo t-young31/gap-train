@@ -333,7 +333,7 @@ def get_active_configs(config, gap, ref_method_name, method='diff',
 
             # Prepend the arguments with the initial configuration
             if isinstance(config, gt.ConfigurationSet):
-                # Select a configuration at random from the
+                # Select a configuration at random from the set
                 rand_idx = np.random.randint(0, len(config))
                 init_config = config[rand_idx].copy()
             else:

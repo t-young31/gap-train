@@ -108,7 +108,7 @@ def run_autode(configuration, max_force=None, method=None, n_cores=1, kwds=None)
         logger.error('Failed to calculate the energy')
         return configuration
 
-    configuration.energy = ha_to_ev * calc.get_energy()
+    configuration.energy = ha_to_ev * energy
     configuration.partial_charges = calc.get_atomic_charges()
 
     return configuration
