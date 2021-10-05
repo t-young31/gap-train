@@ -47,7 +47,7 @@ else
         mv gap-train-master/ gap-train/
       else
          print "Could not clone the repository. Must have either git or unzip installed."
-        exit
+         exit
       fi
 
     fi
