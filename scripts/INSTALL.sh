@@ -43,12 +43,13 @@ else
       wget https://github.com/t-young31/gap-train/archive/refs/heads/master.zip
 
       if command -v unzip &> /dev/null; then
-        print "Could not clone the repository. Must have either git or unzip installed."
+        unzip master.zip
+        mv gap-train-master/ gap-train/
+      else
+         print "Could not clone the repository. Must have either git or unzip installed."
         exit
       fi
 
-      unzip master.zip
-      mv gap-train-master/ gap-train/
     fi
 fi
 
