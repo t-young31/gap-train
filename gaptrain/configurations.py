@@ -614,8 +614,14 @@ class ConfigurationSet:
     def parallel_gap(self, gap, max_force=None):
         """Run single point or optimisation up to a F threshold using a GAP"""
         from gaptrain.calculators import run_gap
-        return self._run_parallel_method(run_gap, max_force=max_force,
-                                         gap=gap)
+        logger.warning('Not executing GAP parallel because of potential hang..')
+
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MLK_NUM_THREADS'] = '1'
+        for config in self:
+            config.run_gap(gap=gap, max_force=max_force, n_cores=4)
+
+        return
 
     def parallel_dftb(self, max_force=None):
         """Run periodic DFTB+ on these configurations"""
