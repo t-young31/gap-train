@@ -135,7 +135,7 @@ class GAP:
                        f'{str(other_atomic_ns)[1:-1]}'
                        '}} '
                        f'Z={atomic_number(symbol)} '
-                       f'n_max={soap["order"]} '
+                       f'n_max={int(2*soap["order"])} '
                        f'l_max={soap["order"]}: ')
 
         # Remove the final unnecessary colon
