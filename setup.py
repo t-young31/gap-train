@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 setup(name='gaptrain',
-      version='1.0.0b2',
+      version='1.0.0b3',
       description='Gaussian Approximation Potential Training',
       packages=['gaptrain'],
       package_data={'': ['solvent_lib/*']},
